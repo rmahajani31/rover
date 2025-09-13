@@ -95,7 +95,7 @@ class AdapterNode(Node):
     def _any_edge_pressed(self, indices: List[int], buttons: List[int]) -> bool:
         "Check if any of the buttons associated with the indices have rising edges"
         return any(self._edge_pressed(i, buttons) for i in indices if i >= 0)
-        
+
     def on_joy(self, msg: Joy):
         """Callback on any joystick actions"""
         axes = msg.axes
@@ -125,9 +125,42 @@ class AdapterNode(Node):
             self.invert_steer = not self.invert_steer
             self.get_logger().info(f'Invert steer → {self.invert_steer}')
         
+        # Map axes → (throttle, steer)
+        def safe_get(idx: int) -> float:
+            return axes[idx] if 0 <= idx < len(axes) else 0.0
+        
+        # clip the axis values to be in the range [-1.0, 1.0]
+        def clip(x: float) -> float:
+            return -1.0 if x < -1.0 else (1.0 if x > 1.0 else x)
 
+        # Enforce a deadzone on throttle and steer where the robot will not move
+        def _apply_deadzone(self, x: float) -> float:
+            return 0.0 if abs(x) < self.deadzone else x
 
+        # Get the axis values and swap them if the swap button has been pressed
+        ax_t = self.throttle_axis
+        ax_s = self.steer_axis
+        if self.swapped:
+            ax_t, ax_s = ax_s, ax_t
+        
+        # After clipping and applying the deadzone get the throttle and steer values
+        throttle = self._apply_deadzone(clip11(safe_get(ax_t)))
+        steer = self._apply_deadzone(clip11(safe_get(ax_s)))
 
+        # Invert the throttle and steer values if the respective buttons have been pressed
+        if self.invert_throttle:
+            throttle = -throttle
+        if self.invert_steer:
+            steer = -steer
+        
+        # Publish a twist message to cmd_arcade to drive the motor, linear.x is throttle and angular.z is steer
+        twist = Twist()
+        twist.linear.x  = throttle
+        twist.angular.z = steer
+        self.pub_cmd.publish(twist)
+
+        # Save for edge detection next time
+        self.prev_buttons = buttons[:]
 
 def main(args=None):
     try:
@@ -137,6 +170,9 @@ def main(args=None):
             rclpy.spin(adapter_node)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
