@@ -134,7 +134,7 @@ class AdapterNode(Node):
             return -1.0 if x < -1.0 else (1.0 if x > 1.0 else x)
 
         # Enforce a deadzone on throttle and steer where the robot will not move
-        def _apply_deadzone(self, x: float) -> float:
+        def _apply_deadzone(x: float) -> float:
             return 0.0 if abs(x) < self.deadzone else x
 
         # Get the axis values and swap them if the swap button has been pressed
@@ -144,8 +144,8 @@ class AdapterNode(Node):
             ax_t, ax_s = ax_s, ax_t
         
         # After clipping and applying the deadzone get the throttle and steer values
-        throttle = self._apply_deadzone(clip11(safe_get(ax_t)))
-        steer = self._apply_deadzone(clip11(safe_get(ax_s)))
+        throttle = _apply_deadzone(clip(safe_get(ax_t)))
+        steer = _apply_deadzone(clip(safe_get(ax_s)))
 
         # Invert the throttle and steer values if the respective buttons have been pressed
         if self.invert_throttle:
@@ -171,7 +171,7 @@ def main(args=None):
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
-        node.destroy_node()
+        adapter_node.destroy_node()
         rclpy.shutdown()
 
 if __name__ == '__main__':
