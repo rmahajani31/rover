@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'arcade_mixer = arcade_mixer.arcade_mixer_node:main',
         ],
     },
 )
