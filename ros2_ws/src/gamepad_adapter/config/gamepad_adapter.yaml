@@ -1,0 +1,17 @@
+adapter_node:
+  ros__parameters:
+    # Axes (ints)
+    throttle_axis: 1        # left stick Y (from your output)
+    steer_axis: 3           # right stick X (from your output)
+
+    # Buttons (ints) — replace with what you saw in /joy.buttons
+    btn_estop: [0]          # e.g., "B"
+    btn_swap: 2             # e.g., "Y"
+    btn_inv_throttle: 4     # e.g., left bumper
+    btn_inv_steer: 5        # e.g., right bumper
+
+    # Tuning
+    deadzone: 0.06          # same as joy_node
+    invert_throttle: false  # set true if pushing forward gives negative values
+    invert_steer:    true  # set true if turning right gives negative values
+    start_swapped: false   # set true if you want to start with the throttle and steer joysticks swapped

@@ -1,0 +1,17 @@
+tb6612_driver_node:
+  ros__parameters:
+    # Choose the correct gpiochip for your pins:
+    #   Pi 5 often exposes RP1 GPIO as "gpiochip4" (check with `gpioinfo`)
+    gpiochip: "gpiochip4"
+
+    # Line offsets (normally equal to BCM numbers on that chip)
+    ain1: 5
+    ain2: 6
+    pwma: 12
+    bin1: 23
+    bin2: 24
+    pwmb: 13
+    stby: 22         # -1 if not wired
+
+    # Software PWM frequency (start modest; raise if quiet/jitter acceptable)
+    pwm_frequency_hz: 400
