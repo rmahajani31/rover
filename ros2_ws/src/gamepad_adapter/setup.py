@@ -10,6 +10,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/config', ['config/gamepad_adapter.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -20,7 +21,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'adapter = gamepad_adapter.adapter_node:main'
+            'gamepad_adapter = gamepad_adapter.adapter_node:main'
         ],
     },
 )
