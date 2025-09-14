@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'tb6612_driver_node = tb6612_driver.tb6612_driver_node:main'
         ],
     },
 )
