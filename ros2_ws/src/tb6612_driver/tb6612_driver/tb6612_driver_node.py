@@ -145,7 +145,7 @@ class GpiodBackend(_GpioBackendBase):
         """Set the duty cycle of the right motor"""
         self._pwmB.set_duty(clamp01(duty01))
 
-    def stby(self, high: bool):
+    def set_stby(self, high: bool):
         """Set the stby line value"""
         self.stby.set_value(1 if high else 0)
 
@@ -216,7 +216,7 @@ class TB6612Driver(Node):
         """Stops the rover"""
         self.backend.set_pwm_left(0.0)
         self.backend.set_pwm_right(0.0)
-        self.backend.stby(False)
+        self.backend.set_stby(False)
 
     # ---- Callbacks
     def on_estop(self, msg: Bool):
@@ -233,7 +233,7 @@ class TB6612Driver(Node):
         if self.estop_active:
             return
             
-        self.backend.stby(True)
+        self.backend.set_stby(True)
         self.backend.set_dir_left(bool(msg.left_forward))
         self.backend.set_dir_right(bool(msg.right_forward))
         self.backend.set_pwm_left(clamp01(float(msg.left_pwm)))
