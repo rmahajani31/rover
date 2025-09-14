@@ -1,0 +1,23 @@
+import math, threading, time
+from typing import Optional
+
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+from std_msgs.msg import Bool
+from drive_msgs.msg import WheelCommand
+
+# Utility clamp function
+def clamp01(x: float) -> float:
+    return 0.0 if x < 0.0 else (1.0 if x > 1.0 else x)
+
+
+class _GpioBackendBase:
+    def setup(self): ...
+    def set_dir_left(self, forward: bool): ...
+    def set_dir_right(self, forward: bool): ...
+    def set_pwm_left(self, duty01: float): ...
+    def set_pwm_right(self, duty01: float): ...
+    def stby(self, high: bool): ...
+    def shutdown(self): ...
