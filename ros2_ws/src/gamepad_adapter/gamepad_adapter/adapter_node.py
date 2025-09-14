@@ -60,6 +60,7 @@ class AdapterNode(Node):
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
         )
         self.pub_estop = self.create_publisher(Bool, '/estop', latched_qos)
+        self.estop_state = False
 
         # Subscribe to /joy to track joystick actions
         self.sub_joy = self.create_subscription(Joy, '/joy', self.on_joy, 10)
@@ -103,8 +104,9 @@ class AdapterNode(Node):
 
         # Block to manage state when the e-stop button is pressed
         if self._any_edge_pressed(self.btn_estop, buttons):
-            self.get_logger().warn('E-STOP pressed! Publishing latched True and zeroing command.')
-            self.pub_estop.publish(Bool(data=True))
+            self.get_logger().warn('E-STOP pressed! Publishing latched self.estop_state and zeroing command.')
+            self.estop_state = not self.estop_state
+            self.pub_estop.publish(Bool(data=self.estop_state))
             # Also publish a zeroed Twist immediately
             self.pub_cmd.publish(Twist())
             self.prev_buttons = buttons[:]  # update edge state
