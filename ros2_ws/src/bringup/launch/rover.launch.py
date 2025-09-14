@@ -4,6 +4,9 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
+from launch.actions import TimerAction
+from launch.event_handlers import OnProcessStart
+
 def generate_launch_description():
     """Launch all the nodes for the rover"""
 
@@ -18,7 +21,7 @@ def generate_launch_description():
     driver_cfg  = LaunchConfiguration('driver_config')
 
     decls = [
-        DeclareLaunchArgument('namespace', default_value='/rover',
+        DeclareLaunchArgument('namespace', default_value='',
                               description='Namespace for the rover stack'),
         DeclareLaunchArgument('joy_dev', default_value='/dev/input/js0',
                               description='Joystick device path'),
@@ -68,7 +71,7 @@ def generate_launch_description():
     gamepad_adapter = Node(
         package='gamepad_adapter',
         executable='gamepad_adapter',
-        name='gamepad_adapter',
+        name='adapter_node',
         namespace=ns,
         output='screen',
         parameters=[gamepad_cfg],
@@ -78,7 +81,7 @@ def generate_launch_description():
     arcade_mixer = Node(
         package='arcade_mixer',
         executable='arcade_mixer',
-        name='arcade_mixer',
+        name='arcade_mixer_node',
         namespace=ns,
         output='screen',
         parameters=[mixer_cfg],
@@ -88,7 +91,7 @@ def generate_launch_description():
     tb6612_driver = Node(
         package='tb6612_driver',
         executable='tb6612_driver',
-        name='tb6612_driver',
+        name='tb6612_driver_node',
         namespace=ns,
         output='screen',
         parameters=[driver_cfg],
@@ -100,5 +103,5 @@ def generate_launch_description():
         joy_node,
         gamepad_adapter,
         arcade_mixer,
-        tb6612_driver,
+        tb6612_driver
     ])
