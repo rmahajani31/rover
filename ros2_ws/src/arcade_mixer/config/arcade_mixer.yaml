@@ -1,6 +1,6 @@
 arcade_mixer_node:
   ros__parameters:
-    invert_right: true
+    invert_right: false
     trim_right: 0.0
     max_speed: 0.85
     smooth: 0.22
