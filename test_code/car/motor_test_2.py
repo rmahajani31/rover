@@ -5,8 +5,8 @@ from time import sleep
 
 # === Pin map (BCM) ===
 AIN1, AIN2, PWMA = 5, 6, 12
-BIN1, BIN2, PWMB = 23, 24, 13
-STBY = 22
+BIN1, BIN2, PWMB = 16, 24, 13
+STBY = 25
 
 # === Devices ===
 ain1 = DigitalOutputDevice(AIN1, initial_value=False)

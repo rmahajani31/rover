@@ -8,10 +8,10 @@ tb6612_driver_node:
     ain1: 5
     ain2: 6
     pwma: 12
-    bin1: 23
+    bin1: 16
     bin2: 24
     pwmb: 13
-    stby: 22         # -1 if not wired
+    stby: 25         # -1 if not wired
 
     # Software PWM frequency (start modest; raise if quiet/jitter acceptable)
     pwm_frequency_hz: 400
