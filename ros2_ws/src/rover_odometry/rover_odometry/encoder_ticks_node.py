@@ -24,7 +24,7 @@ class EncoderTicksNode(Node):
         self.backend = EncoderBackend(
             gpiochip=gpiochip,
             left_a=17, left_b=27,
-            right_a=22, right_b=23
+            right_a=23, right_b=22
         )
         self.backend.setup()
 
