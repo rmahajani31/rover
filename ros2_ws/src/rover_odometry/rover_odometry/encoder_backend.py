@@ -1,5 +1,5 @@
 import gpiod
-from gpiod_lines import _GpiodLine
+from .gpiod_lines import _GpiodLine
 
 # Quadrature lookup:
 # state = (A<<1) | B  -> 00,01,11,10

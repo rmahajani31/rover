@@ -6,7 +6,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int64
 
-from encoder_backend import EncoderBackend
+from .encoder_backend import EncoderBackend
 
 
 class EncoderTicksNode(Node):
