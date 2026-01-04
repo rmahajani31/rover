@@ -119,24 +119,26 @@ def generate_launch_description():
         respawn=True,
     )
 
+    # Load odometry config for parameters and transforms
+    rover_odometry_dir = get_package_share_directory('rover_odometry')
+    odometry_config_path = os.path.join(rover_odometry_dir, 'config', 'rover_odometry.yaml')
+    
+    # Load config to extract parameters and transform values
+    with open(odometry_config_path, 'r') as f:
+        odometry_config = yaml.safe_load(f)
+    
+    # Extract encoder_odom parameters (ROS2 can't parse files with multiple top-level keys)
+    encoder_odom_params = odometry_config['encoder_odom']['ros__parameters']
+    transforms_config = odometry_config['transforms']
+
     encoder_odom = Node(
         package='rover_odometry',
         executable='encoder_odom',
         name='encoder_odom',
         output='screen',
-        parameters=[odometry_cfg],
+        parameters=[encoder_odom_params],
         respawn=True,
     )
-
-    # Load odometry config for transforms (using default path)
-    rover_odometry_dir = get_package_share_directory('rover_odometry')
-    odometry_config_path = os.path.join(rover_odometry_dir, 'config', 'rover_odometry.yaml')
-    
-    # Load config to extract transform values
-    with open(odometry_config_path, 'r') as f:
-        odometry_config = yaml.safe_load(f)
-    
-    transforms_config = odometry_config['transforms']
 
     # Static transform publishers
     laser_tf = transforms_config['base_to_laser']
@@ -148,8 +150,7 @@ def generate_launch_description():
             str(laser_tf['x']), str(laser_tf['y']), str(laser_tf['z']),
             str(laser_tf['roll']), str(laser_tf['pitch']), str(laser_tf['yaw']),
             laser_tf['parent_frame'], laser_tf['child_frame']
-        ],
-        output='screen',
+        ]
     )
 
     camera_tf = transforms_config['base_to_camera']
@@ -161,8 +162,7 @@ def generate_launch_description():
             str(camera_tf['x']), str(camera_tf['y']), str(camera_tf['z']),
             str(camera_tf['roll']), str(camera_tf['pitch']), str(camera_tf['yaw']),
             camera_tf['parent_frame'], camera_tf['child_frame']
-        ],
-        output='screen',
+        ]
     )
 
     # Sllidar launch file
