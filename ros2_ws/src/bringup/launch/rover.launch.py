@@ -1,8 +1,12 @@
+import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from ament_index_python.packages import get_package_share_directory
+import yaml
 
 from launch.actions import TimerAction
 from launch.event_handlers import OnProcessStart
@@ -19,6 +23,7 @@ def generate_launch_description():
     gamepad_cfg = LaunchConfiguration('gamepad_config')
     mixer_cfg   = LaunchConfiguration('mixer_config')
     driver_cfg  = LaunchConfiguration('driver_config')
+    odometry_cfg = LaunchConfiguration('odometry_config')
 
     decls = [
         DeclareLaunchArgument('namespace', default_value='',
@@ -50,6 +55,13 @@ def generate_launch_description():
                 FindPackageShare('tb6612_driver'), 'config', 'tb6612_driver.yaml'
             ]),
             description='tb6612_driver parameters YAML'
+        ),
+        DeclareLaunchArgument(
+            'odometry_config',
+            default_value=PathJoinSubstitution([
+                FindPackageShare('rover_odometry'), 'config', 'rover_odometry.yaml'
+            ]),
+            description='rover_odometry parameters YAML'
         ),
     ]
 
@@ -98,10 +110,81 @@ def generate_launch_description():
         respawn=True,
     )
 
+    # Odometry nodes
+    encoder_ticks = Node(
+        package='rover_odometry',
+        executable='encoder_ticks',
+        name='encoder_ticks',
+        output='screen',
+        respawn=True,
+    )
+
+    encoder_odom = Node(
+        package='rover_odometry',
+        executable='encoder_odom',
+        name='encoder_odom',
+        output='screen',
+        parameters=[odometry_cfg],
+        respawn=True,
+    )
+
+    # Load odometry config for transforms (using default path)
+    rover_odometry_dir = get_package_share_directory('rover_odometry')
+    odometry_config_path = os.path.join(rover_odometry_dir, 'config', 'rover_odometry.yaml')
+    
+    # Load config to extract transform values
+    with open(odometry_config_path, 'r') as f:
+        odometry_config = yaml.safe_load(f)
+    
+    transforms_config = odometry_config['transforms']
+
+    # Static transform publishers
+    laser_tf = transforms_config['base_to_laser']
+    base_to_laser_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='base_to_laser_tf',
+        arguments=[
+            str(laser_tf['x']), str(laser_tf['y']), str(laser_tf['z']),
+            str(laser_tf['roll']), str(laser_tf['pitch']), str(laser_tf['yaw']),
+            laser_tf['parent_frame'], laser_tf['child_frame']
+        ],
+        output='screen',
+    )
+
+    camera_tf = transforms_config['base_to_camera']
+    base_to_camera_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='base_to_camera_tf',
+        arguments=[
+            str(camera_tf['x']), str(camera_tf['y']), str(camera_tf['z']),
+            str(camera_tf['roll']), str(camera_tf['pitch']), str(camera_tf['yaw']),
+            camera_tf['parent_frame'], camera_tf['child_frame']
+        ],
+        output='screen',
+    )
+
+    # Sllidar launch file
+    sllidar_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('sllidar_ros2'),
+                'launch',
+                'view_sllidar_a2m12_launch.py'
+            ])
+        ])
+    )
+
     # Define the launch plan
     return LaunchDescription(decls + [
         joy_node,
         gamepad_adapter,
         arcade_mixer,
-        tb6612_driver
+        tb6612_driver,
+        encoder_ticks,
+        encoder_odom,
+        base_to_laser_tf,
+        base_to_camera_tf,
+        sllidar_launch,
     ])
