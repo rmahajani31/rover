@@ -39,7 +39,7 @@ class EncoderOdomNode(Node):
         self.declare_parameter("right_ticks_topic", "/right_ticks")
 
         # Frame names (standard)
-        self.declare_parameter("odom_frame", "odom")
+        self.declare_parameter("odom_frame", "wheel_odom")
         self.declare_parameter("base_frame", "base_link")
 
         # If your tick sign is backwards for a wheel, set -1.0
@@ -76,7 +76,7 @@ class EncoderOdomNode(Node):
         self.create_subscription(Int64, self.left_topic, self._on_left, 10)
         self.create_subscription(Int64, self.right_topic, self._on_right, 10)
 
-        self.odom_pub = self.create_publisher(Odometry, "/odom", 10)
+        self.odom_pub = self.create_publisher(Odometry, "/wheel_odom", 10)
         self.tf_br = TransformBroadcaster(self)
 
         self.timer = self.create_timer(1.0 / self.rate, self._update)
@@ -147,7 +147,7 @@ class EncoderOdomNode(Node):
         tf_msg.transform.rotation.y = qy
         tf_msg.transform.rotation.z = qz
         tf_msg.transform.rotation.w = qw
-        self.tf_br.sendTransform(tf_msg)
+        # self.tf_br.sendTransform(tf_msg)
 
         # ---- Publish /odom message ----
         odom = Odometry()

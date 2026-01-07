@@ -7,3 +7,5 @@ ros2 launch slam_toolbox online_async_launch.py slam_params_file:=./src/rover_na
 ros2 run tf2_tools view_frames
 ros2 launch bringup rover.launch.py
 ros2 service call /slam_toolbox/reset slam_toolbox/srv/Reset
+ros2 launch depthai_ros_driver driver.launch.py camera.i_enable_imu:=true - launches camera and publishes to topic /oak/imu/data
+ros2 run robot_localization ekf_node --ros-args --params-file /home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_odometry/config/ekf.yaml
