@@ -141,6 +141,3 @@ _deps
 
 # Ignore rosbags
 bags/
-
-# Ignore text files
-*.txt
