@@ -176,6 +176,22 @@ def generate_launch_description():
         ])
     )
 
+    # Robot State Publisher
+    pkg_path = get_package_share_directory('bringup')
+    urdf_file = os.path.join(pkg_path, 'urdf', 'rover.urdf')
+
+    with open(urdf_file, 'r') as infp:
+        robot_description = infp.read()
+
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        output='screen',
+        parameters=[{'robot_description': robot_description}],
+        respawn=True,
+    )
+
     # Define the launch plan
     return LaunchDescription(decls + [
         joy_node,
@@ -187,4 +203,5 @@ def generate_launch_description():
         base_to_laser_tf,
         base_to_camera_tf,
         sllidar_launch,
+        robot_state_publisher,
     ])
