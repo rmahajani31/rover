@@ -19,11 +19,11 @@
     <origin xyz="0 0 0.2032" rpy="0 0 0"/>
   </joint>
 
-  <!-- Camera frame must be named exactly "camera_link" -->
-  <link name="camera_link"/>
+  <!-- Camera frame must be named exactly "oak_imu_frame" -->
+  <link name="oak_imu_frame"/>
   <joint name="base_to_camera" type="fixed">
     <parent link="base_link"/>
-    <child link="camera_link"/>
+    <child link="oak_imu_frame"/>
     <origin xyz="0 0.2159 0.1651" rpy="0 0 0"/>
   </joint>
 
