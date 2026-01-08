@@ -236,8 +236,8 @@ class TB6612Driver(Node):
             return
             
         self.backend.set_stby(True)
-        self.backend.set_dir_left(bool(msg.left_forward))
-        self.backend.set_dir_right(bool(msg.right_forward))
+        self.backend.set_dir_left(not bool(msg.left_forward))
+        self.backend.set_dir_right(not bool(msg.right_forward))
         self.backend.set_pwm_left(clamp01(float(msg.left_pwm)))
         self.backend.set_pwm_right(clamp01(float(msg.right_pwm)))
 
