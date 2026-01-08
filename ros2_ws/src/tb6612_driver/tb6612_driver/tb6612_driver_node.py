@@ -134,8 +134,10 @@ class GpiodBackend(_GpioBackendBase):
 
     def set_dir_right(self, forward: bool):
         """Set the direction of the right motor"""
-        self.bin1.set_value(0 if forward else 1)
-        self.bin2.set_value(1 if forward else 0)
+        # self.bin1.set_value(0 if forward else 1)
+        # self.bin2.set_value(1 if forward else 0)
+        self.bin1.set_value(1 if forward else 0)
+        self.bin2.set_value(0 if forward else 1)
 
     def set_pwm_left(self, duty01: float):
         """Set the duty cycle of the left motor"""
