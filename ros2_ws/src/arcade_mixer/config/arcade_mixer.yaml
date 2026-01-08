@@ -5,7 +5,7 @@ arcade_mixer_node:
     max_speed: 0.85
     smooth: 0.22
     idle_timeout_s: 0.8
-    deadzone: 0.06
+    deadzone: 0.15
     min_pwm_drive: 0.18
     min_pwm_pivot: 0.22
     zero_hold: 0.10

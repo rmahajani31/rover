@@ -11,7 +11,7 @@ adapter_node:
     btn_inv_steer: 5        # e.g., right bumper
 
     # Tuning
-    deadzone: 0.06          # same as joy_node
+    deadzone: 0.15          # same as joy_node
     invert_throttle: false  # set true if pushing forward gives negative values
     invert_steer:    true  # set true if turning right gives negative values
     start_swapped: false   # set true if you want to start with the throttle and steer joysticks swapped
