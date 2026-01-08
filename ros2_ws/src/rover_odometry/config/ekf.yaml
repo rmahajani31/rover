@@ -2,7 +2,7 @@ ekf_filter_node:
   ros__parameters:
     frequency: 30.0
     sensor_timeout: 0.1
-    # two_d_mode: true
+    two_d_mode: true
 
     # Frames
     map_frame: map

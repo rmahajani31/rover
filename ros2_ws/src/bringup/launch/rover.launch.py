@@ -160,7 +160,7 @@ def generate_launch_description():
         name='base_to_camera_tf',
         arguments=[
             str(camera_tf['x']), str(camera_tf['y']), str(camera_tf['z']),
-            str(camera_tf['roll']), str(camera_tf['pitch']), str(camera_tf['yaw']),
+            str(camera_tf['yaw']), str(camera_tf['pitch']), str(camera_tf['roll']),
             camera_tf['parent_frame'], camera_tf['child_frame']
         ]
     )
