@@ -35,9 +35,9 @@ ekf_filter_node:
     imu0: /oak/imu/data
     imu0_config: [
       false, false, false,   # x, y, z
-      false, false, false,    # roll, pitch, yaw  (2D mode uses yaw mainly)
+      false, true, true,    # roll, pitch, yaw  (2D mode uses yaw mainly)
       false, false, false,   # vx, vy, vz
-      true, true, true,    # vroll, vpitch, vyaw (use yaw rate if available)
+      false, true, true,    # vroll, vpitch, vyaw (use yaw rate if available)
       false, false, false    # ax, ay, az
     ]
     imu0_queue_size: 10

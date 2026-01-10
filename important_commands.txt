@@ -10,3 +10,10 @@ ros2 service call /slam_toolbox/reset slam_toolbox/srv/Reset
 ros2 launch depthai_ros_driver driver.launch.py camera.i_enable_imu:=true - launches camera and publishes to topic /oak/imu/data
 ros2 run robot_localization ekf_node --ros-args --params-file /home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_odometry/config/ekf.yaml
 ros2 run tf2_ros tf2_echo <parent_frame> <child_frame>
+ros2 launch depthai_ros_driver driver.launch.py \
+  parent_frame:=base_link \
+  cam_roll:=3.14159265 \
+  cam_yaw:=−1.57079633 \
+  imu.i_enable_rotation:=true \
+  imu.i_message_type:=IMU_WITH_MAG \
+  imu.i_rotation_vector_type:=GEOMAGNETIC_ROTATION_VECTOR
