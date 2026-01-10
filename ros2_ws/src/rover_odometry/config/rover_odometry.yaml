@@ -3,6 +3,9 @@ encoder_odom:
     wheel_radius_m: 0.04
     wheel_separation_m: 0.5
     ticks_per_rev: 3459.0
+    tick_deadband: 2.0  # Ignore encoder changes smaller than this (in ticks) to prevent creep
+    left_dir: 1.0      # Set to -1.0 if left encoder direction is reversed
+    right_dir: 1.0     # Set to -1.0 if right encoder direction is reversed
 
 transforms:
   base_to_laser:

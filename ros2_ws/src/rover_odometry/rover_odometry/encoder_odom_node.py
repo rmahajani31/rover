@@ -45,6 +45,9 @@ class EncoderOdomNode(Node):
         # If your tick sign is backwards for a wheel, set -1.0
         self.declare_parameter("left_dir", 1.0)
         self.declare_parameter("right_dir", 1.0)
+        
+        # Deadband to prevent creep when stationary (in ticks)
+        self.declare_parameter("tick_deadband", 2.0)
 
         self.R = float(self.get_parameter("wheel_radius_m").value)
         self.B = float(self.get_parameter("wheel_separation_m").value)
@@ -59,6 +62,7 @@ class EncoderOdomNode(Node):
 
         self.left_dir = float(self.get_parameter("left_dir").value)
         self.right_dir = float(self.get_parameter("right_dir").value)
+        self.tick_deadband = float(self.get_parameter("tick_deadband").value)
 
         # ---- State ----
         self.left_ticks = None
@@ -110,6 +114,12 @@ class EncoderOdomNode(Node):
         # Tick deltas (apply direction sign)
         dL_ticks = (self.left_ticks - self.prev_left_ticks) * self.left_dir
         dR_ticks = (self.right_ticks - self.prev_right_ticks) * self.right_dir
+
+        # Apply deadband to prevent creep from encoder noise when stationary
+        # If both wheels have very small changes, treat as zero movement
+        if abs(dL_ticks) < self.tick_deadband and abs(dR_ticks) < self.tick_deadband:
+            dL_ticks = 0.0
+            dR_ticks = 0.0
 
         self.prev_left_ticks = self.left_ticks
         self.prev_right_ticks = self.right_ticks
