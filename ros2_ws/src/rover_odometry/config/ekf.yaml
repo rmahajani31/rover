@@ -17,9 +17,9 @@ ekf_filter_node:
     # ---------- INPUT 1: Wheel odometry ----------
     odom0: /wheel_odom
     odom0_config: [
-      true,  true,  false,   # x, y, z
+      false,  false,  false,   # x, y, z
       false, false, false,    # roll, pitch, yaw
-      false,  false,  false,   # vx, vy, vz
+      true,  false,  false,   # vx, vy, vz
       false, false, false,    # vroll, vpitch, vyaw
       false, false, false    # ax, ay, az
     ]
@@ -35,9 +35,9 @@ ekf_filter_node:
     imu0: /oak/imu/data
     imu0_config: [
       false, false, false,   # x, y, z
-      false, false, true,    # roll, pitch, yaw  (2D mode uses yaw mainly)
+      false, false, false,    # roll, pitch, yaw  (2D mode uses yaw mainly)
       false, false, false,   # vx, vy, vz
-      false, false, false,    # vroll, vpitch, vyaw (use yaw rate if available)
+      false, true, true,    # vroll, vpitch, vyaw (use yaw rate if available)
       false, false, false    # ax, ay, az
     ]
     imu0_queue_size: 10
