@@ -2,7 +2,7 @@ arcade_mixer_node:
   ros__parameters:
     invert_right: false
     trim_right: 0.0
-    max_speed: 0.8
+    max_speed: 0.5
     smooth: 0.22
     idle_timeout_s: 0.8
     deadzone: 0.06
