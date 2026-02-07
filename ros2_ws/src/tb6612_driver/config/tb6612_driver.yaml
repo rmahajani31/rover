@@ -2,7 +2,7 @@ tb6612_driver_node:
   ros__parameters:
     # Choose the correct gpiochip for your pins:
     #   Pi 5 often exposes RP1 GPIO as "gpiochip4" (check with `gpioinfo`)
-    gpiochip: "gpiochip4"
+    gpiochip: "/dev/gpiochip4"
 
     # Line offsets (normally equal to BCM numbers on that chip)
     ain1: 5

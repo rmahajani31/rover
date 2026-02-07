@@ -9,6 +9,7 @@ from std_msgs.msg import Bool
 from drive_msgs.msg import WheelCommand
 
 import gpiod
+# from gpiod.line import Value, Direction
 
 # Utility clamp function
 def clamp01(x: float) -> float:
@@ -47,6 +48,55 @@ class _GpiodLine:
         """Closes a gpio line"""
         self._line.release()
         self._line = None
+
+# class _GpiodLine:
+#     """
+#     gpiod v2-compatible wrapper for a single GPIO line.
+
+#     Usage:
+#         chip = gpiod.Chip("/dev/gpiochip0")
+#         line = _GpiodLine(chip, 17)
+#         line.request_output(initial=0)
+#         line.set_value(1)
+#         line.close()
+#     """
+
+#     def __init__(self, chip: gpiod.Chip, offset: int, consumer: str = "tb6612"):
+#         self._chip = chip
+#         self._offset = int(offset)
+#         self._consumer = consumer
+#         self._req = None  # gpiod.LineRequest (context-managed, but we manage manually)
+
+#     def request_output(self, initial: int = 0):
+#         """Configures the GPIO line as an output and reserves it for this process."""
+#         self.close()  # release any prior request
+
+#         settings = gpiod.LineSettings(direction=gpiod.line.Direction.OUTPUT)
+
+#         # Request control of exactly this one line offset
+#         self._req = self._chip.request_lines(
+#             consumer=self._consumer,
+#             config={self._offset: settings},
+#         )
+
+#         # Set initial value after requesting (v2 doesn't take default_vals like v1)
+#         self.set_value(initial)
+
+#     def set_value(self, val: int):
+#         """Sets the GPIO line to 0/1."""
+#         if self._req is None:
+#             raise RuntimeError("Line not requested. Call request_output() first.")
+#         val = Value.ACTIVE if val else Value.INACTIVE
+#         self._req.set_value(self._offset, val)
+
+#     def close(self):
+#         """Releases the GPIO line request."""
+#         if self._req is not None:
+#             try:
+#                 self._req.release()
+#             finally:
+#                 self._req = None
+
 
 class _SoftPWM:
     """Software PWM on a gpiod line. Use moderate freq (e.g., 300–500 Hz)."""
@@ -122,22 +172,28 @@ class GpiodBackend(_GpioBackendBase):
         """Set all the lines connected to the motor driver as output lines"""
         # request outputs
         for ln in [self.ain1, self.ain2, self.bin1, self.bin2, self.stby, self.pwma, self.pwmb]:
-            ln.request_output(initial=0)
+            print(f"Requesting output for {ln._offset}")
+            try:
+                ln.request_output(initial=0)
+            except Exception as e:
+                print(f"Error requesting output for {ln._offset}: {e}")
         # start PWM threads
         self._pwmA.start()
         self._pwmB.start()
 
     def set_dir_left(self, forward: bool):
         """Set the direction of the left motor"""
-        self.ain1.set_value(0 if forward else 1)
-        self.ain2.set_value(1 if forward else 0)
+        # self.ain1.set_value(0 if forward else 1)
+        # self.ain2.set_value(1 if forward else 0)
+        self.ain1.set_value(1 if forward else 0)
+        self.ain2.set_value(0 if forward else 1)
 
     def set_dir_right(self, forward: bool):
         """Set the direction of the right motor"""
-        # self.bin1.set_value(0 if forward else 1)
-        # self.bin2.set_value(1 if forward else 0)
-        self.bin1.set_value(1 if forward else 0)
-        self.bin2.set_value(0 if forward else 1)
+        self.bin1.set_value(0 if forward else 1)
+        self.bin2.set_value(1 if forward else 0)
+        # self.bin1.set_value(1 if forward else 0)
+        # self.bin2.set_value(0 if forward else 1)
 
     def set_pwm_left(self, duty01: float):
         """Set the duty cycle of the left motor"""
@@ -174,7 +230,7 @@ class TB6612Driver(Node):
         super().__init__('tb6612_driver_node')
 
         # ---- Parameters
-        self.declare_parameter('gpiochip', 'gpiochip0')   # Pi 5 often 'gpiochip4' for RP1
+        self.declare_parameter('gpiochip', '/dev/gpiochip4')   # Pi 5 often 'gpiochip4' for RP1
         self.declare_parameter('ain1', 5)
         self.declare_parameter('ain2', 6)
         self.declare_parameter('pwma', 12)

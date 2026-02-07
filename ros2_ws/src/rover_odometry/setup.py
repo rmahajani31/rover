@@ -25,8 +25,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'encoder_odom = rover_odometry.encoder_odom_node:main',
-            'encoder_ticks = rover_odometry.encoder_ticks_node:main',
+            'odometry = rover_odometry.odometry_node:main',
         ],
     },
 )

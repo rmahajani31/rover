@@ -111,13 +111,13 @@ def generate_launch_description():
     )
 
     # Odometry nodes
-    encoder_ticks = Node(
-        package='rover_odometry',
-        executable='encoder_ticks',
-        name='encoder_ticks',
-        output='screen',
-        respawn=True,
-    )
+    # encoder_ticks = Node(
+    #     package='rover_odometry',
+    #     executable='encoder_ticks',
+    #     name='encoder_ticks',
+    #     output='screen',
+    #     respawn=True,
+    # )
 
     # Load odometry config for parameters and transforms
     rover_odometry_dir = get_package_share_directory('rover_odometry')
@@ -128,17 +128,26 @@ def generate_launch_description():
         odometry_config = yaml.safe_load(f)
     
     # Extract encoder_odom parameters (ROS2 can't parse files with multiple top-level keys)
-    encoder_odom_params = odometry_config['encoder_odom']['ros__parameters']
+    odometry_params = odometry_config['odometry']['ros__parameters']
     transforms_config = odometry_config['transforms']
 
-    encoder_odom = Node(
+    odometry_node = Node(
         package='rover_odometry',
-        executable='encoder_odom',
-        name='encoder_odom',
+        executable='odometry',
+        name='odometry',
         output='screen',
-        parameters=[encoder_odom_params],
+        parameters=[odometry_params],
         respawn=True,
     )
+
+    # encoder_odom = Node(
+    #     package='rover_odometry',
+    #     executable='encoder_odom',
+    #     name='encoder_odom',
+    #     output='screen',
+    #     parameters=[encoder_odom_params],
+    #     respawn=True,
+    # )
 
     # Static transform publishers
     laser_tf = transforms_config['base_to_laser']
@@ -198,8 +207,9 @@ def generate_launch_description():
         gamepad_adapter,
         arcade_mixer,
         tb6612_driver,
-        encoder_ticks,
-        encoder_odom,
+        odometry_node,
+        # encoder_ticks,
+        # encoder_odom,
         base_to_laser_tf,
         base_to_camera_tf,
         sllidar_launch,

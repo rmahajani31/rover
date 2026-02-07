@@ -1,11 +1,13 @@
-encoder_odom:
+odometry:
   ros__parameters:
-    wheel_radius_m: 0.04
-    wheel_separation_m: 0.5
-    ticks_per_rev: 3459.0
-    tick_deadband: 2.0  # Ignore encoder changes smaller than this (in ticks) to prevent creep
-    left_dir: 1.0      # Set to -1.0 if left encoder direction is reversed
-    right_dir: 1.0     # Set to -1.0 if right encoder direction is reversed
+    bus: 1
+    addr: 0x31
+    endian: "little"
+    publish_rate_hz: 30.0
+    pod_offsets_mm: [160.87, -201.3]
+    encoder_directions: [True, True]
+    odom_frame: "odom"
+    base_frame: "base_link"
 
 transforms:
   base_to_laser:

@@ -17,10 +17,8 @@ slam_toolbox:
     transform_timeout: 0.5
 
     # Mapping quality vs compute (start here; tune later)
-    resolution: 0.05
     min_laser_range: 0.1
     max_laser_range: 16.0
-    minimum_time_interval: 0.4
 
     # Loop closure behavior
     do_loop_closing: true
