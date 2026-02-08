@@ -138,3 +138,6 @@ _deps
 *.su
 *.idb
 *.pdb
+
+# Ignore rosbags
+bags/

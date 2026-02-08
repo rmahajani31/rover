@@ -1,0 +1,20 @@
+ros2 run tf2_ros static_transform_publisher 0 0 0.2032 0 0 0 base_link laser
+ros2 run tf2_ros static_transform_publisher 0 0.2159 0.1651 0 0 0 base_link camera_link
+ros2 launch sllidar_ros2 view_sllidar_a2m12_launch.py
+ros2 run rover_odometry encoder_odom --ros-args -p wheel_radius_m:=0.04 -p wheel_separation_m:=0.5 -p ticks_per_rev:=3459.0
+ros2 bag record -o ./bags/phase0_run /tf /tf_static /odom /scan /left_ticks /right_ticks
+ros2 launch slam_toolbox online_async_launch.py slam_params_file:=./src/rover_nav/config/slam_toolbox_async.yaml
+ros2 run tf2_tools view_frames
+ros2 launch bringup rover.launch.py
+ros2 service call /slam_toolbox/reset slam_toolbox/srv/Reset
+ros2 launch depthai_ros_driver driver.launch.py camera.i_enable_imu:=true - launches camera and publishes to topic /oak/imu/data
+ros2 run robot_localization ekf_node --ros-args --params-file /home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_odometry/config/ekf.yaml
+ros2 run tf2_ros tf2_echo <parent_frame> <child_frame>
+ros2 launch depthai_ros_driver driver.launch.py \
+  parent_frame:=base_link \
+  cam_roll:=0 cam_yaw:=3.14159265 \
+  imu.i_message_type:=IMU_WITH_MAG \
+  imu.i_enable_rotation:=true \
+  imu.i_rotation_vector_type:=GEOMAGNETIC_ROTATION_VECTOR
+
+ros2 launch depthai_ros_driver calibration.launch.py

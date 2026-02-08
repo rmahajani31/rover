@@ -51,6 +51,9 @@ class ArcadeMixerNode(Node):
         self.estop_active: bool = False
         self.last_cmd_time: float = 0.0
 
+        self.last_throttle: float = 0.0
+        self.last_steer: float = 0.0
+
         # Targets (signed -1..1 after floors/normalization)
         self.tgtL: float = 0.0
         self.tgtR: float = 0.0
@@ -94,6 +97,9 @@ class ArcadeMixerNode(Node):
         # Get the throttle and steer values from the twist message
         throttle = float(clip11(msg.linear.x))
         steer    = float(clip11(msg.angular.z))
+
+        self.last_throttle = throttle
+        self.last_steer = steer
 
         # If fully centered, zero targets
         if abs(throttle) < self.deadzone and abs(steer) < self.deadzone:
@@ -156,8 +162,11 @@ class ArcadeMixerNode(Node):
             goalR = 0.0
 
         # Smoothing to prevent jerky movement
-        self.curL = (1.0 - self.smooth) * self.curL + self.smooth * (goalL * self.max_speed)
-        self.curR = (1.0 - self.smooth) * self.curR + self.smooth * (goalR * self.max_speed)
+        # self.curL = (1.0 - self.smooth) * self.curL + self.smooth * (goalL * self.max_speed)
+        # self.curR = (1.0 - self.smooth) * self.curR + self.smooth * (goalR * self.max_speed)
+
+        self.curL = goalL * self.max_speed
+        self.curR = goalR * self.max_speed
 
         # Update last applied directions
         self.dirL = out_dir_L
@@ -181,6 +190,20 @@ class ArcadeMixerNode(Node):
         msg.right_pwm = float(right_pwm)
         msg.left_forward = bool(left_forward)
         msg.right_forward = bool(right_forward)
+
+         # Debug (log at 5 Hz to avoid spam on a 50 Hz timer)
+        # if not hasattr(self, "_dbg_i"):
+        #     self._dbg_i = 0
+        # self._dbg_i += 1
+        # if self._dbg_i % 10 == 0:
+        #     self.get_logger().info(
+        #         f"in=(thr={self.last_throttle:+.3f}, steer={self.last_steer:+.3f}) "
+        #         f"tgt=(L={self.tgtL:+.3f}, R={self.tgtR:+.3f}) "
+        #         f"goal=(L={goalL:.3f}, R={goalR:.3f}) "
+        #         f"cur=(L={self.curL:.3f}, R={self.curR:.3f}) "
+        #         f"pwm=(L={left_pwm:.3f}, R={right_pwm:.3f}) "
+        #         f"dir=(L={self.dirL:+d}, R={self.dirR:+d})"
+        #     )
 
         self.pub_wcmd.publish(msg)
     
