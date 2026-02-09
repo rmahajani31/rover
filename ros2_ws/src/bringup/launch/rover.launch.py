@@ -1,7 +1,7 @@
 import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -24,6 +24,9 @@ def generate_launch_description():
     mixer_cfg   = LaunchConfiguration('mixer_config')
     driver_cfg  = LaunchConfiguration('driver_config')
     odometry_cfg = LaunchConfiguration('odometry_config')
+
+    pkg_share = FindPackageShare(package='rover_description').find('rover_description')
+    default_model_path = os.path.join(pkg_share, 'src', 'description', 'rover_description.urdf')
 
     decls = [
         DeclareLaunchArgument('namespace', default_value='',
@@ -63,6 +66,7 @@ def generate_launch_description():
             ]),
             description='rover_odometry parameters YAML'
         ),
+        DeclareLaunchArgument(name='model', default_value=default_model_path, description='Absolute path to robot model file')
     ]
 
     # Define all the nodes
@@ -111,13 +115,6 @@ def generate_launch_description():
     )
 
     # Odometry nodes
-    # encoder_ticks = Node(
-    #     package='rover_odometry',
-    #     executable='encoder_ticks',
-    #     name='encoder_ticks',
-    #     output='screen',
-    #     respawn=True,
-    # )
 
     # Load odometry config for parameters and transforms
     rover_odometry_dir = get_package_share_directory('rover_odometry')
@@ -129,7 +126,7 @@ def generate_launch_description():
     
     # Extract encoder_odom parameters (ROS2 can't parse files with multiple top-level keys)
     odometry_params = odometry_config['odometry']['ros__parameters']
-    transforms_config = odometry_config['transforms']
+    # transforms_config = odometry_config['transforms']
 
     odometry_node = Node(
         package='rover_odometry',
@@ -140,39 +137,30 @@ def generate_launch_description():
         respawn=True,
     )
 
-    # encoder_odom = Node(
-    #     package='rover_odometry',
-    #     executable='encoder_odom',
-    #     name='encoder_odom',
-    #     output='screen',
-    #     parameters=[encoder_odom_params],
-    #     respawn=True,
+    # Static transform publishers
+    # laser_tf = transforms_config['base_to_laser']
+    # base_to_laser_tf = Node(
+    #     package='tf2_ros',
+    #     executable='static_transform_publisher',
+    #     name='base_to_laser_tf',
+    #     arguments=[
+    #         str(laser_tf['x']), str(laser_tf['y']), str(laser_tf['z']),
+    #         str(laser_tf['roll']), str(laser_tf['pitch']), str(laser_tf['yaw']),
+    #         laser_tf['parent_frame'], laser_tf['child_frame']
+    #     ]
     # )
 
-    # Static transform publishers
-    laser_tf = transforms_config['base_to_laser']
-    base_to_laser_tf = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='base_to_laser_tf',
-        arguments=[
-            str(laser_tf['x']), str(laser_tf['y']), str(laser_tf['z']),
-            str(laser_tf['roll']), str(laser_tf['pitch']), str(laser_tf['yaw']),
-            laser_tf['parent_frame'], laser_tf['child_frame']
-        ]
-    )
-
-    camera_tf = transforms_config['base_to_camera']
-    base_to_camera_tf = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='base_to_camera_tf',
-        arguments=[
-            str(camera_tf['x']), str(camera_tf['y']), str(camera_tf['z']),
-            str(camera_tf['yaw']), str(camera_tf['pitch']), str(camera_tf['roll']),
-            camera_tf['parent_frame'], camera_tf['child_frame']
-        ]
-    )
+    # camera_tf = transforms_config['base_to_camera']
+    # base_to_camera_tf = Node(
+    #     package='tf2_ros',
+    #     executable='static_transform_publisher',
+    #     name='base_to_camera_tf',
+    #     arguments=[
+    #         str(camera_tf['x']), str(camera_tf['y']), str(camera_tf['z']),
+    #         str(camera_tf['yaw']), str(camera_tf['pitch']), str(camera_tf['roll']),
+    #         camera_tf['parent_frame'], camera_tf['child_frame']
+    #     ]
+    # )
 
     # Sllidar launch file
     sllidar_launch = IncludeLaunchDescription(
@@ -186,20 +174,32 @@ def generate_launch_description():
     )
 
     # Robot State Publisher
-    # pkg_path = get_package_share_directory('bringup')
-    # urdf_file = os.path.join(pkg_path, 'urdf', 'rover.urdf')
+    robot_state_publisher_node = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        parameters=[{'robot_description': Command(['xacro ', LaunchConfiguration('model')])}]
+    )
 
-    # with open(urdf_file, 'r') as infp:
-    #     robot_description = infp.read()
-
-    # robot_state_publisher = Node(
-    #     package='robot_state_publisher',
-    #     executable='robot_state_publisher',
-    #     name='robot_state_publisher',
-    #     output='screen',
-    #     parameters=[{'robot_description': robot_description}],
-    #     respawn=True,
-    # )
+    # SLAM Toolbox launch file
+    slam_params_file = PathJoinSubstitution([
+        FindPackageShare('rover_nav'),
+        'config',
+        'slam_toolbox_async.yaml'
+    ])
+    
+    slam_toolbox_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('slam_toolbox'),
+                'launch',
+                'online_async_launch.py'
+            ])
+        ]),
+        launch_arguments={
+            'slam_params_file': slam_params_file
+        }.items()
+    )
+    
 
     # Define the launch plan
     return LaunchDescription(decls + [
@@ -208,10 +208,7 @@ def generate_launch_description():
         arcade_mixer,
         tb6612_driver,
         odometry_node,
-        # encoder_ticks,
-        # encoder_odom,
-        base_to_laser_tf,
-        base_to_camera_tf,
         sllidar_launch,
-        # robot_state_publisher,
+        robot_state_publisher_node,
+        slam_toolbox_launch
     ])
