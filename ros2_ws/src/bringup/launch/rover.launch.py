@@ -180,6 +180,13 @@ def generate_launch_description():
         parameters=[{'robot_description': Command(['xacro ', LaunchConfiguration('model')])}]
     )
 
+    joint_state_publisher_node = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        parameters=[{'robot_description': Command(['xacro ', LaunchConfiguration('model')])}],
+    )
+
     # SLAM Toolbox launch file
     slam_params_file = PathJoinSubstitution([
         FindPackageShare('bringup'),
@@ -199,6 +206,23 @@ def generate_launch_description():
             'slam_params_file': slam_params_file
         }.items()
     )
+
+    # --- ADDED NAV2 PARAMETERS ---
+    nav2_params_path = '/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params_optimized.yaml'
+    
+    # Define the Nav2 launch inclusion
+    nav2_navigation_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('nav2_bringup'),
+                'launch',
+                'navigation_launch.py'
+            ])
+        ]),
+        launch_arguments={
+            'params_file': nav2_params_path,
+        }.items()
+    )
     
 
     # Define the launch plan
@@ -209,6 +233,8 @@ def generate_launch_description():
         tb6612_driver,
         odometry_node,
         robot_state_publisher_node,
+        joint_state_publisher_node,
         sllidar_launch,
-        slam_toolbox_launch
+        slam_toolbox_launch,
+        nav2_navigation_launch
     ])

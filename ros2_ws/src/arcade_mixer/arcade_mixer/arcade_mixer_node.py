@@ -5,7 +5,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile
 
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import TwistStamped
 from std_msgs.msg import Bool
 from drive_msgs.msg import WheelCommand
 
@@ -67,7 +67,7 @@ class ArcadeMixerNode(Node):
         self.dirR: int = +1
 
         # I/O
-        self.sub_cmd  = self.create_subscription(Twist, '/cmd_arcade', self.on_cmd, 10)
+        self.sub_cmd  = self.create_subscription(TwistStamped, '/cmd_vel', self.on_cmd, 10)
         self.sub_stop = self.create_subscription(Bool, '/estop', self.on_estop, 10)
         self.pub_wcmd = self.create_publisher(WheelCommand, '/wheel_cmd', QoSProfile(depth=10))
 
@@ -84,7 +84,7 @@ class ArcadeMixerNode(Node):
             self.curL = self.curR = 0.0
             self.get_logger().warn('E-STOP active → outputs forced to zero')
     
-    def on_cmd(self, msg: Twist):
+    def on_cmd(self, msg: TwistStamped):
         """Set the wheel commands based on throttle and steer messages prior to smoothing"""
         # Record receipt time for idle timeout
         self.last_cmd_time = time.time()
@@ -95,8 +95,8 @@ class ArcadeMixerNode(Node):
             return
 
         # Get the throttle and steer values from the twist message
-        throttle = float(clip11(msg.linear.x))
-        steer    = float(clip11(msg.angular.z))
+        throttle = float(clip11(msg.twist.linear.x))
+        steer    = float(clip11(msg.twist.angular.z))
 
         self.last_throttle = throttle
         self.last_steer = steer
