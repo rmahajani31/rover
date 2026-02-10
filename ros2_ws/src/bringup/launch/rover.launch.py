@@ -182,7 +182,7 @@ def generate_launch_description():
 
     # SLAM Toolbox launch file
     slam_params_file = PathJoinSubstitution([
-        FindPackageShare('rover_nav'),
+        FindPackageShare('bringup'),
         'config',
         'slam_toolbox_async.yaml'
     ])
@@ -208,7 +208,7 @@ def generate_launch_description():
         arcade_mixer,
         tb6612_driver,
         odometry_node,
-        sllidar_launch,
         robot_state_publisher_node,
+        sllidar_launch,
         slam_toolbox_launch
     ])

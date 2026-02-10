@@ -12,6 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/rover.launch.py']),
         ('share/' + package_name + '/urdf', ['urdf/rover.urdf']),
+        ('share/' + package_name + '/config', ['config/slam_toolbox_async.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
