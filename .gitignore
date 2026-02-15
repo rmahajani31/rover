@@ -143,7 +143,7 @@ _deps
 bags/
 
 # MicroROS
-ros2_ws/firmware/
+ros2_ws/firmware/*
 ros2_ws/src/micro_ros_setup/
 ros2_ws/src/uros/
 !ros2_ws/firmware/freertos_apps/apps/rover/
