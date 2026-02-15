@@ -141,3 +141,8 @@ _deps
 
 # Ignore rosbags
 bags/
+
+# MicroROS
+ros2_ws/firmware/
+ros2_ws/src/micro_ros_setup/
+ros2_ws/src/uros/
