@@ -38,6 +38,10 @@
 #define TRACK_WIDTH 0.5 // meters
 #define STRING_BUFFER_LEN 100
 #define TIMEOUT_MS 500 // Stop motors if no msg for 0.5 seconds
+#define PWM_FREQUENCY 400 // Hz
+#define MIN_PWM 100 // Minimum PWM duty for the motors
+#define MAX_PWM 200 // Maximum PWM duty for the motors
+
 int64_t last_cmd_vel_time = 0;
 
 rcl_subscription_t cmd_vel_subscriber;
@@ -64,7 +68,7 @@ void init_hardware()
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .duty_resolution = LEDC_TIMER_8_BIT,
         .timer_num = LEDC_TIMER_0,
-        .freq_hz = 5000,
+        .freq_hz = PWM_FREQUENCY,
         .clk_cfg = LEDC_AUTO_CLK
     };
     ledc_timer_config(&timer_conf);
@@ -95,14 +99,21 @@ void init_subscribers(rcl_node_t *node)
 
 void set_motor_speed(int channel, int in1_pin, int in2_pin, float speed)
 {
-	uint32_t duty = (uint32_t)(fmin(fabsf(speed), 1.0) * 255);
+	float abs_speed = fabsf(speed);
+	uint32_t duty = 0;
 
-	if (speed > 0) {
-		gpio_set_level(in1_pin, 1); gpio_set_level(in2_pin, 0);
-	} else if (speed < 0) {
-		gpio_set_level(in1_pin, 0); gpio_set_level(in2_pin, 1);
-	} else {
+	if (abs_speed < 0.01) {
+		duty = 0;
 		gpio_set_level(in1_pin, 0); gpio_set_level(in2_pin, 0);
+	} else {
+		duty = MIN_PWM + (uint32_t)(abs_speed * (255 - MIN_PWM));
+		if (duty > MAX_PWM) duty = MAX_PWM;
+
+		if (speed > 0) {
+            gpio_set_level(in1_pin, 1); gpio_set_level(in2_pin, 0);
+        } else {
+            gpio_set_level(in1_pin, 0); gpio_set_level(in2_pin, 1);
+        }
 	}
 
 	ledc_set_duty(LEDC_LOW_SPEED_MODE, channel, duty);
@@ -140,6 +151,10 @@ void appMain(void *argument)
 	rclc_support_t support;
 
 	printf("Rover app started\n");
+
+	// Initialize hardware
+	printf("Initializing hardware...\n");
+	init_hardware();
 
 	// create init_options
 	RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
