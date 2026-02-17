@@ -4,7 +4,7 @@
 #include <rclc/executor.h>
 
 #include <std_msgs/msg/header.h>
-#include <geometry_msgs/msg/twist.h>
+#include <geometry_msgs/msg/twist_stamped.h>
 #include <std_msgs/msg/string.h>
 
 #include <stdio.h>
@@ -47,7 +47,7 @@ int64_t last_cmd_vel_time = 0;
 rcl_subscription_t cmd_vel_subscriber;
 rcl_publisher_t debug_publisher;
 
-geometry_msgs__msg__Twist incoming_cmd_vel;
+geometry_msgs__msg__TwistStamped incoming_cmd_vel;
 std_msgs__msg__String outcoming_debug;
 
 char debug_buffer[STRING_BUFFER_LEN]; // Buffer for string messages
@@ -94,7 +94,7 @@ void init_publishers(rcl_node_t *node)
 void init_subscribers(rcl_node_t *node)
 {
 	RCCHECK(rclc_subscription_init_best_effort(&cmd_vel_subscriber, node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist), "/cmd_vel"));
+		ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, TwistStamped), "/cmd_vel"));
 }
 
 void set_motor_speed(int channel, int in1_pin, int in2_pin, float speed)
@@ -123,14 +123,14 @@ void set_motor_speed(int channel, int in1_pin, int in2_pin, float speed)
 void cmd_vel_subscription_callback (const void * msgin)
 {
 	last_cmd_vel_time = esp_timer_get_time() / 1000; // Refresh the last command velocity time
-	const geometry_msgs__msg__Twist * msg = (const geometry_msgs__msg__Twist *)msgin;
+	const geometry_msgs__msg__TwistStamped * msg = (const geometry_msgs__msg__TwistStamped *)msgin;
 
-	sprintf(outcoming_debug.data.data, "CMD_VEL_RECEIVED %f %f", msg->linear.x, msg->angular.z);
+	float linear_x = msg->twist.linear.x;
+	float angular_z = msg->twist.angular.z;
+
+	sprintf(outcoming_debug.data.data, "CMD_VEL_RECEIVED %f %f", linear_x, angular_z);
 	outcoming_debug.data.size = strlen(outcoming_debug.data.data);
 	rcl_publish(&debug_publisher, (const void*)&outcoming_debug, NULL);
-	
-	float linear_x = msg->linear.x;
-	float angular_z = msg->angular.z;
 
 	// Kinematic model for differential drive robot
 	float left_velocity = linear_x - (angular_z * TRACK_WIDTH / 2);

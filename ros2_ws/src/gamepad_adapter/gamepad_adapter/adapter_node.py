@@ -7,7 +7,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import TwistStamped
 from std_msgs.msg import Bool
 
 class AdapterNode(Node):
@@ -48,7 +48,7 @@ class AdapterNode(Node):
         # Define publishers and subscribers
 
         # cmd_vel will be the topic which converts joystick movements into motor velocity commands
-        self.pub_cmd = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.pub_cmd = self.create_publisher(TwistStamped, '/cmd_vel', 10)
 
         # estop will be the topic which initiates an emergency stop
         # Note the transient local setting indicates that the final message is given to subscribers even if it was published before they subscribed
@@ -108,7 +108,7 @@ class AdapterNode(Node):
             self.estop_state = not self.estop_state
             self.pub_estop.publish(Bool(data=self.estop_state))
             # Also publish a zeroed Twist immediately
-            self.pub_cmd.publish(Twist())
+            self.pub_cmd.publish(TwistStamped())
             self.prev_buttons = buttons[:]  # update edge state
             return  # do not process command on this frame
         
@@ -156,9 +156,10 @@ class AdapterNode(Node):
             steer = -steer
         
         # Publish a twist message to cmd_vel to drive the motor, linear.x is throttle and angular.z is steer
-        twist = Twist()
-        twist.linear.x  = throttle
-        twist.angular.z = steer
+        twist = TwistStamped()
+        twist.header.stamp = self.get_clock().now().to_msg()
+        twist.twist.linear.x  = throttle
+        twist.twist.angular.z = steer
         self.pub_cmd.publish(twist)
 
         # Save for edge detection next time
