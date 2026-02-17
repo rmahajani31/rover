@@ -40,7 +40,7 @@
 #define TIMEOUT_MS 500 // Stop motors if no msg for 0.5 seconds
 #define PWM_FREQUENCY 400 // Hz
 #define MIN_PWM 100 // Minimum PWM duty for the motors
-#define MAX_PWM 200 // Maximum PWM duty for the motors
+#define MAX_PWM 150 // Maximum PWM duty for the motors
 
 int64_t last_cmd_vel_time = 0;
 
