@@ -20,6 +20,8 @@ ros2 launch depthai_ros_driver driver.launch.py \
 ros2 launch depthai_ros_driver calibration.launch.py
 ros2 launch nav2_bringup navigation_launch.py params_file:=/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params.yaml > out_nav.txt
 
+ls -l /dev/serial/by-id
+
 ./toolchain/esp-idf/components/esptool_py/esptool/esptool.py
 
 ../../../toolchain/esp-idf/components/esptool_py/esptool/e

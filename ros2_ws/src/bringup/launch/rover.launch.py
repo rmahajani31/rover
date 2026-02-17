@@ -208,7 +208,7 @@ def generate_launch_description():
     )
 
     # --- ADDED NAV2 PARAMETERS ---
-    nav2_params_path = '/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params_optimized.yaml'
+    nav2_params_path = '/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params.yaml'
     
     # Define the Nav2 launch inclusion
     nav2_navigation_launch = IncludeLaunchDescription(
@@ -220,7 +220,7 @@ def generate_launch_description():
             ])
         ]),
         launch_arguments={
-            'params_file': nav2_params_path,
+            'params_file': nav2_params_path
         }.items()
     )
     
@@ -229,8 +229,8 @@ def generate_launch_description():
     return LaunchDescription(decls + [
         joy_node,
         gamepad_adapter,
-        arcade_mixer,
-        tb6612_driver,
+        # arcade_mixer,
+        # tb6612_driver,
         odometry_node,
         robot_state_publisher_node,
         joint_state_publisher_node,
