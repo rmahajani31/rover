@@ -170,7 +170,10 @@ def generate_launch_description():
                 'launch',
                 'view_sllidar_a2m12_launch.py'
             ])
-        ])
+        ]),
+        launch_arguments={
+            'serial_port': '/dev/tty_rover_lidar'
+        }.items()
     )
 
     # Robot State Publisher
@@ -227,14 +230,14 @@ def generate_launch_description():
 
     # Define the launch plan
     return LaunchDescription(decls + [
-        joy_node,
-        gamepad_adapter,
+        # joy_node,
+        # gamepad_adapter,
         # arcade_mixer,
         # tb6612_driver,
         odometry_node,
         robot_state_publisher_node,
         joint_state_publisher_node,
         sllidar_launch,
-        slam_toolbox_launch,
-        nav2_navigation_launch
+        # slam_toolbox_launch,
+        # nav2_navigation_launch
     ])
