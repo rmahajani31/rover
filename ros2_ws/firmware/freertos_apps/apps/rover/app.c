@@ -2,6 +2,7 @@
 #include <rcl/error_handling.h>
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
+#include <rmw_microros/rmw_microros.h>
 
 #include <std_msgs/msg/header.h>
 #include <geometry_msgs/msg/twist_stamped.h>
@@ -155,6 +156,20 @@ void appMain(void *argument)
 	// Initialize hardware
 	printf("Initializing hardware...\n");
 	init_hardware();
+	vTaskDelay(pdMS_TO_TICKS(500));
+
+	// Wait for micro-ROS agent to be ready
+	while (1) {
+        // Ping the agent with a 100ms timeout, 1 attempt
+        if (rmw_uros_ping_agent(100, 1) == RMW_RET_OK) {
+            printf("Agent detected! Connecting...\n");
+            break; 
+        }
+        
+        // If not found, wait 1 second and try again
+        printf("Agent not found. Retrying in 1s...\n");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 
 	// create init_options
 	RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
