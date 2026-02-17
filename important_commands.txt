@@ -19,3 +19,23 @@ ros2 launch depthai_ros_driver driver.launch.py \
 
 ros2 launch depthai_ros_driver calibration.launch.py
 ros2 launch nav2_bringup navigation_launch.py params_file:=/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params.yaml > out_nav.txt
+
+./toolchain/esp-idf/components/esptool_py/esptool/esptool.py
+
+../../../toolchain/esp-idf/components/esptool_py/esptool/e
+sptool.py --chip esp32 -b 115200 write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x1000 bootloade
+r/bootloader.bin 0x10000 ping_pong.bin
+
+cp partition_table/partition-table.bin bootloader/bootloader.bin ping_pong.bin /mnt/c/Users/rmaha/Documents/flash_bin_files/
+
+
+
+cp ~/rover/ros2_ws/firmware/freertos_apps/microros_esp32_extensions/build/rover.bin /mnt/c/Users/rmaha/Documents/flash_bin_files/
+
+esptool.py --chip esp32 write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition-table.bin 0x1000 bootloader.bin 0x10000 ping_pong.bin
+
+ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyUSB0
+
+ros2 run micro_ros_setup configure_firmware.sh rover --transport serial
+
+ros2 run micro_ros_setup build_firmware.sh
