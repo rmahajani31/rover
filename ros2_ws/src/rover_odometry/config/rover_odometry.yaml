@@ -3,7 +3,7 @@ odometry:
     bus: 1
     addr: 0x31
     endian: "little"
-    publish_rate_hz: 30.0
+    publish_rate_hz: 50.0
     pod_offsets_mm: [160.87, -201.3]
     encoder_directions: [True, True]
     odom_frame: "odom"

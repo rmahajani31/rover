@@ -123,9 +123,11 @@ class OdometryNode(Node):
         self.vy = self.i2c.read_f32(self.name_to_reg["Y Velocity"])
         self.vh = self.i2c.read_f32(self.name_to_reg["Yaw Velocity"])
 
+        current_time = self.get_clock().now().to_msg()
+
         # ---- Publish TF: odom -> base_link ----
         tf_msg = TransformStamped()
-        tf_msg.header.stamp = self.get_clock().now().to_msg()
+        tf_msg.header.stamp = current_time
         tf_msg.header.frame_id = self.odom_frame
         tf_msg.child_frame_id = self.base_frame
         tf_msg.transform.translation.x = self.x / 1000.0
@@ -141,7 +143,7 @@ class OdometryNode(Node):
 
         # ---- Publish /odom message ----
         odom = Odometry()
-        odom.header.stamp = self.get_clock().now().to_msg()
+        odom.header.stamp = current_time
         odom.header.frame_id = self.odom_frame
         odom.child_frame_id = self.base_frame
         odom.pose.pose.position.x = self.x / 1000.0
