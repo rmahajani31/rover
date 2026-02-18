@@ -19,6 +19,8 @@ ros2 launch depthai_ros_driver driver.launch.py \
 
 ros2 launch depthai_ros_driver calibration.launch.py
 ros2 launch nav2_bringup navigation_launch.py params_file:=/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params.yaml > out_nav.txt
+ros2 launch nav2_bringup bringup_launch.py params_file:=/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params_latest.yaml use_sim_time:=False autostart:=False map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/basement.yaml > out_nav.txt
+rviz2 -d $(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/rviz/nav2_default_view.rviz
 
 sudo vim /etc/udev/rules.d/99-rover-serial.rules
 sudo udevadm control --reload-rules
