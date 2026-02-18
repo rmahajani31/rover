@@ -152,3 +152,6 @@ ros2_ws/firmware/freertos_apps/*
 !ros2_ws/firmware/freertos_apps/apps/
 ros2_ws/firmware/freertos_apps/apps/*
 !ros2_ws/firmware/freertos_apps/apps/rover/
+
+*.gv
+*.pdf
