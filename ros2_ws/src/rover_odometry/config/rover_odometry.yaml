@@ -7,7 +7,7 @@ odometry:
     pod_offsets_mm: [160.87, -201.3]
     encoder_directions: [True, True]
     odom_frame: "odom"
-    base_frame: "base_link"
+    base_frame: "base_footprint"
 
 transforms:
   base_to_laser:

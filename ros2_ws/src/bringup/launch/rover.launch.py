@@ -26,7 +26,8 @@ def generate_launch_description():
     odometry_cfg = LaunchConfiguration('odometry_config')
 
     pkg_share = FindPackageShare(package='rover_description').find('rover_description')
-    default_model_path = os.path.join(pkg_share, 'src', 'description', 'rover_description.urdf')
+    default_model_path = os.path.join(pkg_share, 'src', 'description', 'rover_description_v2.urdf')
+    print("default_model_path: ", default_model_path)
 
     decls = [
         DeclareLaunchArgument('namespace', default_value='',
@@ -235,9 +236,9 @@ def generate_launch_description():
         # arcade_mixer,
         # tb6612_driver,
         odometry_node,
-        robot_state_publisher_node,
-        joint_state_publisher_node,
         sllidar_launch,
+        joint_state_publisher_node,
+        robot_state_publisher_node,
         # slam_toolbox_launch,
         # nav2_navigation_launch
     ])
