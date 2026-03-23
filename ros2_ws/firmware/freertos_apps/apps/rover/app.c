@@ -27,12 +27,12 @@
 
 // Pin Definitions for TB6612
 #define M_LEFT_PWM   18
-#define M_LEFT_IN1   5
-#define M_LEFT_IN2   17
+#define M_LEFT_IN1   16
+#define M_LEFT_IN2   4
 
 #define M_RIGHT_PWM  19
-#define M_RIGHT_IN1  16
-#define M_RIGHT_IN2  4
+#define M_RIGHT_IN1  5
+#define M_RIGHT_IN2  17
 
 #define STBY_PIN     2  // Standby pin must be HIGH for the driver to work
 
