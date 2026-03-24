@@ -27,22 +27,22 @@
 #define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){printf("Failed status on line %d: %d. Continuing.\n",__LINE__,(int)temp_rc);}}
 
 // LEFT FRONT
-#define M_LF_PWM 18
-#define M_LF_DIR 16
-#define M_LF_SLP 4
+#define M_LF_PWM 34
+#define M_LF_DIR 39
+#define M_LF_SLP 36
 // LEFT REAR
-#define M_LR_PWM 21
+#define M_LR_PWM 1
 #define M_LR_DIR 22
 #define M_LR_SLP 23
 
 // RIGHT FRONT
-#define M_RF_PWM 19
-#define M_RF_DIR 5
-#define M_RF_SLP 17
+#define M_RF_PWM 4
+#define M_RF_DIR 2
+#define M_RF_SLP 15
 // RIGHT REAR
-#define M_RR_PWM 25
-#define M_RR_DIR 26
-#define M_RR_SLP 27
+#define M_RR_PWM 5
+#define M_RR_DIR 17
+#define M_RR_SLP 16
 
 #define TRACK_WIDTH 0.5 // meters
 #define STRING_BUFFER_LEN 100
