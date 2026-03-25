@@ -5,7 +5,6 @@
 #include <rclc/executor.h>
 #include <rmw_microros/rmw_microros.h>
 
-#include <std_msgs/msg/header.h>
 #include <geometry_msgs/msg/twist_stamped.h>
 #include <std_msgs/msg/string.h>
 
@@ -27,20 +26,22 @@
 #define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){printf("Failed status on line %d: %d. Continuing.\n",__LINE__,(int)temp_rc);}}
 
 // LEFT FRONT
-#define M_LF_PWM 34
-#define M_LF_DIR 39
-#define M_LF_SLP 36
+#define M_LF_PWM 25
+#define M_LF_DIR 33
+#define M_LF_SLP 32
+
 // LEFT REAR
-#define M_LR_PWM 1
+#define M_LR_PWM 21
 #define M_LR_DIR 22
 #define M_LR_SLP 23
 
 // RIGHT FRONT
 #define M_RF_PWM 4
-#define M_RF_DIR 2
-#define M_RF_SLP 15
+#define M_RF_DIR 26
+#define M_RF_SLP 19
+
 // RIGHT REAR
-#define M_RR_PWM 5
+#define M_RR_PWM 18
 #define M_RR_DIR 17
 #define M_RR_SLP 16
 
@@ -49,6 +50,7 @@
 #define TIMEOUT_MS 500 // Stop motors if no msg for 0.5 seconds
 #define PWM_FREQUENCY 20000 // Hz
 #define DEADZONE 0.05 // m/s
+#define MAX_SPEED 1.0f // m/s
 
 // Global variables
 int64_t last_cmd_vel_time = 0;
@@ -140,7 +142,7 @@ void set_motor_speed(int channel, int dir_pin, float speed)
     }
 
 	// Set duty cycle
-	uint32_t duty = (uint32_t)(abs_speed * 255.0f);
+	uint32_t duty = (uint32_t)((abs_speed / MAX_SPEED) * 255.0f);
 	if (duty > 255) duty = 255;
 
 	// Set direction
@@ -237,12 +239,11 @@ void appMain(void *argument)
 		// --- SAFETY STOP LOGIC ---
 		int64_t now = esp_timer_get_time() / 1000;
 		if(now - last_cmd_vel_time > TIMEOUT_MS) {
-			set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, 0);
-            set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, 0);
-            set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, 0);
-            set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, 0);
-
 			if (!in_safety_stop) {
+                set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, 0);
+                set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, 0);
+                set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, 0);
+                set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, 0);
                 char temp_buf[STRING_BUFFER_LEN];
                 snprintf(temp_buf, STRING_BUFFER_LEN, "SAFETY STOP - NO CMD_VEL FOR %dms", TIMEOUT_MS);
                 publish_debug(temp_buf);
