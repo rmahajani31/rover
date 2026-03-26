@@ -56,7 +56,6 @@
 #define PWM_FREQUENCY 20000 // Hz
 #define DEADZONE 0.05 // m/s
 #define MAX_SPEED 1.0f // m/s
-#define DEBUG_SKIP_AGENT_WAIT 0 // Set to 1 to skip waiting for micro-ROS agent
 
 // Forward declarations
 void publish_debug(const char * msg);
@@ -210,7 +209,6 @@ void appMain(void *argument)
 	vTaskDelay(pdMS_TO_TICKS(500));
 
 	// Wait for micro-ROS agent to be ready
-	#if !DEBUG_SKIP_AGENT_WAIT
 	while (1) {
         // Ping the agent with a 100ms timeout, 1 attempt
         if (rmw_uros_ping_agent(100, 1) == RMW_RET_OK) {
@@ -222,7 +220,6 @@ void appMain(void *argument)
         printf("Agent not found. Retrying in 1s...\n");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
-	#endif
 
 	// create init_options
 	RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
