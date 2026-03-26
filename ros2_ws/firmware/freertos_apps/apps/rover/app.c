@@ -22,7 +22,12 @@
 #include "freertos/task.h"
 #endif
 
-#define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){printf("Failed status on line %d: %d. Aborting.\n",__LINE__,(int)temp_rc); vTaskDelete(NULL);}}
+#define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){ \
+    char _err_buf[STRING_BUFFER_LEN]; \
+    snprintf(_err_buf, STRING_BUFFER_LEN, "FAIL line %d: %d", __LINE__, (int)temp_rc); \
+    printf("%s\n", _err_buf); \
+    if(debug_publisher_ready) { for(int _i=0; _i<20; _i++) { publish_debug(_err_buf); vTaskDelay(pdMS_TO_TICKS(200)); } } \
+    vTaskDelete(NULL); }}
 #define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){printf("Failed status on line %d: %d. Continuing.\n",__LINE__,(int)temp_rc);}}
 
 // LEFT FRONT
@@ -51,9 +56,14 @@
 #define PWM_FREQUENCY 20000 // Hz
 #define DEADZONE 0.05 // m/s
 #define MAX_SPEED 1.0f // m/s
+#define DEBUG_SKIP_AGENT_WAIT 0 // Set to 1 to skip waiting for micro-ROS agent
+
+// Forward declarations
+void publish_debug(const char * msg);
 
 // Global variables
 int64_t last_cmd_vel_time = 0;
+bool debug_publisher_ready = false;
 
 rcl_subscription_t cmd_vel_subscriber;
 rcl_publisher_t debug_publisher;
@@ -200,17 +210,19 @@ void appMain(void *argument)
 	vTaskDelay(pdMS_TO_TICKS(500));
 
 	// Wait for micro-ROS agent to be ready
+	#if !DEBUG_SKIP_AGENT_WAIT
 	while (1) {
         // Ping the agent with a 100ms timeout, 1 attempt
         if (rmw_uros_ping_agent(100, 1) == RMW_RET_OK) {
             printf("Agent detected! Connecting...\n");
-            break; 
+            break;
         }
-        
+
         // If not found, wait 1 second and try again
         printf("Agent not found. Retrying in 1s...\n");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
+	#endif
 
 	// create init_options
 	RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
@@ -221,6 +233,7 @@ void appMain(void *argument)
 
 	// Initialize publishers and subscribers
 	init_publishers(&node);
+	debug_publisher_ready = true;
 	init_subscribers(&node);
 
 	// Create executor
