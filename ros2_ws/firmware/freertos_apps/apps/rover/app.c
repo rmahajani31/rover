@@ -52,7 +52,7 @@
 
 #define TRACK_WIDTH 0.5 // meters
 #define STRING_BUFFER_LEN 100
-#define TIMEOUT_MS 500 // Stop motors if no msg for 0.5 seconds
+#define TIMEOUT_MS 2000 // Stop motors if no msg for 2 seconds
 #define PWM_FREQUENCY 20000 // Hz
 #define DEADZONE 0.05 // m/s
 #define MAX_SPEED 1.0f // m/s
