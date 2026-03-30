@@ -50,6 +50,22 @@
 #define M_RR_DIR 17
 #define M_RR_SLP 16
 
+// LEFT FRONT ENCODER
+#define ENC_LF_A 36
+#define ENC_LF_B 39
+
+// LEFT REAR ENCODER
+#define ENC_LR_A 34
+#define ENC_LR_B 35
+
+// RIGHT FRONT ENCODER
+#define ENC_RF_A 13
+#define ENC_RF_B 5
+
+// RIGHT REAR ENCODER
+#define ENC_RR_A 14
+#define ENC_RR_B 27
+
 #define TRACK_WIDTH 0.5 // meters
 #define STRING_BUFFER_LEN 100
 #define TIMEOUT_MS 2000 // Stop motors if no msg for 2 seconds
@@ -60,17 +76,54 @@
 // Forward declarations
 void publish_debug(const char * msg);
 
+// Encoder counts
+volatile int32_t enc_lf = 0;
+volatile int32_t enc_lr = 0;
+volatile int32_t enc_rf = 0;
+volatile int32_t enc_rr = 0;
+
 // Global variables
 int64_t last_cmd_vel_time = 0;
 bool debug_publisher_ready = false;
 
 rcl_subscription_t cmd_vel_subscriber;
 rcl_publisher_t debug_publisher;
+rcl_publisher_t left_whl_publisher;
+rcl_publisher_t right_whl_publisher;
 
 geometry_msgs__msg__TwistStamped incoming_cmd_vel;
 std_msgs__msg__String outcoming_debug;
+std_msgs__msg__String left_whl_msg;
+std_msgs__msg__String right_whl_msg;
 
-char debug_buffer[STRING_BUFFER_LEN]; // Buffer for string messages
+char debug_buffer[STRING_BUFFER_LEN];
+char left_whl_buffer[STRING_BUFFER_LEN];
+char right_whl_buffer[STRING_BUFFER_LEN];
+
+// Encoder ISR handlers — count ticks on A channel (ANYEDGE = 32 CPR per motor)
+static void IRAM_ATTR enc_lf_isr(void *arg) { enc_lf++; }
+static void IRAM_ATTR enc_lr_isr(void *arg) { enc_lr++; }
+static void IRAM_ATTR enc_rf_isr(void *arg) { enc_rf++; }
+static void IRAM_ATTR enc_rr_isr(void *arg) { enc_rr++; }
+
+void init_encoders()
+{
+    gpio_config_t io_conf = {
+        .mode = GPIO_MODE_INPUT,
+        .pin_bit_mask = (1ULL << ENC_LF_A) | (1ULL << ENC_LF_B) |
+                        (1ULL << ENC_LR_A) | (1ULL << ENC_LR_B) |
+                        (1ULL << ENC_RF_A) | (1ULL << ENC_RF_B) |
+                        (1ULL << ENC_RR_A) | (1ULL << ENC_RR_B)
+    };
+    gpio_config(&io_conf);
+
+    gpio_install_isr_service(0);
+
+    gpio_set_intr_type(ENC_LF_A, GPIO_INTR_ANYEDGE);  gpio_isr_handler_add(ENC_LF_A, enc_lf_isr, NULL);
+    gpio_set_intr_type(ENC_LR_A, GPIO_INTR_ANYEDGE);  gpio_isr_handler_add(ENC_LR_A, enc_lr_isr, NULL);
+    gpio_set_intr_type(ENC_RF_A, GPIO_INTR_ANYEDGE);  gpio_isr_handler_add(ENC_RF_A, enc_rf_isr, NULL);
+    gpio_set_intr_type(ENC_RR_A, GPIO_INTR_ANYEDGE);  gpio_isr_handler_add(ENC_RR_A, enc_rr_isr, NULL);
+}
 
 // Hardware initialization
 void init_hardware() 
@@ -105,6 +158,8 @@ void init_hardware()
         {.gpio_num = M_RR_PWM, .channel = LEDC_CHANNEL_3, .speed_mode = LEDC_LOW_SPEED_MODE, .timer_sel = LEDC_TIMER_0, .duty = 0}
     };
     for(int i=0; i<4; i++) ledc_channel_config(&lcd_ch[i]);
+
+    init_encoders();
 }
 
 // Initialize Publishers
@@ -115,8 +170,21 @@ void init_publishers(rcl_node_t *node)
 	outcoming_debug.data.size = 0;
 	outcoming_debug.data.capacity = STRING_BUFFER_LEN;
 
-	rclc_publisher_init_default(&debug_publisher, node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/debug");
+	RCCHECK(rclc_publisher_init_default(&debug_publisher, node,
+		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/debug"));
+	debug_publisher_ready = true;
+
+	left_whl_msg.data.data = left_whl_buffer;
+	left_whl_msg.data.size = 0;
+	left_whl_msg.data.capacity = STRING_BUFFER_LEN;
+	RCCHECK(rclc_publisher_init_default(&left_whl_publisher, node,
+		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/left_whl"));
+
+	right_whl_msg.data.data = right_whl_buffer;
+	right_whl_msg.data.size = 0;
+	right_whl_msg.data.capacity = STRING_BUFFER_LEN;
+	RCCHECK(rclc_publisher_init_default(&right_whl_publisher, node,
+		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/right_whl"));
 }
 
 // Initialize Subscribers
@@ -204,7 +272,7 @@ void appMain(void *argument)
 	printf("Rover app started\n");
 
 	// Initialize hardware
-	printf("Initializing hardware...\n");
+	printf("Initializing hardware with encoders...\n");
 	init_hardware();
 	vTaskDelay(pdMS_TO_TICKS(500));
 
@@ -230,7 +298,6 @@ void appMain(void *argument)
 
 	// Initialize publishers and subscribers
 	init_publishers(&node);
-	debug_publisher_ready = true;
 	init_subscribers(&node);
 
 	// Create executor
@@ -242,9 +309,20 @@ void appMain(void *argument)
 	// Start the executor
 	bool in_safety_stop = false;
 	last_cmd_vel_time = esp_timer_get_time() / 1000;
-	
+	int64_t last_enc_publish_time = esp_timer_get_time() / 1000;
+
 	while(1) {
 		rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
+
+		// --- ENCODER PUBLISH (20Hz) ---
+		int64_t now_enc = esp_timer_get_time() / 1000;
+		if (now_enc - last_enc_publish_time >= 50) {
+			left_whl_msg.data.size  = snprintf(left_whl_buffer,  STRING_BUFFER_LEN, "lf:%d,lr:%d", enc_lf, enc_lr);
+			right_whl_msg.data.size = snprintf(right_whl_buffer, STRING_BUFFER_LEN, "rf:%d,rr:%d", enc_rf, enc_rr);
+			rcl_publish(&left_whl_publisher,  &left_whl_msg,  NULL);
+			rcl_publish(&right_whl_publisher, &right_whl_msg, NULL);
+			last_enc_publish_time = now_enc;
+		}
 
 		// --- SAFETY STOP LOGIC ---
 		int64_t now = esp_timer_get_time() / 1000;
