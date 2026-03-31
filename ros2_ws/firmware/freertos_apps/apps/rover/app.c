@@ -22,13 +22,6 @@
 #include "freertos/task.h"
 #endif
 
-#define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){ \
-    char _err_buf[STRING_BUFFER_LEN]; \
-    snprintf(_err_buf, STRING_BUFFER_LEN, "FAIL line %d: %d", __LINE__, (int)temp_rc); \
-    printf("%s\n", _err_buf); \
-    if(debug_publisher_ready) { for(int _i=0; _i<20; _i++) { publish_debug(_err_buf); vTaskDelay(pdMS_TO_TICKS(200)); } } \
-    vTaskDelete(NULL); }}
-#define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){printf("Failed status on line %d: %d. Continuing.\n",__LINE__,(int)temp_rc);}}
 
 // LEFT FRONT
 #define M_LF_PWM 25
@@ -85,6 +78,29 @@ volatile int32_t enc_rr = 0;
 // Global variables
 int64_t last_cmd_vel_time = 0;
 bool debug_publisher_ready = false;
+
+// Pre-init log buffer — captures messages before the debug publisher is ready
+#define LOG_BUFFER_COUNT 16
+static char log_buffer[LOG_BUFFER_COUNT][STRING_BUFFER_LEN];
+static int log_buffer_head = 0;
+
+void log_msg(const char *msg) {
+    if (debug_publisher_ready) {
+        publish_debug(msg);
+    } else {
+        if (log_buffer_head < LOG_BUFFER_COUNT) {
+            snprintf(log_buffer[log_buffer_head++], STRING_BUFFER_LEN, "%s", msg);
+        }
+    }
+}
+
+void flush_log_buffer(void) {
+    for (int i = 0; i < log_buffer_head; i++) {
+        publish_debug(log_buffer[i]);
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+    log_buffer_head = 0;
+}
 
 rcl_subscription_t cmd_vel_subscriber;
 rcl_publisher_t debug_publisher;
@@ -162,41 +178,6 @@ void init_hardware()
     init_encoders();
 }
 
-// Initialize Publishers
-void init_publishers(rcl_node_t *node)
-{
-	// Initialize the debug message
-	outcoming_debug.data.data = debug_buffer;
-	outcoming_debug.data.size = 0;
-	outcoming_debug.data.capacity = STRING_BUFFER_LEN;
-
-	RCCHECK(rclc_publisher_init_default(&debug_publisher, node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/debug"));
-	debug_publisher_ready = true;
-	vTaskDelay(pdMS_TO_TICKS(100));
-
-	left_whl_msg.data.data = left_whl_buffer;
-	left_whl_msg.data.size = 0;
-	left_whl_msg.data.capacity = STRING_BUFFER_LEN;
-	RCCHECK(rclc_publisher_init_default(&left_whl_publisher, node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/left_whl"));
-	vTaskDelay(pdMS_TO_TICKS(100));
-
-	right_whl_msg.data.data = right_whl_buffer;
-	right_whl_msg.data.size = 0;
-	right_whl_msg.data.capacity = STRING_BUFFER_LEN;
-	RCCHECK(rclc_publisher_init_default(&right_whl_publisher, node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/right_whl"));
-	vTaskDelay(pdMS_TO_TICKS(100));
-}
-
-// Initialize Subscribers
-void init_subscribers(rcl_node_t *node)
-{
-	RCCHECK(rclc_subscription_init_best_effort(&cmd_vel_subscriber, node,
-		ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, TwistStamped), "/cmd_vel"));
-	vTaskDelay(pdMS_TO_TICKS(100));
-}
 
 // Helper function to publish debug messages
 void publish_debug(const char * msg) {
@@ -245,11 +226,6 @@ void cmd_vel_subscription_callback (const void * msgin)
 	float linear_x = msg->twist.linear.x;
 	float angular_z = msg->twist.angular.z;
 
-	// Publish the received command velocity
-	char temp_buf[STRING_BUFFER_LEN];
-    snprintf(temp_buf, STRING_BUFFER_LEN, "CMD: %.2f, %.2f", linear_x, angular_z);
-    publish_debug(temp_buf);
-
 	// Kinematic model for differential drive robot
 	float left_velocity = linear_x - (angular_z * TRACK_WIDTH / 2.0);
 	float right_velocity = linear_x + (angular_z * TRACK_WIDTH / 2.0);
@@ -263,6 +239,7 @@ void cmd_vel_subscription_callback (const void * msgin)
 	set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, right_velocity);
 
 	// Publish the left and right motor velocities
+	char temp_buf[STRING_BUFFER_LEN];
 	snprintf(temp_buf, STRING_BUFFER_LEN, "L: %.2f, R: %.2f", left_velocity, right_velocity);
     publish_debug(temp_buf);
 }
@@ -270,85 +247,152 @@ void cmd_vel_subscription_callback (const void * msgin)
 
 void appMain(void *argument)
 {
-	rcl_allocator_t allocator = rcl_get_default_allocator();
-	rclc_support_t support;
-
-	printf("Rover app started\n");
-
-	// Initialize hardware
-	printf("Initializing hardware with encoders...\n");
+	log_msg("Rover app started");
+	log_msg("Initializing hardware...");
 	init_hardware();
 	vTaskDelay(pdMS_TO_TICKS(500));
 
-	// Wait for micro-ROS agent to be ready.
-	// Use a single ping then a fixed delay — multiple pings each open a temporary
-	// XRCE-DDS session, leaving the agent in a confused state when rclc_support_init
-	// tries to establish the real session.
-	while (1) {
-        if (rmw_uros_ping_agent(500, 1) == RMW_RET_OK) {
-            printf("Agent detected! Waiting for agent to be ready...\n");
-            // Allow time for the agent to finish starting up or clear a stale
-            // session from a previous ESP32 connection before we send session init.
-            vTaskDelay(pdMS_TO_TICKS(2000));
-            break;
-        }
-        printf("Agent not found. Retrying in 1s...\n");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+	while (1) {  // reconnection loop — retries the entire micro-ROS init on any failure
 
-	// create init_options
-	RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
-	vTaskDelay(pdMS_TO_TICKS(500));
+		rcl_allocator_t allocator = rcl_get_default_allocator();
+		rclc_support_t support;
+		rcl_node_t node;
+		rclc_executor_t executor;
+		bool support_ok = false, node_ok = false;
+		bool pub_debug_ok = false, pub_left_ok = false, pub_right_ok = false;
+		bool sub_ok = false, executor_ok = false;
 
-	// create node
-	rcl_node_t node;
-	RCCHECK(rclc_node_init_default(&node, "rover_node", "", &support));
-	vTaskDelay(pdMS_TO_TICKS(100));
+		// Wait for agent with a single ping + fixed delay.
+		// Multiple pings each open a temporary session and leave the agent in a
+		// confused state when rclc_support_init tries to establish the real one.
+		log_buffer_head = 0;
+		while (rmw_uros_ping_agent(500, 1) != RMW_RET_OK) {
+			vTaskDelay(pdMS_TO_TICKS(1000));
+		}
+		log_msg("Agent detected, waiting for ready...");
+		vTaskDelay(pdMS_TO_TICKS(2000));
 
-	// Initialize publishers and subscribers
-	init_publishers(&node);
-	init_subscribers(&node);
+		// --- INIT ---
+		if (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
+			log_msg("support_init failed"); goto cleanup; }
+		support_ok = true;
+		vTaskDelay(pdMS_TO_TICKS(500));
 
-	// Create executor
-	rclc_executor_t executor;
-	RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
-	RCCHECK(rclc_executor_add_subscription(&executor, &cmd_vel_subscriber, &incoming_cmd_vel,
-		&cmd_vel_subscription_callback, ON_NEW_DATA));
+		if (rclc_node_init_default(&node, "rover_node", "", &support) != RCL_RET_OK) {
+			log_msg("node_init failed"); goto cleanup; }
+		node_ok = true;
+		vTaskDelay(pdMS_TO_TICKS(200));
 
-	// Start the executor
-	bool in_safety_stop = false;
-	last_cmd_vel_time = esp_timer_get_time() / 1000;
-	int64_t last_enc_publish_time = esp_timer_get_time() / 1000;
+		outcoming_debug.data.data = debug_buffer;
+		outcoming_debug.data.size = 0;
+		outcoming_debug.data.capacity = STRING_BUFFER_LEN;
+		if (rclc_publisher_init_default(&debug_publisher, &node,
+				ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/debug") != RCL_RET_OK) {
+			log_msg("debug_publisher init failed"); goto cleanup; }
+		pub_debug_ok = true;
+		debug_publisher_ready = true;
+		flush_log_buffer();
+		vTaskDelay(pdMS_TO_TICKS(200));
 
-	while(1) {
-		rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
+		left_whl_msg.data.data = left_whl_buffer;
+		left_whl_msg.data.size = 0;
+		left_whl_msg.data.capacity = STRING_BUFFER_LEN;
+		if (rclc_publisher_init_default(&left_whl_publisher, &node,
+				ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/left_whl") != RCL_RET_OK) {
+			log_msg("left_whl_publisher init failed"); goto cleanup; }
+		pub_left_ok = true;
+		vTaskDelay(pdMS_TO_TICKS(200));
 
-		// --- ENCODER PUBLISH (20Hz) ---
-		int64_t now_enc = esp_timer_get_time() / 1000;
-		if (now_enc - last_enc_publish_time >= 50) {
-			left_whl_msg.data.size  = snprintf(left_whl_buffer,  STRING_BUFFER_LEN, "lf:%d,lr:%d", enc_lf, enc_lr);
-			right_whl_msg.data.size = snprintf(right_whl_buffer, STRING_BUFFER_LEN, "rf:%d,rr:%d", enc_rf, enc_rr);
-			rcl_publish(&left_whl_publisher,  &left_whl_msg,  NULL);
-			rcl_publish(&right_whl_publisher, &right_whl_msg, NULL);
-			last_enc_publish_time = now_enc;
+		right_whl_msg.data.data = right_whl_buffer;
+		right_whl_msg.data.size = 0;
+		right_whl_msg.data.capacity = STRING_BUFFER_LEN;
+		if (rclc_publisher_init_default(&right_whl_publisher, &node,
+				ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/right_whl") != RCL_RET_OK) {
+			log_msg("right_whl_publisher init failed"); goto cleanup; }
+		pub_right_ok = true;
+		vTaskDelay(pdMS_TO_TICKS(200));
+
+		if (rclc_subscription_init_best_effort(&cmd_vel_subscriber, &node,
+				ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, TwistStamped), "/cmd_vel") != RCL_RET_OK) {
+			log_msg("cmd_vel_subscriber init failed"); goto cleanup; }
+		sub_ok = true;
+		vTaskDelay(pdMS_TO_TICKS(200));
+
+		if (rclc_executor_init(&executor, &support.context, 1, &allocator) != RCL_RET_OK) {
+			log_msg("executor_init failed"); goto cleanup; }
+		executor_ok = true;
+		if (rclc_executor_add_subscription(&executor, &cmd_vel_subscriber, &incoming_cmd_vel,
+				&cmd_vel_subscription_callback, ON_NEW_DATA) != RCL_RET_OK) {
+			log_msg("executor_add_subscription failed"); goto cleanup; }
+
+		log_msg("micro-ROS fully initialized");
+
+		// --- MAIN LOOP ---
+		{
+			bool in_safety_stop = false;
+			last_cmd_vel_time = esp_timer_get_time() / 1000;
+			int64_t last_enc_publish_time = esp_timer_get_time() / 1000;
+			int consecutive_publish_failures = 0;
+
+			while (1) {
+				rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
+
+				// --- ENCODER PUBLISH (20Hz) ---
+				int64_t now_enc = esp_timer_get_time() / 1000;
+				if (now_enc - last_enc_publish_time >= 50) {
+					int llen = snprintf(left_whl_buffer,  STRING_BUFFER_LEN, "lf:%d,lr:%d", enc_lf, enc_lr);
+					int rlen = snprintf(right_whl_buffer, STRING_BUFFER_LEN, "rf:%d,rr:%d", enc_rf, enc_rr);
+					left_whl_msg.data.size  = (llen >= STRING_BUFFER_LEN) ? STRING_BUFFER_LEN - 1 : llen;
+					right_whl_msg.data.size = (rlen >= STRING_BUFFER_LEN) ? STRING_BUFFER_LEN - 1 : rlen;
+					rcl_ret_t pub_ret = rcl_publish(&left_whl_publisher, &left_whl_msg, NULL);
+					rcl_publish(&right_whl_publisher, &right_whl_msg, NULL);
+					last_enc_publish_time = now_enc;
+
+					if (pub_ret != RCL_RET_OK) {
+						consecutive_publish_failures++;
+						if (consecutive_publish_failures >= 5) {
+							log_msg("Agent lost, reconnecting...");
+							goto cleanup;
+						}
+					} else {
+						consecutive_publish_failures = 0;
+					}
+				}
+
+				// --- SAFETY STOP LOGIC ---
+				int64_t now = esp_timer_get_time() / 1000;
+				if (now - last_cmd_vel_time > TIMEOUT_MS) {
+					if (!in_safety_stop) {
+						set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, 0);
+						set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, 0);
+						set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, 0);
+						set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, 0);
+						char temp_buf[STRING_BUFFER_LEN];
+						snprintf(temp_buf, STRING_BUFFER_LEN, "SAFETY STOP - NO CMD_VEL FOR %dms", TIMEOUT_MS);
+						publish_debug(temp_buf);
+						in_safety_stop = true;
+					}
+				} else {
+					in_safety_stop = false;
+				}
+				vTaskDelay(pdMS_TO_TICKS(10));
+			}
 		}
 
-		// --- SAFETY STOP LOGIC ---
-		int64_t now = esp_timer_get_time() / 1000;
-		if(now - last_cmd_vel_time > TIMEOUT_MS) {
-			if (!in_safety_stop) {
-                set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, 0);
-                set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, 0);
-                set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, 0);
-                set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, 0);
-                char temp_buf[STRING_BUFFER_LEN];
-                snprintf(temp_buf, STRING_BUFFER_LEN, "SAFETY STOP - NO CMD_VEL FOR %dms", TIMEOUT_MS);
-                publish_debug(temp_buf);
-                in_safety_stop = true;
-            }
-		} else {
-			in_safety_stop = false;
-		}
-		vTaskDelay(pdMS_TO_TICKS(10));
+		cleanup:
+		log_msg("Cleaning up, will reconnect...");
+		debug_publisher_ready = false;
+		set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, 0);
+		set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, 0);
+		set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, 0);
+		set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, 0);
+		if (executor_ok) rclc_executor_fini(&executor);
+		if (sub_ok)      rcl_subscription_fini(&cmd_vel_subscriber, &node);
+		if (pub_right_ok) rcl_publisher_fini(&right_whl_publisher, &node);
+		if (pub_left_ok)  rcl_publisher_fini(&left_whl_publisher, &node);
+		if (pub_debug_ok) rcl_publisher_fini(&debug_publisher, &node);
+		if (node_ok)     rcl_node_fini(&node);
+		if (support_ok)  rclc_support_fini(&support);
+		vTaskDelay(pdMS_TO_TICKS(1000));
 	}
 }
