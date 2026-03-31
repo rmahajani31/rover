@@ -164,7 +164,7 @@ void init_hardware()
 
 // Initialize Publishers
 void init_publishers(rcl_node_t *node)
-{	
+{
 	// Initialize the debug message
 	outcoming_debug.data.data = debug_buffer;
 	outcoming_debug.data.size = 0;
@@ -173,18 +173,21 @@ void init_publishers(rcl_node_t *node)
 	RCCHECK(rclc_publisher_init_default(&debug_publisher, node,
 		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/debug"));
 	debug_publisher_ready = true;
+	vTaskDelay(pdMS_TO_TICKS(100));
 
 	left_whl_msg.data.data = left_whl_buffer;
 	left_whl_msg.data.size = 0;
 	left_whl_msg.data.capacity = STRING_BUFFER_LEN;
 	RCCHECK(rclc_publisher_init_default(&left_whl_publisher, node,
 		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/left_whl"));
+	vTaskDelay(pdMS_TO_TICKS(100));
 
 	right_whl_msg.data.data = right_whl_buffer;
 	right_whl_msg.data.size = 0;
 	right_whl_msg.data.capacity = STRING_BUFFER_LEN;
 	RCCHECK(rclc_publisher_init_default(&right_whl_publisher, node,
 		ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/right_whl"));
+	vTaskDelay(pdMS_TO_TICKS(100));
 }
 
 // Initialize Subscribers
@@ -192,6 +195,7 @@ void init_subscribers(rcl_node_t *node)
 {
 	RCCHECK(rclc_subscription_init_best_effort(&cmd_vel_subscriber, node,
 		ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, TwistStamped), "/cmd_vel"));
+	vTaskDelay(pdMS_TO_TICKS(100));
 }
 
 // Helper function to publish debug messages
@@ -276,25 +280,30 @@ void appMain(void *argument)
 	init_hardware();
 	vTaskDelay(pdMS_TO_TICKS(500));
 
-	// Wait for micro-ROS agent to be ready
+	// Wait for micro-ROS agent to be ready.
+	// Use a single ping then a fixed delay — multiple pings each open a temporary
+	// XRCE-DDS session, leaving the agent in a confused state when rclc_support_init
+	// tries to establish the real session.
 	while (1) {
-        // Ping the agent with a 100ms timeout, 1 attempt
-        if (rmw_uros_ping_agent(100, 1) == RMW_RET_OK) {
-            printf("Agent detected! Connecting...\n");
+        if (rmw_uros_ping_agent(500, 1) == RMW_RET_OK) {
+            printf("Agent detected! Waiting for agent to be ready...\n");
+            // Allow time for the agent to finish starting up or clear a stale
+            // session from a previous ESP32 connection before we send session init.
+            vTaskDelay(pdMS_TO_TICKS(2000));
             break;
         }
-
-        // If not found, wait 1 second and try again
         printf("Agent not found. Retrying in 1s...\n");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
 	// create init_options
 	RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
+	vTaskDelay(pdMS_TO_TICKS(500));
 
 	// create node
 	rcl_node_t node;
 	RCCHECK(rclc_node_init_default(&node, "rover_node", "", &support));
+	vTaskDelay(pdMS_TO_TICKS(100));
 
 	// Initialize publishers and subscribers
 	init_publishers(&node);
