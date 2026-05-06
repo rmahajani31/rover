@@ -1,4 +1,4 @@
-import math
+import time
 from typing import List, Optional
 
 import rclpy
@@ -10,6 +10,33 @@ from sensor_msgs.msg import Joy
 from geometry_msgs.msg import TwistStamped
 from std_msgs.msg import Bool
 
+
+def clip11(x: float) -> float:
+    """Clamp a value to [-1.0, 1.0]."""
+    return -1.0 if x < -1.0 else (1.0 if x > 1.0 else x)
+
+
+def clamp01(x: float) -> float:
+    """Clamp a value to [0.0, 1.0]."""
+    return 0.0 if x < 0.0 else (1.0 if x > 1.0 else x)
+
+
+def apply_expo(x: float, expo: float) -> float:
+    """Blend linear and cubic response for finer control near stick center."""
+    expo = clamp01(expo)
+    return ((1.0 - expo) * x) + (expo * x * x * x)
+
+
+def step_toward(current: float, target: float, max_step: float) -> float:
+    """Move current toward target without exceeding max_step."""
+    delta = target - current
+    if delta > max_step:
+        return current + max_step
+    if delta < -max_step:
+        return current - max_step
+    return target
+
+
 class AdapterNode(Node):
     def __init__(self):
         super().__init__('adapter_node')
@@ -19,6 +46,15 @@ class AdapterNode(Node):
         self.declare_parameter('throttle_axis', 1)         # e.g., left stick Y
         self.declare_parameter('steer_axis', 3)            # e.g., right stick X
         self.declare_parameter('deadzone', 0.06)
+        self.declare_parameter('max_linear_x', 0.35)
+        self.declare_parameter('max_angular_z', 0.8)
+        self.declare_parameter('throttle_expo', 0.5)
+        self.declare_parameter('steer_expo', 0.6)
+        self.declare_parameter('publish_rate_hz', 30.0)
+        self.declare_parameter('accel_rate_linear', 0.6)
+        self.declare_parameter('decel_rate_linear', 1.5)
+        self.declare_parameter('accel_rate_angular', 1.2)
+        self.declare_parameter('decel_rate_angular', 2.5)
 
         # Initial polarity (can be toggled at runtime via buttons)
         self.declare_parameter('invert_throttle', False)
@@ -35,6 +71,15 @@ class AdapterNode(Node):
         self.throttle_axis = int(self.get_parameter('throttle_axis').value)
         self.steer_axis = int(self.get_parameter('steer_axis').value)
         self.deadzone = float(self.get_parameter('deadzone').value)
+        self.max_linear_x = float(self.get_parameter('max_linear_x').value)
+        self.max_angular_z = float(self.get_parameter('max_angular_z').value)
+        self.throttle_expo = float(self.get_parameter('throttle_expo').value)
+        self.steer_expo = float(self.get_parameter('steer_expo').value)
+        self.publish_rate_hz = max(1.0, float(self.get_parameter('publish_rate_hz').value))
+        self.accel_rate_linear = float(self.get_parameter('accel_rate_linear').value)
+        self.decel_rate_linear = float(self.get_parameter('decel_rate_linear').value)
+        self.accel_rate_angular = float(self.get_parameter('accel_rate_angular').value)
+        self.decel_rate_angular = float(self.get_parameter('decel_rate_angular').value)
 
         self.invert_throttle = bool(self.get_parameter('invert_throttle').value)
         self.invert_steer = bool(self.get_parameter('invert_steer').value)
@@ -65,6 +110,14 @@ class AdapterNode(Node):
         # Subscribe to /joy to track joystick actions
         self.sub_joy = self.create_subscription(Joy, '/joy', self.on_joy, 10)
 
+        # Smoothed command state
+        self.desired_linear_x = 0.0
+        self.desired_angular_z = 0.0
+        self.current_linear_x = 0.0
+        self.current_angular_z = 0.0
+        self.last_publish_time = time.monotonic()
+        self.timer = self.create_timer(1.0 / self.publish_rate_hz, self.on_timer)
+
         # Internal state for edge detection
         self.prev_buttons: Optional[List[int]] = None
 
@@ -82,6 +135,15 @@ class AdapterNode(Node):
             f'buttons: estop={self.btn_estop} swap={self.btn_swap} '
             f'inv_thr={self.btn_inv_throttle} inv_steer={self.btn_inv_steer}'
         )
+        self.get_logger().info(
+            f'limits: max_linear_x={self.max_linear_x:.3f} max_angular_z={self.max_angular_z:.3f} '
+            f'expo(thr)={self.throttle_expo:.2f} expo(steer)={self.steer_expo:.2f}'
+        )
+        self.get_logger().info(
+            f'smoothing: publish_rate_hz={self.publish_rate_hz:.1f} '
+            f'accel_linear={self.accel_rate_linear:.2f} decel_linear={self.decel_rate_linear:.2f} '
+            f'accel_angular={self.accel_rate_angular:.2f} decel_angular={self.decel_rate_angular:.2f}'
+        )
     
     def _edge_pressed(self, idx: int, buttons: List[int]) -> bool:
         """True on rising edge (0→1). idx<0 means 'disabled'."""
@@ -97,6 +159,31 @@ class AdapterNode(Node):
         "Check if any of the buttons associated with the indices have rising edges"
         return any(self._edge_pressed(i, buttons) for i in indices if i >= 0)
 
+    def _apply_deadzone(self, x: float) -> float:
+        """Enforce a centered deadzone."""
+        return 0.0 if abs(x) < self.deadzone else x
+
+    def _scale_axis(self, x: float, expo: float, max_value: float) -> float:
+        """Shape and scale a joystick axis to the command range."""
+        shaped = apply_expo(self._apply_deadzone(clip11(x)), expo)
+        return shaped * max_value
+
+    def _step_command(self, current: float, target: float, accel_rate: float, decel_rate: float, dt: float) -> float:
+        """Rate-limit command changes and prefer quicker decay toward zero."""
+        same_direction = (current == 0.0) or (target == 0.0) or ((current > 0.0) == (target > 0.0))
+        reducing_magnitude = abs(target) < abs(current)
+        use_decel = reducing_magnitude or not same_direction
+        max_step = max(0.0, (decel_rate if use_decel else accel_rate) * dt)
+        return step_toward(current, target, max_step)
+
+    def _publish_twist(self, linear_x: float, angular_z: float):
+        """Publish the current command to the firmware-facing /cmd_vel topic."""
+        twist = TwistStamped()
+        twist.header.stamp = self.get_clock().now().to_msg()
+        twist.twist.linear.x = linear_x
+        twist.twist.angular.z = angular_z
+        self.pub_cmd.publish(twist)
+
     def on_joy(self, msg: Joy):
         """Callback on any joystick actions"""
         axes = msg.axes
@@ -107,8 +194,11 @@ class AdapterNode(Node):
             self.get_logger().warn('E-STOP pressed! Publishing latched self.estop_state and zeroing command.')
             self.estop_state = not self.estop_state
             self.pub_estop.publish(Bool(data=self.estop_state))
-            # Also publish a zeroed Twist immediately
-            self.pub_cmd.publish(TwistStamped())
+            self.desired_linear_x = 0.0
+            self.desired_angular_z = 0.0
+            self.current_linear_x = 0.0
+            self.current_angular_z = 0.0
+            self._publish_twist(0.0, 0.0)
             self.prev_buttons = buttons[:]  # update edge state
             return  # do not process command on this frame
         
@@ -130,14 +220,6 @@ class AdapterNode(Node):
         # Map axes → (throttle, steer)
         def safe_get(idx: int) -> float:
             return axes[idx] if 0 <= idx < len(axes) else 0.0
-        
-        # clip the axis values to be in the range [-1.0, 1.0]
-        def clip(x: float) -> float:
-            return -1.0 if x < -1.0 else (1.0 if x > 1.0 else x)
-
-        # Enforce a deadzone on throttle and steer where the robot will not move
-        def _apply_deadzone(x: float) -> float:
-            return 0.0 if abs(x) < self.deadzone else x
 
         # Get the axis values and swap them if the swap button has been pressed
         ax_t = self.throttle_axis
@@ -145,25 +227,46 @@ class AdapterNode(Node):
         if self.swapped:
             ax_t, ax_s = ax_s, ax_t
         
-        # After clipping and applying the deadzone get the throttle and steer values
-        throttle = _apply_deadzone(clip(safe_get(ax_t)))
-        steer = _apply_deadzone(clip(safe_get(ax_s)))
+        throttle = safe_get(ax_t)
+        steer = safe_get(ax_s)
 
         # Invert the throttle and steer values if the respective buttons have been pressed
         if self.invert_throttle:
             throttle = -throttle
         if self.invert_steer:
             steer = -steer
-        
-        # Publish a twist message to cmd_vel to drive the motor, linear.x is throttle and angular.z is steer
-        twist = TwistStamped()
-        twist.header.stamp = self.get_clock().now().to_msg()
-        twist.twist.linear.x  = throttle
-        twist.twist.angular.z = steer
-        self.pub_cmd.publish(twist)
+
+        if self.estop_state:
+            self.desired_linear_x = 0.0
+            self.desired_angular_z = 0.0
+        else:
+            self.desired_linear_x = self._scale_axis(throttle, self.throttle_expo, self.max_linear_x)
+            self.desired_angular_z = self._scale_axis(steer, self.steer_expo, self.max_angular_z)
 
         # Save for edge detection next time
         self.prev_buttons = buttons[:]
+
+    def on_timer(self):
+        """Publish smoothed commands to the firmware at a fixed rate."""
+        now = time.monotonic()
+        dt = max(1e-3, now - self.last_publish_time)
+        self.last_publish_time = now
+
+        self.current_linear_x = self._step_command(
+            self.current_linear_x,
+            self.desired_linear_x,
+            self.accel_rate_linear,
+            self.decel_rate_linear,
+            dt,
+        )
+        self.current_angular_z = self._step_command(
+            self.current_angular_z,
+            self.desired_angular_z,
+            self.accel_rate_angular,
+            self.decel_rate_angular,
+            dt,
+        )
+        self._publish_twist(self.current_linear_x, self.current_angular_z)
 
 def main(args=None):
     try:
