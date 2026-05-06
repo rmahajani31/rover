@@ -69,6 +69,7 @@
 #define MAX_ANGULAR_SPEED ((2.0f * MAX_SPEED) / TRACK_WIDTH) // rad/s
 #define AGENT_PING_TIMEOUT_MS 1000
 #define AGENT_RETRY_BACKOFF_MS 500
+#define AGENT_SETTLE_DELAY_MS 250
 #define MOTOR_EPSILON 0.01f
 
 // Forward declarations
@@ -105,6 +106,9 @@ static RTC_NOINIT_ATTR int last_runtime_phase = RUNTIME_PHASE_NONE;
 #define LOG_BUFFER_COUNT 16
 static char log_buffer[LOG_BUFFER_COUNT][STRING_BUFFER_LEN];
 static int log_buffer_head = 0;
+static int current_init_attempt = 0;
+static char last_retry_summary[STRING_BUFFER_LEN];
+static bool last_retry_summary_pending = false;
 
 #define DEBUG_EVENT_COUNT 24
 static char debug_event_buffer[DEBUG_EVENT_COUNT][STRING_BUFFER_LEN];
@@ -118,16 +122,47 @@ static float clampf(float value, float min_value, float max_value) {
     }
     if (value > max_value) {
         return max_value;
+	    }
+	    return value;
+	}
+
+static bool is_valid_runtime_phase(int phase) {
+    return phase >= RUNTIME_PHASE_NONE && phase <= RUNTIME_PHASE_CLEANUP;
+}
+
+void clear_log_buffer(void) {
+    log_buffer_head = 0;
+}
+
+void append_truncated_string(char *dest, size_t dest_size, size_t write_index, const char *src) {
+    if (write_index >= dest_size) {
+        if (dest_size > 0) {
+            dest[dest_size - 1] = '\0';
+        }
+        return;
     }
-    return value;
+
+    size_t max_copy = dest_size - write_index - 1;
+    size_t copy_len = strnlen(src, max_copy);
+    memcpy(dest + write_index, src, copy_len);
+    dest[write_index + copy_len] = '\0';
 }
 
 void log_msg(const char *msg) {
+    char temp_buf[STRING_BUFFER_LEN];
+    const char * message_to_log = msg;
+    if (current_init_attempt > 0) {
+        int len = snprintf(temp_buf, STRING_BUFFER_LEN, "[attempt %d] %s", current_init_attempt, msg);
+        if (len > 0 && len < STRING_BUFFER_LEN) {
+            message_to_log = temp_buf;
+        }
+    }
+
     if (debug_publisher_ready) {
-        publish_debug(msg);
+        publish_debug(message_to_log);
     } else {
         if (log_buffer_head < LOG_BUFFER_COUNT) {
-            snprintf(log_buffer[log_buffer_head++], STRING_BUFFER_LEN, "%s", msg);
+            snprintf(log_buffer[log_buffer_head++], STRING_BUFFER_LEN, "%s", message_to_log);
         }
     }
 }
@@ -212,6 +247,10 @@ const char * reset_reason_to_string(esp_reset_reason_t reason) {
 void log_reset_reason(void) {
     char temp_buf[STRING_BUFFER_LEN];
     esp_reset_reason_t reason = esp_reset_reason();
+    int phase = last_runtime_phase;
+    if (!is_valid_runtime_phase(phase)) {
+        phase = RUNTIME_PHASE_NONE;
+    }
     snprintf(
         temp_buf,
         STRING_BUFFER_LEN,
@@ -225,8 +264,8 @@ void log_reset_reason(void) {
         temp_buf,
         STRING_BUFFER_LEN,
         "Last runtime phase: %s (%d)",
-        runtime_phase_to_string(last_runtime_phase),
-        last_runtime_phase
+        runtime_phase_to_string(phase),
+        phase
     );
     log_msg(temp_buf);
     last_runtime_phase = RUNTIME_PHASE_BOOT;
@@ -243,16 +282,28 @@ void log_rcl_error(const char * context, rcl_ret_t ret_code) {
     if (prefix_len < 0) {
         temp_buf[0] = '\0';
     } else if (prefix_len < STRING_BUFFER_LEN) {
-        size_t write_index = (size_t) prefix_len;
-        size_t max_copy = STRING_BUFFER_LEN - write_index - 1;
-        size_t copy_len = strnlen(error_str, max_copy);
-        memcpy(temp_buf + write_index, error_str, copy_len);
-        temp_buf[write_index + copy_len] = '\0';
+        append_truncated_string(temp_buf, STRING_BUFFER_LEN, (size_t) prefix_len, error_str);
     } else {
         temp_buf[STRING_BUFFER_LEN - 1] = '\0';
-    }
-    log_msg(temp_buf);
-    rcl_reset_error();
+	    }
+	    log_msg(temp_buf);
+	    if (current_init_attempt > 0) {
+	        int summary_len = snprintf(
+	            last_retry_summary,
+	            STRING_BUFFER_LEN,
+		            "Attempt %d failed: ",
+		            current_init_attempt
+		        );
+		        if (summary_len < 0) {
+		            last_retry_summary[0] = '\0';
+		        } else if (summary_len < STRING_BUFFER_LEN) {
+		            append_truncated_string(last_retry_summary, STRING_BUFFER_LEN, (size_t) summary_len, temp_buf);
+		        } else {
+		            last_retry_summary[STRING_BUFFER_LEN - 1] = '\0';
+		        }
+		        last_retry_summary_pending = true;
+		    }
+	    rcl_reset_error();
 }
 
 rcl_subscription_t cmd_vel_subscriber;
@@ -401,14 +452,16 @@ void appMain(void *argument)
 	bool in_safety_stop = false;
 	bool session_should_retry = false;
 	int reconnect_attempt = 0;
+    int init_attempt = 0;
 
 	while (1) {
 		switch (state) {
 				case CONN_WAIT_FOR_AGENT: {
+					current_init_attempt = 0;
 					debug_publisher_ready = false;
 					last_cmd_vel_time = 0;
 					in_safety_stop = false;
-                    latest_linear_x = 0.0f;
+	                    latest_linear_x = 0.0f;
                     latest_angular_z = 0.0f;
                     applied_left_velocity = 0.0f;
                     applied_right_velocity = 0.0f;
@@ -430,12 +483,17 @@ void appMain(void *argument)
 					log_msg(temp_buf);
 					vTaskDelay(pdMS_TO_TICKS(AGENT_RETRY_BACKOFF_MS));
 					break;
-				}
+					}
 
-				log_msg("Agent wait: detected");
-				state = CONN_INIT_MICROROS;
-				break;
-			}
+	                    init_attempt++;
+	                    current_init_attempt = init_attempt;
+						log_msg("Agent wait: detected");
+                        log_msg("Agent wait: settling transport");
+                        vTaskDelay(pdMS_TO_TICKS(AGENT_SETTLE_DELAY_MS));
+                        log_msg("Agent wait: transport settled");
+						state = CONN_INIT_MICROROS;
+						break;
+					}
 
 			case CONN_INIT_MICROROS:
 				log_msg("support_init: begin");
@@ -506,13 +564,17 @@ void appMain(void *argument)
 					session_should_retry = true;
 					state = CONN_CLEANUP;
 					break;
-				}
-					debug_publisher_ready = true;
-					flush_log_buffer();
-					log_msg("executor_add_subscription: ok");
+					}
+						debug_publisher_ready = true;
+						flush_log_buffer();
+                        if (last_retry_summary_pending) {
+                            publish_debug(last_retry_summary);
+                            last_retry_summary_pending = false;
+                        }
+						log_msg("executor_add_subscription: ok");
 
-					reconnect_attempt = 0;
-					last_cmd_vel_time = 0;
+						reconnect_attempt = 0;
+						last_cmd_vel_time = 0;
 					latest_linear_x = 0.0f;
 					latest_angular_z = 0.0f;
                     applied_left_velocity = 0.0f;
@@ -636,15 +698,17 @@ void appMain(void *argument)
                 applied_left_velocity = 0.0f;
                 applied_right_velocity = 0.0f;
 
-				if (session_should_retry) {
-					log_msg("Cleanup: done, will reconnect");
-					session_should_retry = false;
-				} else {
-					log_msg("Cleanup: done");
-				}
+					if (session_should_retry) {
+						log_msg("Cleanup: done, will reconnect");
+                        clear_log_buffer();
+						session_should_retry = false;
+					} else {
+						log_msg("Cleanup: done");
+                        clear_log_buffer();
+					}
 
-				vTaskDelay(pdMS_TO_TICKS(AGENT_RETRY_BACKOFF_MS));
-				state = CONN_WAIT_FOR_AGENT;
+					vTaskDelay(pdMS_TO_TICKS(AGENT_RETRY_BACKOFF_MS));
+					state = CONN_WAIT_FOR_AGENT;
 				break;
 		}
 	}
