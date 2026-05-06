@@ -10,10 +10,13 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
+#include "esp_attr.h"
 #include "esp_timer.h"
+#include "esp_system.h"
 
 #ifdef ESP_PLATFORM
 #include "freertos/FreeRTOS.h"
@@ -63,19 +66,61 @@
 #define PWM_FREQUENCY 20000 // Hz
 #define DEADZONE 0.05 // m/s
 #define MAX_SPEED 1.0f // m/s
+#define MAX_ANGULAR_SPEED ((2.0f * MAX_SPEED) / TRACK_WIDTH) // rad/s
+#define AGENT_PING_TIMEOUT_MS 1000
+#define AGENT_RETRY_BACKOFF_MS 500
+#define MOTOR_EPSILON 0.01f
 
 // Forward declarations
 void publish_debug(const char * msg);
+rcl_ret_t set_motor_speed(int channel, int dir_pin, float speed);
 
 
 // Global variables
 int64_t last_cmd_vel_time = 0;
 bool debug_publisher_ready = false;
+float latest_linear_x = 0.0f;
+float latest_angular_z = 0.0f;
+float applied_left_velocity = 0.0f;
+float applied_right_velocity = 0.0f;
+
+typedef enum {
+    RUNTIME_PHASE_NONE = 0,
+    RUNTIME_PHASE_BOOT = 1,
+    RUNTIME_PHASE_CALLBACK_ENTER = 2,
+    RUNTIME_PHASE_CALLBACK_STORED = 3,
+    RUNTIME_PHASE_RUN_COMPUTE = 4,
+    RUNTIME_PHASE_RUN_APPLY_LEFT = 5,
+    RUNTIME_PHASE_RUN_APPLY_RIGHT = 6,
+    RUNTIME_PHASE_RUN_APPLY_DONE = 7,
+    RUNTIME_PHASE_RUN_FLUSH_DEBUG = 8,
+    RUNTIME_PHASE_SAFETY_STOP = 9,
+    RUNTIME_PHASE_EXECUTOR_ERROR = 10,
+    RUNTIME_PHASE_CLEANUP = 11
+} runtime_phase_t;
+
+static RTC_NOINIT_ATTR int last_runtime_phase = RUNTIME_PHASE_NONE;
 
 // Pre-init log buffer — captures messages before the debug publisher is ready
 #define LOG_BUFFER_COUNT 16
 static char log_buffer[LOG_BUFFER_COUNT][STRING_BUFFER_LEN];
 static int log_buffer_head = 0;
+
+#define DEBUG_EVENT_COUNT 24
+static char debug_event_buffer[DEBUG_EVENT_COUNT][STRING_BUFFER_LEN];
+static int debug_event_head = 0;
+static int debug_event_tail = 0;
+static bool debug_event_full = false;
+
+static float clampf(float value, float min_value, float max_value) {
+    if (value < min_value) {
+        return min_value;
+    }
+    if (value > max_value) {
+        return max_value;
+    }
+    return value;
+}
 
 void log_msg(const char *msg) {
     if (debug_publisher_ready) {
@@ -93,6 +138,121 @@ void flush_log_buffer(void) {
         vTaskDelay(pdMS_TO_TICKS(50));
     }
     log_buffer_head = 0;
+}
+
+void clear_debug_event_buffer(void) {
+    debug_event_head = 0;
+    debug_event_tail = 0;
+    debug_event_full = false;
+}
+
+void queue_debug_event(const char *msg) {
+    snprintf(debug_event_buffer[debug_event_head], STRING_BUFFER_LEN, "%s", msg);
+    debug_event_head = (debug_event_head + 1) % DEBUG_EVENT_COUNT;
+    if (debug_event_full) {
+        debug_event_tail = (debug_event_tail + 1) % DEBUG_EVENT_COUNT;
+    } else if (debug_event_head == debug_event_tail) {
+        debug_event_full = true;
+    }
+}
+
+bool publish_one_debug_event(void) {
+    if (!debug_event_full && debug_event_tail == debug_event_head) {
+        return false;
+    }
+
+    publish_debug(debug_event_buffer[debug_event_tail]);
+    debug_event_tail = (debug_event_tail + 1) % DEBUG_EVENT_COUNT;
+    debug_event_full = false;
+    return true;
+}
+
+void stop_all_motors(void) {
+    set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, 0.0f);
+    set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, 0.0f);
+    set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, 0.0f);
+    set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, 0.0f);
+}
+
+const char * runtime_phase_to_string(int phase) {
+    switch (phase) {
+        case RUNTIME_PHASE_NONE:           return "NONE";
+        case RUNTIME_PHASE_BOOT:           return "BOOT";
+        case RUNTIME_PHASE_CALLBACK_ENTER: return "CALLBACK_ENTER";
+        case RUNTIME_PHASE_CALLBACK_STORED:return "CALLBACK_STORED";
+        case RUNTIME_PHASE_RUN_COMPUTE:    return "RUN_COMPUTE";
+        case RUNTIME_PHASE_RUN_APPLY_LEFT: return "RUN_APPLY_LEFT";
+        case RUNTIME_PHASE_RUN_APPLY_RIGHT:return "RUN_APPLY_RIGHT";
+        case RUNTIME_PHASE_RUN_APPLY_DONE: return "RUN_APPLY_DONE";
+        case RUNTIME_PHASE_RUN_FLUSH_DEBUG:return "RUN_FLUSH_DEBUG";
+        case RUNTIME_PHASE_SAFETY_STOP:    return "SAFETY_STOP";
+        case RUNTIME_PHASE_EXECUTOR_ERROR: return "EXECUTOR_ERROR";
+        case RUNTIME_PHASE_CLEANUP:        return "CLEANUP";
+        default:                           return "UNKNOWN";
+    }
+}
+
+const char * reset_reason_to_string(esp_reset_reason_t reason) {
+    switch (reason) {
+        case ESP_RST_UNKNOWN:   return "UNKNOWN";
+        case ESP_RST_POWERON:   return "POWERON";
+        case ESP_RST_EXT:       return "EXT";
+        case ESP_RST_SW:        return "SW";
+        case ESP_RST_PANIC:     return "PANIC";
+        case ESP_RST_INT_WDT:   return "INT_WDT";
+        case ESP_RST_TASK_WDT:  return "TASK_WDT";
+        case ESP_RST_WDT:       return "WDT";
+        case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
+        case ESP_RST_BROWNOUT:  return "BROWNOUT";
+        case ESP_RST_SDIO:      return "SDIO";
+        default:                return "UNMAPPED";
+    }
+}
+
+void log_reset_reason(void) {
+    char temp_buf[STRING_BUFFER_LEN];
+    esp_reset_reason_t reason = esp_reset_reason();
+    snprintf(
+        temp_buf,
+        STRING_BUFFER_LEN,
+        "Reset reason: %s (%d)",
+        reset_reason_to_string(reason),
+        (int) reason
+    );
+    log_msg(temp_buf);
+
+    snprintf(
+        temp_buf,
+        STRING_BUFFER_LEN,
+        "Last runtime phase: %s (%d)",
+        runtime_phase_to_string(last_runtime_phase),
+        last_runtime_phase
+    );
+    log_msg(temp_buf);
+    last_runtime_phase = RUNTIME_PHASE_BOOT;
+}
+
+void log_rcl_error(const char * context, rcl_ret_t ret_code) {
+    char temp_buf[STRING_BUFFER_LEN];
+    const char * error_str = rcl_get_error_string().str;
+    if (error_str == NULL || error_str[0] == '\0') {
+        error_str = "no rcl error string";
+    }
+
+    int prefix_len = snprintf(temp_buf, STRING_BUFFER_LEN, "%s (ret=%d): ", context, (int) ret_code);
+    if (prefix_len < 0) {
+        temp_buf[0] = '\0';
+    } else if (prefix_len < STRING_BUFFER_LEN) {
+        size_t write_index = (size_t) prefix_len;
+        size_t max_copy = STRING_BUFFER_LEN - write_index - 1;
+        size_t copy_len = strnlen(error_str, max_copy);
+        memcpy(temp_buf + write_index, error_str, copy_len);
+        temp_buf[write_index + copy_len] = '\0';
+    } else {
+        temp_buf[STRING_BUFFER_LEN - 1] = '\0';
+    }
+    log_msg(temp_buf);
+    rcl_reset_error();
 }
 
 rcl_subscription_t cmd_vel_subscriber;
@@ -152,16 +312,22 @@ void publish_debug(const char * msg) {
 }
 
 // Helper function to set the motor speed
-void set_motor_speed(int channel, int dir_pin, float speed)
+rcl_ret_t set_motor_speed(int channel, int dir_pin, float speed)
 {
 	// Get magnitude of the speed
 	float abs_speed = fabsf(speed);
 
 	// If the speed is less than the deadzone, set the duty cycle to 0
 	if (abs_speed < DEADZONE) {
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, channel, 0);
-        ledc_update_duty(LEDC_LOW_SPEED_MODE, channel);
-        return;
+        esp_err_t set_ret = ledc_set_duty(LEDC_LOW_SPEED_MODE, channel, 0);
+        if (set_ret != ESP_OK) {
+            return RCL_RET_ERROR;
+        }
+        esp_err_t update_ret = ledc_update_duty(LEDC_LOW_SPEED_MODE, channel);
+        if (update_ret != ESP_OK) {
+            return RCL_RET_ERROR;
+        }
+        return RCL_RET_OK;
     }
 
 	// Set duty cycle
@@ -172,141 +338,314 @@ void set_motor_speed(int channel, int dir_pin, float speed)
 	gpio_set_level(dir_pin, (speed >= 0) ? 1 : 0);
 
 	// Update the PWM hardware channel
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, channel, duty);
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, channel);
+    esp_err_t set_ret = ledc_set_duty(LEDC_LOW_SPEED_MODE, channel, duty);
+    if (set_ret != ESP_OK) {
+        return RCL_RET_ERROR;
+    }
+    esp_err_t update_ret = ledc_update_duty(LEDC_LOW_SPEED_MODE, channel);
+    if (update_ret != ESP_OK) {
+        return RCL_RET_ERROR;
+    }
+    return RCL_RET_OK;
 }
 
 // Callback function to convert twist message to motor speeds
 void cmd_vel_subscription_callback (const void * msgin)
 {
+	last_runtime_phase = RUNTIME_PHASE_CALLBACK_ENTER;
+
 	// Refresh the last command velocity time
 	last_cmd_vel_time = esp_timer_get_time() / 1000;
 	
 	// Extract the linear and angular velocities from the incoming message
 	const geometry_msgs__msg__TwistStamped * msg = (const geometry_msgs__msg__TwistStamped *)msgin;
-	float linear_x = msg->twist.linear.x;
-	float angular_z = msg->twist.angular.z;
+	latest_linear_x = clampf(msg->twist.linear.x, -MAX_SPEED, MAX_SPEED);
+	latest_angular_z = clampf(msg->twist.angular.z, -MAX_ANGULAR_SPEED, MAX_ANGULAR_SPEED);
 
-	// Kinematic model for differential drive robot
-	float left_velocity = linear_x - (angular_z * TRACK_WIDTH / 2.0);
-	float right_velocity = linear_x + (angular_z * TRACK_WIDTH / 2.0);
-
-	// Set motor speed for LEFT SIDE MOTORS
-	set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, left_velocity);
-	set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, left_velocity);
-
-	// Set motor speed for RIGHT SIDE MOTORS
-	set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, right_velocity);
-	set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, right_velocity);
-
+	last_runtime_phase = RUNTIME_PHASE_CALLBACK_STORED;
 }
 
 
 void appMain(void *argument)
 {
 	log_msg("Rover app started");
+	log_reset_reason();
 	log_msg("Initializing hardware...");
 	init_hardware();
+	stop_all_motors();
+	last_cmd_vel_time = 0;
+	latest_linear_x = 0.0f;
+	latest_angular_z = 0.0f;
+    applied_left_velocity = 0.0f;
+    applied_right_velocity = 0.0f;
+    clear_debug_event_buffer();
 	vTaskDelay(pdMS_TO_TICKS(500));
 
-	while (1) {  // reconnection loop — retries the entire micro-ROS init on any failure
+	typedef enum {
+		CONN_WAIT_FOR_AGENT,
+		CONN_INIT_MICROROS,
+		CONN_RUN_SESSION,
+		CONN_CLEANUP
+	} connection_state_t;
 
-		rcl_allocator_t allocator = rcl_get_default_allocator();
-		rclc_support_t support;
-		rcl_node_t node;
-		rclc_executor_t executor;
-		bool support_ok = false, node_ok = false;
-		bool pub_debug_ok = false;
-		bool sub_ok = false, executor_ok = false;
+	connection_state_t state = CONN_WAIT_FOR_AGENT;
+	rcl_allocator_t allocator = rcl_get_default_allocator();
+	rclc_support_t support = {0};
+	rcl_node_t node = rcl_get_zero_initialized_node();
+	rclc_executor_t executor = rclc_executor_get_zero_initialized_executor();
+	bool support_ok = false;
+	bool node_ok = false;
+	bool pub_debug_ok = false;
+	bool sub_ok = false;
+	bool executor_ok = false;
+	bool in_safety_stop = false;
+	bool session_should_retry = false;
+	int reconnect_attempt = 0;
 
-		// Wait for agent with a single ping + fixed delay.
-		// Multiple pings each open a temporary session and leave the agent in a
-		// confused state when rclc_support_init tries to establish the real one.
-		log_buffer_head = 0;
-		while (rmw_uros_ping_agent(500, 1) != RMW_RET_OK) {
-			vTaskDelay(pdMS_TO_TICKS(1000));
-		}
-		log_msg("Agent detected, waiting for ready...");
-		vTaskDelay(pdMS_TO_TICKS(2000));
+	while (1) {
+		switch (state) {
+				case CONN_WAIT_FOR_AGENT: {
+					debug_publisher_ready = false;
+					last_cmd_vel_time = 0;
+					in_safety_stop = false;
+                    latest_linear_x = 0.0f;
+                    latest_angular_z = 0.0f;
+                    applied_left_velocity = 0.0f;
+                    applied_right_velocity = 0.0f;
+                    clear_debug_event_buffer();
+					stop_all_motors();
 
-		// --- INIT ---
-		if (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) {
-			log_msg("support_init failed"); goto cleanup; }
-		support_ok = true;
-		vTaskDelay(pdMS_TO_TICKS(500));
+				log_msg("Agent wait: begin");
+				bool agent_found = (rmw_uros_ping_agent(AGENT_PING_TIMEOUT_MS, 1) == RMW_RET_OK);
 
-		if (rclc_node_init_default(&node, "rover_node", "", &support) != RCL_RET_OK) {
-			log_msg("node_init failed"); goto cleanup; }
-		node_ok = true;
-		vTaskDelay(pdMS_TO_TICKS(200));
+				if (!agent_found) {
+					char temp_buf[STRING_BUFFER_LEN];
+					reconnect_attempt++;
+					snprintf(
+						temp_buf,
+						STRING_BUFFER_LEN,
+						"Agent wait: unavailable, retrying (%d)",
+						reconnect_attempt
+					);
+					log_msg(temp_buf);
+					vTaskDelay(pdMS_TO_TICKS(AGENT_RETRY_BACKOFF_MS));
+					break;
+				}
 
-		outcoming_debug.data.data = debug_buffer;
-		outcoming_debug.data.size = 0;
-		outcoming_debug.data.capacity = STRING_BUFFER_LEN;
-		if (rclc_publisher_init_default(&debug_publisher, &node,
-				ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/debug") != RCL_RET_OK) {
-			log_msg("debug_publisher init failed"); goto cleanup; }
-		pub_debug_ok = true;
-		debug_publisher_ready = true;
-		flush_log_buffer();
-		vTaskDelay(pdMS_TO_TICKS(200));
+				log_msg("Agent wait: detected");
+				state = CONN_INIT_MICROROS;
+				break;
+			}
 
-		if (rclc_subscription_init_best_effort(&cmd_vel_subscriber, &node,
-				ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, TwistStamped), "/cmd_vel") != RCL_RET_OK) {
-			log_msg("cmd_vel_subscriber init failed"); goto cleanup; }
-		sub_ok = true;
-		vTaskDelay(pdMS_TO_TICKS(200));
+			case CONN_INIT_MICROROS:
+				log_msg("support_init: begin");
+				rcl_ret_t support_ret = rclc_support_init(&support, 0, NULL, &allocator);
+				if (support_ret != RCL_RET_OK) {
+					log_rcl_error("support_init failed", support_ret);
+					session_should_retry = true;
+					state = CONN_CLEANUP;
+					break;
+				}
+				support_ok = true;
+				log_msg("support_init: ok");
 
-		if (rclc_executor_init(&executor, &support.context, 1, &allocator) != RCL_RET_OK) {
-			log_msg("executor_init failed"); goto cleanup; }
-		executor_ok = true;
-		if (rclc_executor_add_subscription(&executor, &cmd_vel_subscriber, &incoming_cmd_vel,
-				&cmd_vel_subscription_callback, ON_NEW_DATA) != RCL_RET_OK) {
-			log_msg("executor_add_subscription failed"); goto cleanup; }
+				log_msg("node_init: begin");
+				rcl_ret_t node_ret = rclc_node_init_default(&node, "rover_node", "", &support);
+				if (node_ret != RCL_RET_OK) {
+					log_rcl_error("node_init failed", node_ret);
+					session_should_retry = true;
+					state = CONN_CLEANUP;
+					break;
+				}
+				node_ok = true;
+				log_msg("node_init: ok");
 
-		log_msg("micro-ROS fully initialized");
+				outcoming_debug.data.data = debug_buffer;
+				outcoming_debug.data.size = 0;
+				outcoming_debug.data.capacity = STRING_BUFFER_LEN;
+				log_msg("debug_publisher init: begin");
+				rcl_ret_t pub_ret = rclc_publisher_init_default(&debug_publisher, &node,
+						ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String), "/rover/debug");
+				if (pub_ret != RCL_RET_OK) {
+					log_rcl_error("debug_publisher init failed", pub_ret);
+					session_should_retry = true;
+					state = CONN_CLEANUP;
+					break;
+				}
+				pub_debug_ok = true;
+				log_msg("debug_publisher init: ok");
 
-		// --- MAIN LOOP ---
-		{
-			bool in_safety_stop = false;
-			last_cmd_vel_time = esp_timer_get_time() / 1000;
+				log_msg("cmd_vel_subscriber init: begin");
+				rcl_ret_t sub_ret = rclc_subscription_init_best_effort(&cmd_vel_subscriber, &node,
+						ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, TwistStamped), "/cmd_vel");
+				if (sub_ret != RCL_RET_OK) {
+					log_rcl_error("cmd_vel_subscriber init failed", sub_ret);
+					session_should_retry = true;
+					state = CONN_CLEANUP;
+					break;
+				}
+				sub_ok = true;
+				log_msg("cmd_vel_subscriber init: ok");
 
-			while (1) {
-				rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
+				log_msg("executor_init: begin");
+				rcl_ret_t executor_ret = rclc_executor_init(&executor, &support.context, 1, &allocator);
+				if (executor_ret != RCL_RET_OK) {
+					log_rcl_error("executor_init failed", executor_ret);
+					session_should_retry = true;
+					state = CONN_CLEANUP;
+					break;
+				}
+				executor_ok = true;
+				log_msg("executor_init: ok");
 
+				log_msg("executor_add_subscription: begin");
+				rcl_ret_t add_sub_ret = rclc_executor_add_subscription(&executor, &cmd_vel_subscriber, &incoming_cmd_vel,
+						&cmd_vel_subscription_callback, ON_NEW_DATA);
+				if (add_sub_ret != RCL_RET_OK) {
+					log_rcl_error("executor_add_subscription failed", add_sub_ret);
+					session_should_retry = true;
+					state = CONN_CLEANUP;
+					break;
+				}
+					debug_publisher_ready = true;
+					flush_log_buffer();
+					log_msg("executor_add_subscription: ok");
 
-				// --- SAFETY STOP LOGIC ---
+					reconnect_attempt = 0;
+					last_cmd_vel_time = 0;
+					latest_linear_x = 0.0f;
+					latest_angular_z = 0.0f;
+                    applied_left_velocity = 0.0f;
+                    applied_right_velocity = 0.0f;
+					in_safety_stop = false;
+					log_msg("micro-ROS fully initialized");
+					state = CONN_RUN_SESSION;
+					break;
+
+			case CONN_RUN_SESSION: {
+				rcl_ret_t spin_ret = rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
+				if (spin_ret != RCL_RET_OK && spin_ret != RCL_RET_TIMEOUT) {
+					last_runtime_phase = RUNTIME_PHASE_EXECUTOR_ERROR;
+                    queue_debug_event("EXECUTOR_ERROR");
+					log_rcl_error("executor_spin_some failed", spin_ret);
+					session_should_retry = true;
+					state = CONN_CLEANUP;
+					break;
+				}
+
+				if (last_cmd_vel_time > 0) {
+                    last_runtime_phase = RUNTIME_PHASE_RUN_COMPUTE;
+					float left_velocity = clampf(
+						latest_linear_x - (latest_angular_z * TRACK_WIDTH / 2.0f),
+						-MAX_SPEED,
+						MAX_SPEED
+					);
+					float right_velocity = clampf(
+						latest_linear_x + (latest_angular_z * TRACK_WIDTH / 2.0f),
+						-MAX_SPEED,
+						MAX_SPEED
+					);
+
+                    if (fabsf(left_velocity - applied_left_velocity) > MOTOR_EPSILON ||
+                        fabsf(right_velocity - applied_right_velocity) > MOTOR_EPSILON) {
+                        last_runtime_phase = RUNTIME_PHASE_RUN_APPLY_LEFT;
+                        rcl_ret_t left_front_ret = set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, left_velocity);
+                        rcl_ret_t left_rear_ret = set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, left_velocity);
+                        if (left_front_ret != RCL_RET_OK || left_rear_ret != RCL_RET_OK) {
+                            queue_debug_event("LEDC_LEFT_ERROR");
+                            session_should_retry = true;
+                            state = CONN_CLEANUP;
+                            break;
+                        }
+
+                        last_runtime_phase = RUNTIME_PHASE_RUN_APPLY_RIGHT;
+                        rcl_ret_t right_front_ret = set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, right_velocity);
+                        rcl_ret_t right_rear_ret = set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, right_velocity);
+                        if (right_front_ret != RCL_RET_OK || right_rear_ret != RCL_RET_OK) {
+                            queue_debug_event("LEDC_RIGHT_ERROR");
+                            session_should_retry = true;
+                            state = CONN_CLEANUP;
+                            break;
+                        }
+
+                        applied_left_velocity = left_velocity;
+                        applied_right_velocity = right_velocity;
+                        last_runtime_phase = RUNTIME_PHASE_RUN_APPLY_DONE;
+                    }
+				}
+
 				int64_t now = esp_timer_get_time() / 1000;
-				if (now - last_cmd_vel_time > TIMEOUT_MS) {
+				if (last_cmd_vel_time > 0 && (now - last_cmd_vel_time > TIMEOUT_MS)) {
 					if (!in_safety_stop) {
-						set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, 0);
-						set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, 0);
-						set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, 0);
-						set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, 0);
-						char temp_buf[STRING_BUFFER_LEN];
-						snprintf(temp_buf, STRING_BUFFER_LEN, "SAFETY STOP - NO CMD_VEL FOR %dms", TIMEOUT_MS);
-						publish_debug(temp_buf);
+						last_runtime_phase = RUNTIME_PHASE_SAFETY_STOP;
+						stop_all_motors();
+						latest_linear_x = 0.0f;
+						latest_angular_z = 0.0f;
+                        applied_left_velocity = 0.0f;
+                        applied_right_velocity = 0.0f;
+                        queue_debug_event("SAFETY STOP - NO CMD_VEL FOR 1000ms");
 						in_safety_stop = true;
 					}
 				} else {
 					in_safety_stop = false;
 				}
-				vTaskDelay(pdMS_TO_TICKS(10));
-			}
-		}
 
-		cleanup:
-		log_msg("Cleaning up, will reconnect...");
-		debug_publisher_ready = false;
-		set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, 0);
-		set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, 0);
-		set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, 0);
-		set_motor_speed(LEDC_CHANNEL_3, M_RR_DIR, 0);
-		if (executor_ok) rclc_executor_fini(&executor);
-		if (sub_ok)      rcl_subscription_fini(&cmd_vel_subscriber, &node);
-		if (pub_debug_ok) rcl_publisher_fini(&debug_publisher, &node);
-		if (node_ok)     rcl_node_fini(&node);
-		if (support_ok)  rclc_support_fini(&support);
-		vTaskDelay(pdMS_TO_TICKS(1000));
+                if (debug_publisher_ready) {
+                    last_runtime_phase = RUNTIME_PHASE_RUN_FLUSH_DEBUG;
+                    publish_one_debug_event();
+                }
+
+				vTaskDelay(pdMS_TO_TICKS(10));
+				break;
+			}
+
+			case CONN_CLEANUP:
+				last_runtime_phase = RUNTIME_PHASE_CLEANUP;
+				log_msg("Cleanup: begin");
+				stop_all_motors();
+				debug_publisher_ready = false;
+
+				if (executor_ok) {
+					rclc_executor_fini(&executor);
+				}
+				if (sub_ok) {
+					rcl_subscription_fini(&cmd_vel_subscriber, &node);
+				}
+				if (pub_debug_ok) {
+					rcl_publisher_fini(&debug_publisher, &node);
+				}
+				if (node_ok) {
+					rcl_node_fini(&node);
+				}
+				if (support_ok) {
+					rclc_support_fini(&support);
+				}
+
+				executor = rclc_executor_get_zero_initialized_executor();
+				node = rcl_get_zero_initialized_node();
+				support = (rclc_support_t){0};
+				support_ok = false;
+				node_ok = false;
+				pub_debug_ok = false;
+				sub_ok = false;
+				executor_ok = false;
+				in_safety_stop = false;
+				last_cmd_vel_time = 0;
+				latest_linear_x = 0.0f;
+				latest_angular_z = 0.0f;
+                applied_left_velocity = 0.0f;
+                applied_right_velocity = 0.0f;
+
+				if (session_should_retry) {
+					log_msg("Cleanup: done, will reconnect");
+					session_should_retry = false;
+				} else {
+					log_msg("Cleanup: done");
+				}
+
+				vTaskDelay(pdMS_TO_TICKS(AGENT_RETRY_BACKOFF_MS));
+				state = CONN_WAIT_FOR_AGENT;
+				break;
+		}
 	}
 }
