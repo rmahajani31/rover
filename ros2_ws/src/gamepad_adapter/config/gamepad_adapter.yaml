@@ -24,3 +24,4 @@ adapter_node:
     invert_throttle: false  # set true if pushing forward gives negative values
     invert_steer: false     # set true if turning right gives negative values
     start_swapped: false    # set true if you want to start with the throttle and steer joysticks swapped
+    start_estop_active: true  # start inhibited so the joystick can be initialized before driving

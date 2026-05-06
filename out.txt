@@ -1,4 +1,2 @@
 data: SAFETY STOP - NO CMD_VEL FOR 1000ms
 ---
-data: SAFETY STOP - NO CMD_VEL FOR 1000ms
----

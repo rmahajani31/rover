@@ -60,6 +60,7 @@ class AdapterNode(Node):
         self.declare_parameter('invert_throttle', False)
         self.declare_parameter('invert_steer', False)
         self.declare_parameter('start_swapped', False)
+        self.declare_parameter('start_estop_active', False)
 
         # Buttons (indices)
         self.declare_parameter('btn_estop', [0])           # list → any press triggers E-stop
@@ -84,6 +85,7 @@ class AdapterNode(Node):
         self.invert_throttle = bool(self.get_parameter('invert_throttle').value)
         self.invert_steer = bool(self.get_parameter('invert_steer').value)
         self.swapped = bool(self.get_parameter('start_swapped').value)
+        self.start_estop_active = bool(self.get_parameter('start_estop_active').value)
 
         self.btn_estop: List[int] = list(self.get_parameter('btn_estop').value)
         self.btn_swap = int(self.get_parameter('btn_swap').value)
@@ -123,6 +125,12 @@ class AdapterNode(Node):
 
         # Log initial config
         self._log_mapping()
+        if self.start_estop_active:
+            self._set_estop_state(
+                True,
+                'Startup E-STOP active. Move the joystick to let it initialize, then press the E-STOP button again to enable motion.',
+                log_level='warn',
+            )
     
     def _log_mapping(self):
         """Log all the initial parameters"""
@@ -144,6 +152,22 @@ class AdapterNode(Node):
             f'accel_linear={self.accel_rate_linear:.2f} decel_linear={self.decel_rate_linear:.2f} '
             f'accel_angular={self.accel_rate_angular:.2f} decel_angular={self.decel_rate_angular:.2f}'
         )
+        self.get_logger().info(f'start_estop_active={self.start_estop_active}')
+
+    def _zero_motion_state(self):
+        """Reset commanded and smoothed velocities to zero."""
+        self.desired_linear_x = 0.0
+        self.desired_angular_z = 0.0
+        self.current_linear_x = 0.0
+        self.current_angular_z = 0.0
+
+    def _set_estop_state(self, estop_active: bool, log_message: str, log_level: str = 'info'):
+        """Latch the requested E-stop state and clear any active motion."""
+        self.estop_state = estop_active
+        self._zero_motion_state()
+        self.pub_estop.publish(Bool(data=self.estop_state))
+        self._publish_twist(0.0, 0.0)
+        getattr(self.get_logger(), log_level)(log_message)
     
     def _edge_pressed(self, idx: int, buttons: List[int]) -> bool:
         """True on rising edge (0→1). idx<0 means 'disabled'."""
@@ -191,14 +215,18 @@ class AdapterNode(Node):
 
         # Block to manage state when the e-stop button is pressed
         if self._any_edge_pressed(self.btn_estop, buttons):
-            self.get_logger().warn('E-STOP pressed! Publishing latched self.estop_state and zeroing command.')
-            self.estop_state = not self.estop_state
-            self.pub_estop.publish(Bool(data=self.estop_state))
-            self.desired_linear_x = 0.0
-            self.desired_angular_z = 0.0
-            self.current_linear_x = 0.0
-            self.current_angular_z = 0.0
-            self._publish_twist(0.0, 0.0)
+            next_state = not self.estop_state
+            if next_state:
+                self._set_estop_state(
+                    True,
+                    'E-STOP enabled. Motion inhibited until the E-STOP button is pressed again.',
+                    log_level='warn',
+                )
+            else:
+                self._set_estop_state(
+                    False,
+                    'E-STOP cleared. Teleop motion re-enabled.',
+                )
             self.prev_buttons = buttons[:]  # update edge state
             return  # do not process command on this frame
         
