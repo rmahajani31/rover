@@ -155,3 +155,5 @@ ros2_ws/firmware/freertos_apps/apps/*
 
 *.gv
 *.pdf
+
+livox_ws/
