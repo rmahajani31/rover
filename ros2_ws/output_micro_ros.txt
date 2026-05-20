@@ -1,0 +1,16 @@
+[35m[1778097351.375797][m info     | [34mTermiosAgentLinux.cpp[m | [37minit                    [m | [32mrunning...[m             | fd: 10
+[35m[1778097351.376221][m info     | [34mRoot.cpp          [m | [37mset_verbose_level       [m | [32mlogger setup[m           | verbose_level: 4
+[35m[1778097352.232100][m info     | [34mRoot.cpp          [m | [37mcreate_client           [m | [32mcreate[m                 | client_key: 0x470C633B, session_id: 0x81
+[35m[1778097352.232176][m info     | [34mSessionManager.hpp[m | [37mestablish_session       [m | [32msession established[m    | client_key: 0x470C633B, address: 0
+[35m[1778097353.231965][m info     | [34mSessionManager.hpp[m | [37mestablish_session       [m | [32msession re-established[m | client_key: 0x470C633B, address: 0
+[35m[1778097354.242291][m info     | [34mRoot.cpp          [m | [37mdelete_client           [m | [32mdelete[m                 | client_key: 0x470C633B
+[35m[1778097354.242328][m info     | [34mSessionManager.hpp[m | [37mdestroy_session         [m | [32msession closed[m         | client_key: 0x470C633B, address: 0
+[35m[1778097355.760945][m info     | [34mRoot.cpp          [m | [37mcreate_client           [m | [32mcreate[m                 | client_key: 0x465F27B6, session_id: 0x81
+[35m[1778097355.760998][m info     | [34mSessionManager.hpp[m | [37mestablish_session       [m | [32msession established[m    | client_key: 0x465F27B6, address: 0
+[35m[1778097356.112423][m info     | [34mProxyClient.cpp   [m | [37mcreate_participant      [m | [32mparticipant created[m    | client_key: 0x465F27B6, participant_id: 0x000(1)
+[35m[1778097356.440442][m info     | [34mProxyClient.cpp   [m | [37mcreate_topic            [m | [32mtopic created[m          | client_key: 0x465F27B6, topic_id: 0x000(2), participant_id: 0x000(1)
+[35m[1778097356.449999][m info     | [34mProxyClient.cpp   [m | [37mcreate_publisher        [m | [32mpublisher created[m      | client_key: 0x465F27B6, publisher_id: 0x000(3), participant_id: 0x000(1)
+[35m[1778097356.461390][m info     | [34mProxyClient.cpp   [m | [37mcreate_datawriter       [m | [32mdatawriter created[m     | client_key: 0x465F27B6, datawriter_id: 0x000(5), publisher_id: 0x000(3)
+[35m[1778097356.793043][m info     | [34mProxyClient.cpp   [m | [37mcreate_topic            [m | [32mtopic created[m          | client_key: 0x465F27B6, topic_id: 0x001(2), participant_id: 0x000(1)
+[35m[1778097356.990746][m info     | [34mProxyClient.cpp   [m | [37mcreate_subscriber       [m | [32msubscriber created[m     | client_key: 0x465F27B6, subscriber_id: 0x000(4), participant_id: 0x000(1)
+[35m[1778097357.002660][m info     | [34mProxyClient.cpp   [m | [37mcreate_datareader       [m | [32mdatareader created[m     | client_key: 0x465F27B6, datareader_id: 0x000(6), subscriber_id: 0x000(4)

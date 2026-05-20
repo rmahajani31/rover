@@ -22,7 +22,7 @@ ros2 launch nav2_bringup navigation_launch.py params_file:=/home/rmahajani/Docum
 ros2 launch nav2_bringup bringup_launch.py params_file:=/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params_orig.yaml use_sim_time:=False autostart:=False map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/basement_v2.yaml > out_nav.txt
 rviz2 -d $(ros2 pkg prefix nav2_bringup)/share/ nav2_bringup/rviz/nav2_default_view.rviz
 ros2 bag record -o test_run_1 /cmd_vel
-ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/TwistStamped \
+ros2 topic pub -r 200 /cmd_vel geometry_msgs/msg/TwistStamped \
 "{header: {stamp: {sec: 0, nanosec: 0}, frame_id: 'base_link'}, \
 twist: {linear: {x: 0.25, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}}"
 

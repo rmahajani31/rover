@@ -1,2 +1,156 @@
+data: 'Agent wait: begin'
+---
+data: '[attempt 6] Agent wait: detected'
+---
+data: '[attempt 6] Agent wait: settling transport'
+---
+data: '[attempt 6] Agent wait: transport settled'
+---
+data: '[attempt 6] support_init: begin'
+---
+data: '[attempt 6] support_init: ok'
+---
+data: '[attempt 6] node_init: begin'
+---
+data: '[attempt 6] node_init: ok'
+---
+data: '[attempt 6] debug_publisher init: begin'
+---
+data: '[attempt 6] debug_publisher init: ok'
+---
+data: '[attempt 6] cmd_vel_subscriber init: begin'
+---
+data: '[attempt 6] cmd_vel_subscriber init: ok'
+---
+data: '[attempt 6] executor_init: begin'
+---
+data: '[attempt 6] executor_init: ok'
+---
+data: '[attempt 6] executor_add_subscription: begin'
+---
+data: 'Attempt 5 failed: debug_publisher init failed (ret=1): error not set'
+---
+data: '[attempt 6] executor_add_subscription: ok'
+---
+data: '[attempt 6] micro-ROS fully initialized'
+---
+data: SAFETY STOP - NO CMD_VEL FOR 1000ms
+---
+data: SAFETY STOP - NO CMD_VEL FOR 1000ms
+---
+data: SAFETY STOP - NO CMD_VEL FOR 1000ms
+---
+data: SAFETY STOP - NO CMD_VEL FOR 1000ms
+---
+data: SAFETY STOP - NO CMD_VEL FOR 1000ms
+---
+data: Rover app started
+---
+data: 'Reset reason: POWERON (1)'
+---
+data: 'Last runtime phase: NONE (0)'
+---
+data: Initializing hardware...
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (1)'
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (2)'
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (3)'
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (4)'
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (5)'
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (6)'
+---
+data: '[attempt 1] executor_add_subscription: ok'
+---
+data: 'Agent wait: begin'
+---
+data: '[attempt 3] Agent wait: detected'
+---
+data: '[attempt 3] Agent wait: settling transport'
+---
+data: '[attempt 3] Agent wait: transport settled'
+---
+data: '[attempt 3] support_init: begin'
+---
+data: '[attempt 3] support_init: ok'
+---
+data: '[attempt 3] node_init: begin'
+---
+data: '[attempt 3] node_init: ok'
+---
+data: '[attempt 3] debug_publisher init: begin'
+---
+data: '[attempt 3] debug_publisher init: ok'
+---
+data: '[attempt 3] cmd_vel_subscriber init: begin'
+---
+data: '[attempt 3] cmd_vel_subscriber init: ok'
+---
+data: '[attempt 3] executor_init: begin'
+---
+data: '[attempt 3] executor_init: ok'
+---
+data: '[attempt 3] executor_add_subscription: begin'
+---
+data: 'Attempt 2 failed: debug_publisher init failed (ret=1): error not set'
+---
+data: '[attempt 3] executor_add_subscription: ok'
+---
+data: '[attempt 3] micro-ROS fully initialized'
+---
+data: SAFETY STOP - NO CMD_VEL FOR 1000ms
+---
+data: Rover app started
+---
+data: 'Reset reason: POWERON (1)'
+---
+data: 'Last runtime phase: NONE (0)'
+---
+data: Initializing hardware...
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (1)'
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (2)'
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (3)'
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (4)'
+---
+data: 'Agent wait: begin'
+---
+data: 'Agent wait: unavailable, retrying (5)'
+---
+data: 'Agent wait: begin'
+---
+data: '[attempt 1] Agent wait: detected'
+---
+data: '[attempt 1] executor_add_subscription: ok'
+---
+data: '[attempt 1] micro-ROS fully initialized'
+---
 data: SAFETY STOP - NO CMD_VEL FOR 1000ms
 ---
