@@ -1,10 +1,14 @@
+#include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <numbers>
 
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <tf2/exceptions.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -21,6 +25,7 @@ class LivoxCloudToScanNode : public rclcpp::Node
         {
             declareParameters();
             loadParameters();
+            validateParameters();
 
             projector_ = std::make_unique<livox_cloud_to_scan::CloudProjector>(params_);
 
@@ -84,6 +89,14 @@ class LivoxCloudToScanNode : public rclcpp::Node
             this->get_parameter("publish_debug_logs").as_bool();
         }
 
+        void validateParameters() {
+            std::string error;
+            if (!params_.validate(&error)) {
+                RCLCPP_FATAL(this->get_logger(), "Invalid scan projection parameters: %s", error.c_str());
+                throw std::invalid_argument(error);
+            }
+        }
+
         void cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
             geometry_msgs::msg::TransformStamped transform_msg;
 
@@ -106,7 +119,19 @@ class LivoxCloudToScanNode : public rclcpp::Node
                 return;
             }
 
-            auto scan = projector_->project(*msg, transform_msg);
+            std::string projection_error;
+            auto scan = projector_->project(*msg, transform_msg, &projection_error);
+            if (!projection_error.empty()) {
+                RCLCPP_WARN_THROTTLE(
+                    this->get_logger(),
+                    *this->get_clock(),
+                    2000,
+                    "Skipping malformed cloud on %s: %s",
+                    params_.input_topic.c_str(),
+                    projection_error.c_str());
+                return;
+            }
+
             scan_pub_->publish(scan);
             
             if (params_.publish_debug_logs) {
@@ -135,8 +160,16 @@ class LivoxCloudToScanNode : public rclcpp::Node
 
 int main(int argc, char ** argv)
 {
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<LivoxCloudToScanNode>());
-  rclcpp::shutdown();
-  return 0;
+    rclcpp::init(argc, argv);
+
+    try {
+        rclcpp::spin(std::make_shared<LivoxCloudToScanNode>());
+    } catch (const std::exception & ex) {
+        RCLCPP_FATAL(rclcpp::get_logger("livox_cloud_to_scan"), "Node startup failed: %s", ex.what());
+        rclcpp::shutdown();
+        return 1;
+    }
+
+    rclcpp::shutdown();
+    return 0;
 }

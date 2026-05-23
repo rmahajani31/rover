@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
@@ -16,22 +17,23 @@ namespace livox_cloud_to_scan
             
             explicit CloudProjector(const ScanProjectionParams & params);
 
-            sensor_msgs::msg:LaserScan project(
+            sensor_msgs::msg::LaserScan project(
                 const sensor_msgs::msg::PointCloud2 & cloud,
-                const geometry_msgs::msg::TransformStamped & transform_msg
+                const geometry_msgs::msg::TransformStamped & transform_msg,
+                std::string * error = nullptr
             );
         
-            private:
+        private:
 
-                ScanProjectionParams params_;
+            ScanProjectionParams params_;
 
-                bool getFieldOffsets(
-                    const sensor_msgs::msg::PointCloud2 & cloud,
-                    int & x_offset,
-                    int & y_offset,
-                    int & z_offset
-                ) const;
+            bool getFieldOffsets(
+                const sensor_msgs::msg::PointCloud2 & cloud,
+                int & x_offset,
+                int & y_offset,
+                int & z_offset
+            ) const;
 
-                float readFloat32(const std::uint8_t * point_data, int offset) const;
-    }
+            float readFloat32(const std::uint8_t * point_data, int offset) const;
+    };
 }

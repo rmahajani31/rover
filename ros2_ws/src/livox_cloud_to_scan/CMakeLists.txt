@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
 project(livox_cloud_to_scan)
 
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 20)
+endif()
+
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -14,8 +21,41 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
+add_library(livox_cloud_to_scan_projector
+  src/cloud_projector.cpp
+)
+
+target_include_directories(livox_cloud_to_scan_projector PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(livox_cloud_to_scan_projector
+  geometry_msgs
+  sensor_msgs
+  tf2
+  tf2_geometry_msgs
+)
+
+add_executable(livox_cloud_to_scan_node
+  src/livox_cloud_to_scan_node.cpp
+)
+
+target_link_libraries(livox_cloud_to_scan_node
+  livox_cloud_to_scan_projector
+)
+
+ament_target_dependencies(livox_cloud_to_scan_node
+  geometry_msgs
+  rclcpp
+  sensor_msgs
+  tf2
+  tf2_ros
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  find_package(ament_cmake_gtest REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)
@@ -24,6 +64,44 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  ament_add_gtest(test_cloud_projector
+    test/cloud_projector_test.cpp
+  )
+
+  if(TARGET test_cloud_projector)
+    target_link_libraries(test_cloud_projector
+      livox_cloud_to_scan_projector
+    )
+
+    target_include_directories(test_cloud_projector PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+
+    ament_target_dependencies(test_cloud_projector
+      geometry_msgs
+      sensor_msgs
+      tf2
+      tf2_geometry_msgs
+    )
+  endif()
 endif()
+
+install(
+  TARGETS livox_cloud_to_scan_projector livox_cloud_to_scan_node
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
+ament_export_include_directories(include)
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_dependencies(geometry_msgs rclcpp sensor_msgs tf2 tf2_ros tf2_geometry_msgs)
 
 ament_package()
