@@ -30,11 +30,12 @@ target_include_directories(livox_cloud_to_scan_projector PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(livox_cloud_to_scan_projector
-  geometry_msgs
-  sensor_msgs
-  tf2
-  tf2_geometry_msgs
+target_link_libraries(livox_cloud_to_scan_projector
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
+  sensor_msgs::sensor_msgs_library
+  tf2::tf2
+  tf2_geometry_msgs::tf2_geometry_msgs
 )
 
 add_executable(livox_cloud_to_scan_node
@@ -43,14 +44,12 @@ add_executable(livox_cloud_to_scan_node
 
 target_link_libraries(livox_cloud_to_scan_node
   livox_cloud_to_scan_projector
-)
-
-ament_target_dependencies(livox_cloud_to_scan_node
-  geometry_msgs
-  rclcpp
-  sensor_msgs
-  tf2
-  tf2_ros
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
+  rclcpp::rclcpp
+  sensor_msgs::sensor_msgs_library
+  tf2::tf2
+  tf2_ros::tf2_ros
 )
 
 if(BUILD_TESTING)
@@ -70,19 +69,17 @@ if(BUILD_TESTING)
   )
 
   if(TARGET test_cloud_projector)
-    target_link_libraries(test_cloud_projector
-      livox_cloud_to_scan_projector
-    )
-
     target_include_directories(test_cloud_projector PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
 
-    ament_target_dependencies(test_cloud_projector
-      geometry_msgs
-      sensor_msgs
-      tf2
-      tf2_geometry_msgs
+    target_link_libraries(test_cloud_projector
+      livox_cloud_to_scan_projector
+      ${geometry_msgs_TARGETS}
+      ${sensor_msgs_TARGETS}
+      sensor_msgs::sensor_msgs_library
+      tf2::tf2
+      tf2_geometry_msgs::tf2_geometry_msgs
     )
   endif()
 endif()
