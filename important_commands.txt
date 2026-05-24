@@ -55,9 +55,14 @@ ros2 run micro_ros_setup configure_firmware.sh rover --transport serial
 ros2 run micro_ros_setup build_firmware.sh
 
 
-
 ros2 launch livox_ros_driver2 rviz_MID360_launch.py
 
 ros2 bag record -o bags/livox_test /livox/lidar /livox/imu
 
 ros2 bag play bag_00_stationary_livox
+
+colcon build --packages-select livox_cloud_to_scan
+
+ros2 launch livox_cloud_to_scan livox_cloud_to_scan.launch.py 2>&1 | tee output.txt
+
+colcon build --packages-select bringup
