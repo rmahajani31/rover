@@ -1,0 +1,20 @@
+livox_cloud_to_scan:
+  ros__parameters:
+    input_topic: "/livox/lidar"
+    output_topic: "/scan_from_livox"
+    target_frame: "base_link"
+
+    min_height: 0.08
+    max_height: 0.70
+
+    min_range: 0.30
+    max_range: 8.0
+
+    angle_min: -3.141592653589793
+    angle_max: 3.141592653589793
+    angle_increment: 0.005
+
+    scan_time: 0.1
+    transform_timeout_sec: 0.05
+
+    publish_debug_logs: true

@@ -23,7 +23,7 @@ namespace livox_cloud_to_scan
         double angle_increment = 0.005;
 
         double scan_time = 0.1;
-        double transform_timeout_sec = 0.005;
+        double transform_timeout_sec = 0.05;
 
         bool publish_debug_logs = true;
 

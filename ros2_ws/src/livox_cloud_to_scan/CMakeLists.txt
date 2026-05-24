@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.8)
 project(livox_cloud_to_scan)
 
 if(NOT CMAKE_CXX_STANDARD)
@@ -98,6 +98,11 @@ install(
 install(
   DIRECTORY include/
   DESTINATION include
+)
+
+install(
+  DIRECTORY config/ launch/
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_export_include_directories(include)
