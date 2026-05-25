@@ -71,6 +71,7 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  find_package(ament_cmake_gtest REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)
@@ -79,6 +80,25 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  ament_add_gtest(test_odometry_node
+    test/odometry_node_test.cpp
+  )
+
+  if(TARGET test_odometry_node)
+    target_include_directories(test_odometry_node PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(test_odometry_node
+      rover_odometry_core
+      ${geometry_msgs_TARGETS}
+      ${nav_msgs_TARGETS}
+      rclcpp::rclcpp
+      tf2::tf2
+      tf2_ros::tf2_ros
+    )
+  endif()
 endif()
 
 ament_export_include_directories(include)

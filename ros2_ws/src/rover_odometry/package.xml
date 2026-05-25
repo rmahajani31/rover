@@ -15,7 +15,10 @@
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
   <depend>ament_index_python</depend>
+  <depend>launch</depend>
+  <depend>launch_ros</depend>
 
+  <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
