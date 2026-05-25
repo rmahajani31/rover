@@ -1,0 +1,27 @@
+adapter_node:
+  ros__parameters:
+    # Axes (ints)
+    throttle_axis: 1        # left stick Y (from your output)
+    steer_axis: 3           # right stick X (from your output)
+
+    # Buttons (ints) — replace with what you saw in /joy.buttons
+    btn_estop: [0]          # e.g., "B"
+    btn_swap: 2             # e.g., "Y"
+    btn_inv_throttle: 5     # e.g., left bumper
+    btn_inv_steer: 4        # e.g., right bumper
+
+    # Tuning
+    deadzone: 0.06          # same as joy_node
+    max_linear_x: 0.35      # cap forward/reverse speed sent to the firmware
+    max_angular_z: 0.8      # cap turn command sent to the firmware
+    throttle_expo: 0.5      # soften small throttle stick motions
+    steer_expo: 0.6         # soften small steering stick motions
+    publish_rate_hz: 30.0   # fixed-rate smoothed cmd_vel output
+    accel_rate_linear: 0.6  # m/s command increase per second
+    decel_rate_linear: 1.5  # m/s command decrease per second
+    accel_rate_angular: 1.2 # rad/s command increase per second
+    decel_rate_angular: 2.5 # rad/s command decrease per second
+    invert_throttle: false  # set true if pushing forward gives negative values
+    invert_steer: false     # set true if turning right gives negative values
+    start_swapped: false    # set true if you want to start with the throttle and steer joysticks swapped
+    start_estop_active: true  # start inhibited so the joystick can be initialized before driving
