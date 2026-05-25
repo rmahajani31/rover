@@ -11,23 +11,39 @@
 
 namespace rover_odometry
 {
-    OdometryNode::OdometryNode()
-    : Node("odometry")
+    std::chrono::nanoseconds OdometryNode::computeTimerPeriod(double publish_rate_hz)
+    {
+        const auto period = std::chrono::duration<double>(1.0 / publish_rate_hz);
+        const auto timer_period = std::chrono::duration_cast<std::chrono::nanoseconds>(period);
+
+        if (timer_period.count() <= 0) {
+            throw std::invalid_argument("publish_rate_hz results in a non-positive timer period");
+        }
+
+        return timer_period;
+    }
+
+    OdometryNode::OdometryNode(const rclcpp::NodeOptions & options, std::unique_ptr<OdometryDevice> device)
+    : Node("odometry", options)
     {
         declareParameters();
         loadParameters();
 
-        i2c_ = std::make_unique<PinpointI2C>(bus_, addr_, parseEndian(endian_string_));
+        if (device) {
+            i2c_ = std::move(device);
+        } else {
+            i2c_ = std::make_unique<PinpointI2C>(bus_, addr_, parseEndian(endian_string_));
+        }
 
         initializeDevice();
         initializeState();
 
-        odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/odom", 10);
+        odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>(odom_topic_, 10);
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
-        const auto period = std::chrono::duration<double>(1.0 / publish_rate_hz_);
+        timer_period_ = computeTimerPeriod(publish_rate_hz_);
         timer_ = this->create_wall_timer(
-        std::chrono::duration_cast<std::chrono::milliseconds>(period),
+        timer_period_,
         std::bind(&OdometryNode::update, this));
 
         RCLCPP_INFO(
@@ -38,6 +54,21 @@ namespace rover_odometry
         yaw_rad_);
     }
 
+    std::chrono::nanoseconds OdometryNode::timerPeriod() const
+    {
+        return timer_period_;
+    }
+
+    const std::string & OdometryNode::odomTopic() const
+    {
+        return odom_topic_;
+    }
+
+    void OdometryNode::updateOnce()
+    {
+        update();
+    }
+
     void OdometryNode::declareParameters()
     {
         this->declare_parameter<int>("bus", 1);
@@ -46,6 +77,7 @@ namespace rover_odometry
         this->declare_parameter<double>("publish_rate_hz", 50.0);
         this->declare_parameter<std::vector<double>>("pod_offsets_mm", {160.87, -201.3});
         this->declare_parameter<std::vector<bool>>("encoder_directions", {true, true});
+        this->declare_parameter<std::string>("odom_topic", "odom");
         this->declare_parameter<std::string>("odom_frame", "odom");
         this->declare_parameter<std::string>("base_frame", "base_link");
     }
@@ -58,6 +90,7 @@ namespace rover_odometry
         publish_rate_hz_ = this->get_parameter("publish_rate_hz").as_double();
         pod_offsets_mm_ = this->get_parameter("pod_offsets_mm").as_double_array();
         encoder_directions_ = this->get_parameter("encoder_directions").as_bool_array();
+        odom_topic_ = this->get_parameter("odom_topic").as_string();
         odom_frame_ = this->get_parameter("odom_frame").as_string();
         base_frame_ = this->get_parameter("base_frame").as_string();
 
@@ -98,15 +131,8 @@ namespace rover_odometry
         yaw_rate_rad_s_ = i2c_->readF32(13);
     }
 
-    void OdometryNode::update()
+    void OdometryNode::publishCurrentState()
     {
-        x_mm_ = i2c_->readF32(8);
-        y_mm_ = i2c_->readF32(9);
-        yaw_rad_ = i2c_->readF32(10);
-        vx_mm_s_ = i2c_->readF32(11);
-        vy_mm_s_ = i2c_->readF32(12);
-        yaw_rate_rad_s_ = i2c_->readF32(13);
-
         const auto now = this->get_clock()->now();
         const auto quaternion = yawToQuaternion(wrapPi(yaw_rad_));
 
@@ -141,5 +167,26 @@ namespace rover_odometry
         odom_msg.pose.covariance[35] = yaw_var;
 
         odom_pub_->publish(odom_msg);
+    }
+
+    void OdometryNode::update()
+    {
+        try {
+            x_mm_ = i2c_->readF32(8);
+            y_mm_ = i2c_->readF32(9);
+            yaw_rad_ = i2c_->readF32(10);
+            vx_mm_s_ = i2c_->readF32(11);
+            vy_mm_s_ = i2c_->readF32(12);
+            yaw_rate_rad_s_ = i2c_->readF32(13);
+
+            publishCurrentState();
+        } catch (const std::exception & ex) {
+            RCLCPP_WARN_THROTTLE(
+            this->get_logger(),
+            *this->get_clock(),
+            5000,
+            "odometry update failed: %s",
+            ex.what());
+        }
     }
 }

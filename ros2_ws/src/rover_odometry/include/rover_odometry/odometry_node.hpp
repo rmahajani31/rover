@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
@@ -15,9 +16,16 @@ namespace rover_odometry
     class OdometryNode : public rclcpp::Node
     {
         public:
-            OdometryNode();
+            explicit OdometryNode(
+                const rclcpp::NodeOptions & options = rclcpp::NodeOptions(),
+                std::unique_ptr<OdometryDevice> device = nullptr);
+            std::chrono::nanoseconds timerPeriod() const;
+            const std::string & odomTopic() const;
+            void updateOnce();
 
         private:
+            static std::chrono::nanoseconds computeTimerPeriod(double publish_rate_hz);
+            void publishCurrentState();
             void declareParameters();
             void loadParameters();
             void initializeDevice();
@@ -30,6 +38,7 @@ namespace rover_odometry
             double publish_rate_hz_;
             std::vector<double> pod_offsets_mm_;
             std::vector<bool> encoder_directions_;
+            std::string odom_topic_;
             std::string odom_frame_;
             std::string base_frame_;
 
@@ -40,7 +49,8 @@ namespace rover_odometry
             float vy_mm_s_{0.0f};
             float yaw_rate_rad_s_{0.0f};
 
-            std::unique_ptr<PinpointI2C> i2c_;
+            std::unique_ptr<OdometryDevice> i2c_;
+            std::chrono::nanoseconds timer_period_{0};
             rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
             std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
             rclcpp::TimerBase::SharedPtr timer_;
