@@ -7,7 +7,19 @@
 
 namespace rover_odometry
 {
+    class OdometryDevice
+    {
+        public:
+            virtual ~OdometryDevice() = default;
+
+            virtual float readF32(std::uint8_t reg) = 0;
+            virtual void resetPosAndImu() = 0;
+            virtual void setEncoderDirections(bool x_reversed, bool y_reversed) = 0;
+            virtual void setPodOffsetsMm(float x_pod_offset_mm, float y_pod_offset_mm) = 0;
+    };
+
     class PinpointI2C
+        : public OdometryDevice
     {
         public:
             enum class Endian
@@ -26,16 +38,16 @@ namespace rover_odometry
             PinpointI2C & operator=(PinpointI2C &&) = delete;
 
             std::uint32_t readU32(std::uint8_t reg);
-            float readF32(std::uint8_t reg);
+            float readF32(std::uint8_t reg) override;
 
             void writeU32(std::uint8_t reg, std::uint32_t value);
             void writeF32(std::uint8_t reg, float value);
 
             void resetImu();
-            void resetPosAndImu();
-            void setEncoderDirections(bool x_reversed, bool y_reversed);
+            void resetPosAndImu() override;
+            void setEncoderDirections(bool x_reversed, bool y_reversed) override;
             void setTicksPerMm(float ticks_per_mm);
-            void setPodOffsetsMm(float x_pod_offset_mm, float y_pod_offset_mm);
+            void setPodOffsetsMm(float x_pod_offset_mm, float y_pod_offset_mm) override;
             void setYawScalar(float yaw_scalar);
             void setPositionMmRad(float x_mm, float y_mm, float yaw_rad);
         
