@@ -67,4 +67,4 @@ ros2 launch livox_cloud_to_scan livox_cloud_to_scan.launch.py 2>&1 | tee output.
 
 colcon build --packages-select bringup
 
-ros2 launch bringup livox_scan.launch.py 2>&1 | tee output.txt
+ros2 launch bringup jetson.launch.py 2>&1 | tee output.txt
