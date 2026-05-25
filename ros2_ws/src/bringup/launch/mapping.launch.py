@@ -14,10 +14,10 @@ def generate_launch_description():
     rover_odometry_dir = get_package_share_directory("rover_odometry")
 
     rover_odometry_launch = os.path.join(
-        rover_odometry_dir, "launch", "rover_odometry.launch.py"
+        rover_odometry_dir, "rover_odometry.launch.py"
     )
     slam_params_default = os.path.join(
-        bringup_dir, "config", "slam_toolbox_async.yaml"
+        bringup_dir, "slam_toolbox_async.yaml"
     )
 
     ns = LaunchConfiguration("namespace")
@@ -53,7 +53,6 @@ def generate_launch_description():
             "gamepad_config",
             default_value=PathJoinSubstitution([
                 FindPackageShare("gamepad_adapter"),
-                "config",
                 "gamepad_adapter.yaml",
             ]),
             description="gamepad_adapter parameters YAML",

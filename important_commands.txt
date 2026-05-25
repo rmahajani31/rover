@@ -48,7 +48,7 @@ cp rover.bin partition_table/partition-table.bin bootloader/bootloader.bin /mnt/
 
 esptool.py --chip esp32 write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition-table.bin 0x1000 bootloader.bin 0x10000 rover.bin
 
-ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/tty_rover_esp
+ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/tty_rover_esp 2>&1 | tee output.txt
 
 ros2 run micro_ros_setup configure_firmware.sh rover --transport serial
 
@@ -68,3 +68,5 @@ ros2 launch livox_cloud_to_scan livox_cloud_to_scan.launch.py 2>&1 | tee output.
 colcon build --packages-select bringup
 
 ros2 launch bringup jetson.launch.py 2>&1 | tee output.txt
+
+ros2 launch bringup mapping.launch.py 2>&1 | tee output.txt
