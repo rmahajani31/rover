@@ -9,20 +9,11 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     livox_cloud_to_scan_launch = PathJoinSubstitution([
         FindPackageShare("livox_cloud_to_scan"),
+        "launch",
         "livox_cloud_to_scan.launch.py",
     ])
 
     return LaunchDescription([
-        Node(
-            package="tf2_ros",
-            executable="static_transform_publisher",
-            name="odom_to_base_link_tf",
-            arguments=[
-                "0", "0", "0",
-                "0", "0", "0",
-                "odom", "base_link",
-            ],
-        ),
         Node(
             package="tf2_ros",
             executable="static_transform_publisher",
