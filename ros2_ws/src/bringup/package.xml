@@ -8,10 +8,14 @@
   <license>Apache-2.0</license>
 
   <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>gamepad_adapter</exec_depend>
+  <exec_depend>joy</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>livox_cloud_to_scan</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
   <exec_depend>rover_odometry</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
 
   <test_depend>ament_copyright</test_depend>

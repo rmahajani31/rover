@@ -7,8 +7,8 @@ slam_toolbox:
     map_frame: map
     base_frame: base_link
 
-    # If your scan topic is not /scan, change this
-    scan_topic: /scan
+    # Livox scans are published via livox_cloud_to_scan on this topic.
+    scan_topic: /scan_from_livox
 
     # Good starter toggles
     mode: mapping

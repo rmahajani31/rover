@@ -7,7 +7,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     pkg_dir = get_package_share_directory("rover_odometry")
-    config_file = os.path.join(pkg_dir, "rover_odometry.yaml")
+    config_file = os.path.join(pkg_dir, "config", "rover_odometry.yaml")
 
     return LaunchDescription([
         Node(
