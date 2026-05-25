@@ -11,7 +11,6 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', [
-            'launch/rover.launch.py',
             'launch/jetson.launch.py',
             'launch/mapping.launch.py',
             'launch/pi_nav2_livox.launch.py',

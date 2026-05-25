@@ -77,5 +77,5 @@ namespace gamepad_adapter
             bool have_prev_buttons_{false};
           
             std::chrono::steady_clock::time_point last_publish_time_;
-    }
+    };
 }
