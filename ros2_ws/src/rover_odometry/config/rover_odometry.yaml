@@ -1,0 +1,10 @@
+odometry:
+  ros__parameters:
+    bus: 1
+    addr: 0x31
+    endian: "little"
+    publish_rate_hz: 50.0
+    pod_offsets_mm: [165.1, -177.8]
+    encoder_directions: [true, true]
+    odom_frame: "odom"
+    base_frame: "base_footprint"

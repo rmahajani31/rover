@@ -20,17 +20,30 @@ find_package(geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 
-add_library(rover_odometry_node
+add_library(rover_odometry_core
   src/odometry_node.cpp
   src/pinpoint_i2c.cpp
 )
 
-target_include_directories(rover_odometry_node PUBLIC
+target_include_directories(rover_odometry_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(rover_odometry_node
+target_link_libraries(rover_odometry_core
+  ${geometry_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
+  rclcpp::rclcpp
+  tf2::tf2
+  tf2_ros::tf2_ros
+)
+
+add_executable(odometry_node
+  src/main.cpp
+)
+
+target_link_libraries(odometry_node
+  rover_odometry_core
   ${geometry_msgs_TARGETS}
   ${nav_msgs_TARGETS}
   rclcpp::rclcpp
@@ -39,7 +52,7 @@ target_link_libraries(rover_odometry_node
 )
 
 install(
-  TARGETS rover_odometry_node
+  TARGETS rover_odometry_core odometry_node
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
