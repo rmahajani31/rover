@@ -28,9 +28,13 @@ class LivoxCloudToScanNode : public rclcpp::Node
             validateParameters();
 
             projector_ = std::make_unique<livox_cloud_to_scan::CloudProjector>(params_);
+            
+            rclcpp::QoS qos(rclcpp::KeepLast(10));
+            qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
+            qos.durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
 
             scan_pub_ = this->create_publisher<sensor_msgs::msg::LaserScan>(
-                params_.output_topic, rclcpp::SensorDataQoS()
+                params_.output_topic, qos
             );
 
             cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
