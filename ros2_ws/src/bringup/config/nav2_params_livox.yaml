@@ -39,10 +39,10 @@ amcl:
     z_short: 0.05
     scan_topic: /scan_from_livox
   
-  qos_overrides:
-    /scan_from_livox:
-      subscription:
-        reliability: best_effort
+    qos_overrides:
+      /scan_from_livox:
+        subscription:
+          reliability: best_effort
 
 bt_navigator:
   ros__parameters:
