@@ -17,4 +17,5 @@ livox_cloud_to_scan:
     scan_time: 0.1
     transform_timeout_sec: 0.05
 
+    missing_bins_as_inf: false
     publish_debug_logs: true

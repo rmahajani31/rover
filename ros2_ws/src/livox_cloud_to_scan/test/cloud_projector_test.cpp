@@ -104,6 +104,7 @@ TEST(CloudProjectorTest, KeepsNearestPointPerBinAndHandlesAngleMaxBoundary)
     params.angle_min = -std::numbers::pi / 4.0;
     params.angle_max = std::numbers::pi / 4.0;
     params.angle_increment = std::numbers::pi / 4.0;
+    params.missing_bins_as_inf = true;
 
     livox_cloud_to_scan::CloudProjector projector(params);
     const auto transform = makeIdentityTransform();
@@ -119,6 +120,33 @@ TEST(CloudProjectorTest, KeepsNearestPointPerBinAndHandlesAngleMaxBoundary)
     ASSERT_TRUE(error.empty());
     ASSERT_EQ(scan.ranges.size(), 2U);
     EXPECT_TRUE(std::isinf(scan.ranges[0]));
+    EXPECT_FLOAT_EQ(scan.ranges[1], 1.0f);
+}
+
+TEST(CloudProjectorTest, UsesNaNForUnsampledBinsByDefault)
+{
+    livox_cloud_to_scan::ScanProjectionParams params;
+    params.target_frame = "base_link";
+    params.min_height = -1.0;
+    params.max_height = 1.0;
+    params.min_range = 0.0;
+    params.max_range = 10.0;
+    params.angle_min = -std::numbers::pi / 4.0;
+    params.angle_max = std::numbers::pi / 4.0;
+    params.angle_increment = std::numbers::pi / 4.0;
+
+    livox_cloud_to_scan::CloudProjector projector(params);
+    const auto transform = makeIdentityTransform();
+    const auto cloud = makeCloud({
+        {1.0f, 0.0f, 0.0f}
+    });
+
+    std::string error;
+    const auto scan = projector.project(cloud, transform, &error);
+
+    ASSERT_TRUE(error.empty());
+    ASSERT_EQ(scan.ranges.size(), 2U);
+    EXPECT_TRUE(std::isnan(scan.ranges[0]));
     EXPECT_FLOAT_EQ(scan.ranges[1], 1.0f);
 }
 
@@ -176,7 +204,7 @@ TEST(CloudProjectorTest, RejectsMissingFieldsAndTruncatedData)
     EXPECT_TRUE(std::all_of(
         scan.ranges.begin(),
         scan.ranges.end(),
-        [](float range) { return std::isinf(range); }));
+        [](float range) { return std::isnan(range); }));
 
     auto truncated_cloud = makeCloud({{1.0f, 0.0f, 0.0f}});
     truncated_cloud.data.resize(4);

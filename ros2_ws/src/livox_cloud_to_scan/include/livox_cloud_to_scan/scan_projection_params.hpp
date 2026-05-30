@@ -25,6 +25,7 @@ namespace livox_cloud_to_scan
         double scan_time = 0.1;
         double transform_timeout_sec = 0.05;
 
+        bool missing_bins_as_inf = false;
         bool publish_debug_logs = true;
 
         [[nodiscard]] bool validate(std::string * error = nullptr) const

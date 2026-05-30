@@ -68,6 +68,7 @@ class LivoxCloudToScanNode : public rclcpp::Node
             this->declare_parameter<double>("scan_time", 0.1);
             this->declare_parameter<double>("transform_timeout_sec", 0.05);
 
+            this->declare_parameter<bool>("missing_bins_as_inf", false);
             this->declare_parameter<bool>("publish_debug_logs", true);
         }
 
@@ -89,6 +90,9 @@ class LivoxCloudToScanNode : public rclcpp::Node
             params_.transform_timeout_sec =
             this->get_parameter("transform_timeout_sec").as_double();
         
+            params_.missing_bins_as_inf =
+            this->get_parameter("missing_bins_as_inf").as_bool();
+
             params_.publish_debug_logs =
             this->get_parameter("publish_debug_logs").as_bool();
         }

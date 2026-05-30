@@ -93,7 +93,10 @@ namespace livox_cloud_to_scan
             params_.angle_min + static_cast<double>(num_bins) * params_.angle_increment
         );
 
-        scan.ranges.assign(num_bins, std::numeric_limits<float>::infinity());
+        const float missing_range = params_.missing_bins_as_inf ?
+            std::numeric_limits<float>::infinity() :
+            std::numeric_limits<float>::quiet_NaN();
+        scan.ranges.assign(num_bins, missing_range);
         scan.intensities.assign(num_bins, 0.0f);
 
         int x_offset;
