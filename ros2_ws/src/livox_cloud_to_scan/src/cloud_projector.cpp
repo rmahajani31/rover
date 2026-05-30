@@ -200,7 +200,7 @@ namespace livox_cloud_to_scan
                     continue;
                 }
 
-                if (range < scan.ranges[bin]) {
+                if (!std::isfinite(scan.ranges[bin]) || range < scan.ranges[bin]) {
                     scan.ranges[bin] = static_cast<float>(range);
                 }
             }
