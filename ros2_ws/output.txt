@@ -1,0 +1,30 @@
+[INFO] [launch]: All log files can be found below /home/rmahajani/.ros/log/2026-05-30-14-19-45-125668-rpi5-96568
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [joy_node-1]: process started with pid [96594]
+[INFO] [gamepad_adapter-2]: process started with pid [96595]
+[INFO] [odometry_node-3]: process started with pid [96596]
+[INFO] [static_transform_publisher-4]: process started with pid [96597]
+[INFO] [async_slam_toolbox_node-5]: process started with pid [96598]
+[static_transform_publisher-4] [WARN] [1780165185.548949416] []: Old-style arguments are deprecated; see --help for new-style arguments
+[gamepad_adapter-2] [INFO] [1780165185.928743921] [adapter_node]: axes: throttle=1 steer=3 | invert(thr)=false invert(steer)=false | swapped=false deadzone=0.060
+[gamepad_adapter-2] [INFO] [1780165185.928943178] [adapter_node]: buttons: estop=[0] swap=2 inv_thr=5 inv_steer=4
+[gamepad_adapter-2] [INFO] [1780165185.928967437] [adapter_node]: limits: max_linear_x=0.350 max_angular_z=0.800 expo(thr)=0.50 expo(steer)=0.60
+[gamepad_adapter-2] [INFO] [1780165185.928984548] [adapter_node]: smoothing: publish_rate_hz=30.0 accel_linear=0.60 decel_linear=1.50 accel_angular=1.20 decel_angular=2.50
+[gamepad_adapter-2] [INFO] [1780165185.929009233] [adapter_node]: start_estop_active=true
+[gamepad_adapter-2] [WARN] [1780165185.929097862] [adapter_node]: Startup E-STOP active. Move the joystick to let it initialize, then press the E-STOP button again to enable motion.
+[static_transform_publisher-4] [INFO] [1780165186.114625271] [base_footprint_to_base_link_tf]: Spinning until stopped - publishing transform
+[static_transform_publisher-4] translation: ('0.000000', '0.000000', '0.000000')
+[static_transform_publisher-4] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-4] from 'base_footprint' to 'base_link'
+[async_slam_toolbox_node-5] [INFO] [1780165186.301456649] [slam_toolbox]: Configuring
+[async_slam_toolbox_node-5] [INFO] [1780165186.316396920] [slam_toolbox]: Using solver plugin solver_plugins::CeresSolver
+[joy_node-1] [INFO] [1780165186.380034001] [joy_node]: Opened joystick: Xbox One S Controller.  deadzone: 0.060000
+[INFO] [launch.user]: [LifecycleLaunch] Slamtoolbox node is activating.
+[async_slam_toolbox_node-5] [INFO] [1780165186.477858005] [slam_toolbox]: Activating
+[async_slam_toolbox_node-5] [INFO] [1780165186.653481091] [slam_toolbox]: Message Filter dropping message: frame 'base_link' at time 1780165186.410 for reason 'discarding message because the queue is full'
+[odometry_node-3] [INFO] [1780165189.146425064] [odometry]: odometry started. x=-0.000m, y=-0.000m, yaw=-0.000rad
+[async_slam_toolbox_node-5] [INFO] [1780165189.153733581] [slam_toolbox]: Message Filter dropping message: frame 'base_link' at time 1780165188.910 for reason 'discarding message because the queue is full'
+[async_slam_toolbox_node-5] [WARN] [1780165189.353323550] [slam_toolbox]: minimum laser range setting (0.3 m) exceeds the capabilities of the used Lidar (0.3 m)
+[async_slam_toolbox_node-5] Info: clipped range threshold to be within minimum and maximum range!
+[async_slam_toolbox_node-5] Registering sensor: [Custom Described Lidar]
+[gamepad_adapter-2] [INFO] [1780165243.199210692] [adapter_node]: E-STOP cleared. Teleop motion re-enabled.

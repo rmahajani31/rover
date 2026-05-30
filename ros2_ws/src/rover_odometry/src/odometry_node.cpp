@@ -134,7 +134,7 @@ namespace rover_odometry
     void OdometryNode::publishCurrentState()
     {
         const auto now = this->get_clock()->now();
-        const auto quaternion = yawToQuaternion(wrapPi(yaw_rad_ + M_PI));
+        const auto quaternion = yawToQuaternion(wrapPi(yaw_rad_));
 
         geometry_msgs::msg::TransformStamped tf_msg;
         tf_msg.header.stamp = now;
