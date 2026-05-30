@@ -1,0 +1,211 @@
+[35m[1779745398.418861][m info     | [34mTermiosAgentLinux.cpp[m | [37minit                    [m | [32mrunning...[m             | fd: 10
+[35m[1779745398.419547][m info     | [34mRoot.cpp          [m | [37mset_verbose_level       [m | [32mlogger setup[m           | verbose_level: 6
+[35m[1779745400.717716][m info     | [34mRoot.cpp          [m | [37mcreate_client           [m | [32mcreate[m                 | client_key: 0x18E81AEA, session_id: 0x81
+[35m[1779745400.717788][m info     | [34mSessionManager.hpp[m | [37mestablish_session       [m | [32msession established[m    | client_key: 0x18E81AEA, address: 0
+[35m[1779745400.717906][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 19, data: 
+0000: 81 00 00 00 04 01 0B 00 00 00 58 52 43 45 01 00 01 0F 00
+[35m[1779745400.728059][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 44, data: 
+0000: 81 80 00 00 01 07 22 00 00 0A 00 01 01 03 00 00 13 00 00 00 00 01 A5 A5 0B 00 00 00 72 6F 76 65
+0020: 72 5F 6E 6F 64 65 00 00 00 00 00 00
+[35m[1779745400.742952][m info     | [34mProxyClient.cpp   [m | [37mcreate_participant      [m | [32mparticipant created[m    | client_key: 0x18E81AEA, participant_id: 0x000(1)
+[35m[1779745400.743085][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 14, data: 
+0000: 81 80 00 00 05 01 06 00 00 0A 00 01 00 00
+[35m[1779745400.743188][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 01 00 00 00 80
+[35m[1779745400.750035][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 01 00 00 00 80
+[35m[1779745400.758273][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 80, data: 
+0000: 81 80 01 00 01 07 47 00 00 0B 00 02 02 03 00 00 39 00 00 00 0F 00 00 00 72 74 2F 72 6F 76 65 72
+0020: 2F 64 65 62 75 67 00 00 01 A5 A5 A5 1D 00 00 00 73 74 64 5F 6D 73 67 73 3A 3A 6D 73 67 3A 3A 64
+0040: 64 73 5F 3A 3A 53 74 72 69 6E 67 5F 00 00 01 00
+[35m[1779745400.758439][m info     | [34mProxyClient.cpp   [m | [37mcreate_topic            [m | [32mtopic created[m          | client_key: 0x18E81AEA, topic_id: 0x000(2), participant_id: 0x000(1)
+[35m[1779745400.758503][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 14, data: 
+0000: 81 80 01 00 05 01 06 00 00 0B 00 02 00 00
+[35m[1779745400.758527][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 02 00 00 00 80
+[35m[1779745400.765209][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 02 00 00 00 80
+[35m[1779745400.767897][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 24, data: 
+0000: 81 80 02 00 01 07 10 00 00 0C 00 03 03 03 00 00 02 00 00 00 00 00 00 01
+[35m[1779745400.768012][m info     | [34mProxyClient.cpp   [m | [37mcreate_publisher        [m | [32mpublisher created[m      | client_key: 0x18E81AEA, publisher_id: 0x000(3), participant_id: 0x000(1)
+[35m[1779745400.768069][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 14, data: 
+0000: 81 80 02 00 05 01 06 00 00 0C 00 03 00 00
+[35m[1779745400.768086][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 03 00 00 00 80
+[35m[1779745400.774578][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 03 00 00 00 80
+[35m[1779745400.778299][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 36, data: 
+0000: 81 80 03 00 01 07 1C 00 00 0D 00 05 05 03 00 00 0E 00 00 00 00 02 01 00 03 00 01 3F 0A 00 00 00
+0020: 00 00 00 03
+[35m[1779745400.778878][m info     | [34mProxyClient.cpp   [m | [37mcreate_datawriter       [m | [32mdatawriter created[m     | client_key: 0x18E81AEA, datawriter_id: 0x000(5), publisher_id: 0x000(3)
+[35m[1779745400.778950][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 14, data: 
+0000: 81 80 03 00 05 01 06 00 00 0D 00 05 00 00
+[35m[1779745400.778969][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 04 00 00 00 80
+[35m[1779745400.785476][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 04 00 00 00 80
+[35m[1779745400.794086][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 88, data: 
+0000: 81 80 04 00 01 07 4E 00 00 0E 00 12 02 03 00 00 40 00 00 00 0B 00 00 00 72 74 2F 63 6D 64 5F 76
+0020: 65 6C 00 00 01 FF FF FF 28 00 00 00 67 65 6F 6D 65 74 72 79 5F 6D 73 67 73 3A 3A 6D 73 67 3A 3A
+0040: 64 64 73 5F 3A 3A 54 77 69 73 74 53 74 61 6D 70 65 64 5F 00 00 01 00 00
+[35m[1779745400.794185][m info     | [34mProxyClient.cpp   [m | [37mcreate_topic            [m | [32mtopic created[m          | client_key: 0x18E81AEA, topic_id: 0x001(2), participant_id: 0x000(1)
+[35m[1779745400.794252][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 14, data: 
+0000: 81 80 04 00 05 01 06 00 00 0E 00 12 00 00
+[35m[1779745400.794268][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 05 00 00 00 80
+[35m[1779745400.801028][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 05 00 00 00 80
+[35m[1779745400.803626][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 24, data: 
+0000: 81 80 05 00 01 07 10 00 00 0F 00 04 04 03 00 00 02 00 00 00 00 00 00 01
+[35m[1779745400.803807][m info     | [34mProxyClient.cpp   [m | [37mcreate_subscriber       [m | [32msubscriber created[m     | client_key: 0x18E81AEA, subscriber_id: 0x000(4), participant_id: 0x000(1)
+[35m[1779745400.803882][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 14, data: 
+0000: 81 80 05 00 05 01 06 00 00 0F 00 04 00 00
+[35m[1779745400.803902][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 06 00 00 00 80
+[35m[1779745400.810383][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 06 00 00 00 80
+[35m[1779745400.814465][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 40, data: 
+0000: 81 80 06 00 01 07 1D 00 00 10 00 06 06 03 00 00 0F 00 00 00 00 12 01 00 02 00 01 3F 05 00 00 00
+0020: 00 00 00 00 04 00 00 00
+[35m[1779745400.815273][m info     | [34mProxyClient.cpp   [m | [37mcreate_datareader       [m | [32mdatareader created[m     | client_key: 0x18E81AEA, datareader_id: 0x000(6), subscriber_id: 0x000(4)
+[35m[1779745400.815345][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 14, data: 
+0000: 81 80 06 00 05 01 06 00 00 10 00 06 00 00
+[35m[1779745400.815364][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 07 00 00 00 80
+[35m[1779745400.821820][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 07 00 00 00 80
+[35m[1779745400.827281][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 56, data: 
+0000: 81 80 07 00 08 01 10 00 00 11 00 06 01 00 00 01 FF FF 00 00 00 00 00 00 07 01 1A 00 00 12 00 05
+0020: 12 00 00 00 52 6F 76 65 72 20 61 70 70 20 73 74 61 72 74 65 64 00 00 00
+[35m[1779745400.827532][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 22, data: 
+0000: 12 00 00 00 52 6F 76 65 72 20 61 70 70 20 73 74 61 72 74 65 64 00
+[35m[1779745400.827596][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 08 00 00 00 80
+[35m[1779745400.887185][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 44, data: 
+0000: 81 80 08 00 07 01 22 00 00 13 00 05 1A 00 00 00 52 65 73 65 74 20 72 65 61 73 6F 6E 3A 20 50 4F
+0020: 57 45 52 4F 4E 20 28 31 29 00 00 00
+[35m[1779745400.887287][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 30, data: 
+0000: 1A 00 00 00 52 65 73 65 74 20 72 65 61 73 6F 6E 3A 20 50 4F 57 45 52 4F 4E 20 28 31 29 00
+[35m[1779745400.887355][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 09 00 00 00 80
+[35m[1779745400.947416][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 48, data: 
+0000: 81 80 09 00 07 01 25 00 00 14 00 05 1D 00 00 00 4C 61 73 74 20 72 75 6E 74 69 6D 65 20 70 68 61
+0020: 73 65 3A 20 4E 4F 4E 45 20 28 30 29 00 00 00 00
+[35m[1779745400.947508][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 33, data: 
+0000: 1D 00 00 00 4C 61 73 74 20 72 75 6E 74 69 6D 65 20 70 68 61 73 65 3A 20 4E 4F 4E 45 20 28 30 29
+0020: 00
+[35m[1779745400.947686][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 0A 00 00 00 80
+[35m[1779745401.007093][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 44, data: 
+0000: 81 80 0A 00 07 01 21 00 00 15 00 05 19 00 00 00 49 6E 69 74 69 61 6C 69 7A 69 6E 67 20 68 61 72
+0020: 64 77 61 72 65 2E 2E 2E 00 00 00 00
+[35m[1779745401.007209][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 29, data: 
+0000: 19 00 00 00 49 6E 69 74 69 61 6C 69 7A 69 6E 67 20 68 61 72 64 77 61 72 65 2E 2E 2E 00
+[35m[1779745401.007433][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 0B 00 00 00 80
+[35m[1779745401.066365][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 36, data: 
+0000: 81 80 0B 00 07 01 1A 00 00 16 00 05 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69
+0020: 6E 00 00 00
+[35m[1779745401.066450][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 22, data: 
+0000: 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69 6E 00
+[35m[1779745401.066651][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 0C 00 00 00 80
+[35m[1779745401.128103][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 56, data: 
+0000: 81 80 0C 00 07 01 2E 00 00 17 00 05 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76
+0020: 61 69 6C 61 62 6C 65 2C 20 72 65 74 72 79 69 6E 67 20 28 31 29 00 73 67
+[35m[1779745401.128205][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 42, data: 
+0000: 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76 61 69 6C 61 62 6C 65 2C 20 72 65 74
+0020: 72 79 69 6E 67 20 28 31 29 00
+[35m[1779745401.128373][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 0D 00 00 00 80
+[35m[1779745401.186380][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 36, data: 
+0000: 81 80 0D 00 07 01 1A 00 00 18 00 05 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69
+0020: 6E 00 3A 20
+[35m[1779745401.186507][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 22, data: 
+0000: 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69 6E 00
+[35m[1779745401.186590][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 0E 00 00 00 80
+[35m[1779745401.248109][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 56, data: 
+0000: 81 80 0E 00 07 01 2E 00 00 19 00 05 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76
+0020: 61 69 6C 61 62 6C 65 2C 20 72 65 74 72 79 69 6E 67 20 28 32 29 00 00 00
+[35m[1779745401.248201][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 42, data: 
+0000: 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76 61 69 6C 61 62 6C 65 2C 20 72 65 74
+0020: 72 79 69 6E 67 20 28 32 29 00
+[35m[1779745401.248268][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 0F 00 00 00 80
+[35m[1779745401.306375][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 36, data: 
+0000: 81 80 0F 00 07 01 1A 00 00 1A 00 05 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69
+0020: 6E 00 00 00
+[35m[1779745401.306490][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 22, data: 
+0000: 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69 6E 00
+[35m[1779745401.306710][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 10 00 00 00 80
+[35m[1779745401.368110][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 56, data: 
+0000: 81 80 10 00 07 01 2E 00 00 1B 00 05 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76
+0020: 61 69 6C 61 62 6C 65 2C 20 72 65 74 72 79 69 6E 67 20 28 33 29 00 73 67
+[35m[1779745401.368220][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 42, data: 
+0000: 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76 61 69 6C 61 62 6C 65 2C 20 72 65 74
+0020: 72 79 69 6E 67 20 28 33 29 00
+[35m[1779745401.368293][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 11 00 00 00 80
+[35m[1779745401.426352][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 36, data: 
+0000: 81 80 11 00 07 01 1A 00 00 1C 00 05 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69
+0020: 6E 00 3A 20
+[35m[1779745401.426458][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 22, data: 
+0000: 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69 6E 00
+[35m[1779745401.426615][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 12 00 00 00 80
+[35m[1779745401.488094][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 56, data: 
+0000: 81 80 12 00 07 01 2E 00 00 1D 00 05 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76
+0020: 61 69 6C 61 62 6C 65 2C 20 72 65 74 72 79 69 6E 67 20 28 34 29 00 00 00
+[35m[1779745401.488212][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 42, data: 
+0000: 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76 61 69 6C 61 62 6C 65 2C 20 72 65 74
+0020: 72 79 69 6E 67 20 28 34 29 00
+[35m[1779745401.488288][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 13 00 00 00 80
+[35m[1779745401.546348][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 36, data: 
+0000: 81 80 13 00 07 01 1A 00 00 1E 00 05 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69
+0020: 6E 00 00 00
+[35m[1779745401.546449][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 22, data: 
+0000: 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69 6E 00
+[35m[1779745401.546520][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 14 00 00 00 80
+[35m[1779745401.608086][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 56, data: 
+0000: 81 80 14 00 07 01 2E 00 00 1F 00 05 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76
+0020: 61 69 6C 61 62 6C 65 2C 20 72 65 74 72 79 69 6E 67 20 28 35 29 00 73 67
+[35m[1779745401.608197][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 42, data: 
+0000: 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76 61 69 6C 61 62 6C 65 2C 20 72 65 74
+0020: 72 79 69 6E 67 20 28 35 29 00
+[35m[1779745401.608267][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 15 00 00 00 80
+[35m[1779745401.666344][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 36, data: 
+0000: 81 80 15 00 07 01 1A 00 00 20 00 05 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69
+0020: 6E 00 3A 20
+[35m[1779745401.666456][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 22, data: 
+0000: 12 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 62 65 67 69 6E 00
+[35m[1779745401.666522][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 16 00 00 00 80
+[35m[1779745401.728083][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 56, data: 
+0000: 81 80 16 00 07 01 2E 00 00 21 00 05 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76
+0020: 61 69 6C 61 62 6C 65 2C 20 72 65 74 72 79 69 6E 67 20 28 36 29 00 00 00
+[35m[1779745401.728192][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 42, data: 
+0000: 26 00 00 00 41 67 65 6E 74 20 77 61 69 74 3A 20 75 6E 61 76 61 69 6C 61 62 6C 65 2C 20 72 65 74
+0020: 72 79 69 6E 67 20 28 36 29 00
+[35m[1779745401.728261][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 17 00 00 00 80
+[35m[1779745401.788477][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 60, data: 
+0000: 81 80 17 00 07 01 32 00 00 22 00 05 2A 00 00 00 5B 61 74 74 65 6D 70 74 20 31 5D 20 65 78 65 63
+0020: 75 74 6F 72 5F 61 64 64 5F 73 75 62 73 63 72 69 70 74 69 6F 6E 3A 20 6F 6B 00 00 00
+[35m[1779745401.788590][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 46, data: 
+0000: 2A 00 00 00 5B 61 74 74 65 6D 70 74 20 31 5D 20 65 78 65 63 75 74 6F 72 5F 61 64 64 5F 73 75 62
+0020: 73 63 72 69 70 74 69 6F 6E 3A 20 6F 6B 00
+[35m[1779745401.788667][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 18 00 00 00 80
+[35m[1779745401.797492][m debug    | [34mSerialAgentLinux.cpp[m | [37mrecv_message            [m | [33m[==>> SER <<==][m        | client_key: 0x18E81AEA, len: 56, data: 
+0000: 81 80 18 00 07 01 30 00 00 23 00 05 28 00 00 00 5B 61 74 74 65 6D 70 74 20 31 5D 20 6D 69 63 72
+0020: 6F 2D 52 4F 53 20 66 75 6C 6C 79 20 69 6E 69 74 69 61 6C 69 7A 65 64 00
+[35m[1779745401.797596][m debug    | [34mDataWriter.cpp    [m | [37mwrite                   [m | [33m[** <<DDS>> **][m        | client_key: 0x00000000, len: 44, data: 
+0000: 28 00 00 00 5B 61 74 74 65 6D 70 74 20 31 5D 20 6D 69 63 72 6F 2D 52 4F 53 20 66 75 6C 6C 79 20
+0020: 69 6E 69 74 69 61 6C 69 7A 65 64 00
+[35m[1779745401.797660][m debug    | [34mSerialAgentLinux.cpp[m | [37msend_message            [m | [33m[** <<SER>> **][m        | client_key: 0x18E81AEA, len: 13, data: 
+0000: 81 00 00 00 0A 01 05 00 19 00 00 00 80

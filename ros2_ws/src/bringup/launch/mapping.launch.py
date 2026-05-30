@@ -17,7 +17,7 @@ def generate_launch_description():
         rover_odometry_dir, "rover_odometry.launch.py"
     )
     slam_params_default = os.path.join(
-        bringup_dir, "slam_toolbox_async.yaml"
+        bringup_dir, "config", "slam_toolbox_async.yaml"
     )
 
     ns = LaunchConfiguration("namespace")

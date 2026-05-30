@@ -40,8 +40,8 @@ slam_toolbox:
     use_response_expansion: true
 
     # Mapping quality vs compute (start here; tune later)
-    min_laser_range: 0.1
-    max_laser_range: 16.0
+    min_laser_range: 0.3
+    max_laser_range: 8.0
 
     # Loop closure behavior
     do_loop_closing: true
