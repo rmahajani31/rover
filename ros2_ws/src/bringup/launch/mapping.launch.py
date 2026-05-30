@@ -14,7 +14,10 @@ def generate_launch_description():
     rover_odometry_dir = get_package_share_directory("rover_odometry")
 
     rover_odometry_launch = os.path.join(
-        rover_odometry_dir, "rover_odometry.launch.py"
+        rover_odometry_dir, "launch", "rover_odometry.launch.py"
+    )
+    rover_odometry_config = os.path.join(
+        rover_odometry_dir, "config", "rover_odometry_mapping.yaml"
     )
     slam_params_default = os.path.join(
         bringup_dir, "config", "slam_toolbox_async.yaml"
@@ -53,6 +56,7 @@ def generate_launch_description():
             "gamepad_config",
             default_value=PathJoinSubstitution([
                 FindPackageShare("gamepad_adapter"),
+                "config",
                 "gamepad_adapter.yaml",
             ]),
             description="gamepad_adapter parameters YAML",
@@ -95,6 +99,9 @@ def generate_launch_description():
 
     odometry_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(rover_odometry_launch),
+        launch_arguments={
+            "config_file": rover_odometry_config,
+        }.items(),
     )
 
     base_footprint_to_base_link_tf = Node(
@@ -109,13 +116,13 @@ def generate_launch_description():
     )
 
     slam_toolbox_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
+        PythonLaunchDescriptionSource(
             PathJoinSubstitution([
                 FindPackageShare("slam_toolbox"),
                 "launch",
                 "online_async_launch.py",
             ])
-        ]),
+        ),
         launch_arguments={
             "slam_params_file": slam_params_file,
             "use_sim_time": use_sim_time,
