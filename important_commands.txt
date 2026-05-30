@@ -55,7 +55,7 @@ ros2 run micro_ros_setup configure_firmware.sh rover --transport serial
 ros2 run micro_ros_setup build_firmware.sh
 
 
-ros2 launch livox_ros_driver2 rviz_MID360_launch.py
+ros2 launch livox_ros_driver2 rviz_MID360_launch.py 2>&1 | tee output.txt
 
 ros2 bag record -o bags/livox_test /livox/lidar /livox/imu
 
