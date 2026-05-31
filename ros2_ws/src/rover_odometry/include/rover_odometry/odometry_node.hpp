@@ -38,6 +38,7 @@ namespace rover_odometry
             double publish_rate_hz_;
             std::vector<double> pod_offsets_mm_;
             std::vector<bool> encoder_directions_;
+            double yaw_offset_rad_;
             std::string odom_topic_;
             std::string odom_frame_;
             std::string base_frame_;

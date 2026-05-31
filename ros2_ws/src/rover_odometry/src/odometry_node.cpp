@@ -77,6 +77,7 @@ namespace rover_odometry
         this->declare_parameter<double>("publish_rate_hz", 50.0);
         this->declare_parameter<std::vector<double>>("pod_offsets_mm", {160.87, -201.3});
         this->declare_parameter<std::vector<bool>>("encoder_directions", {true, true});
+        this->declare_parameter<double>("yaw_offset_rad", 0.0);
         this->declare_parameter<std::string>("odom_topic", "odom");
         this->declare_parameter<std::string>("odom_frame", "odom");
         this->declare_parameter<std::string>("base_frame", "base_link");
@@ -90,6 +91,7 @@ namespace rover_odometry
         publish_rate_hz_ = this->get_parameter("publish_rate_hz").as_double();
         pod_offsets_mm_ = this->get_parameter("pod_offsets_mm").as_double_array();
         encoder_directions_ = this->get_parameter("encoder_directions").as_bool_array();
+        yaw_offset_rad_ = this->get_parameter("yaw_offset_rad").as_double();
         odom_topic_ = this->get_parameter("odom_topic").as_string();
         odom_frame_ = this->get_parameter("odom_frame").as_string();
         base_frame_ = this->get_parameter("base_frame").as_string();
@@ -134,7 +136,11 @@ namespace rover_odometry
     void OdometryNode::publishCurrentState()
     {
         const auto now = this->get_clock()->now();
-        const auto quaternion = yawToQuaternion(wrapPi(yaw_rad_));
+        const auto quaternion = yawToQuaternion(wrapPi(yaw_rad_ + yaw_offset_rad_));
+        const double cos_offset = std::cos(yaw_offset_rad_);
+        const double sin_offset = std::sin(yaw_offset_rad_);
+        const double vx_m_s = vx_mm_s_ / 1000.0;
+        const double vy_m_s = vy_mm_s_ / 1000.0;
 
         geometry_msgs::msg::TransformStamped tf_msg;
         tf_msg.header.stamp = now;
@@ -154,8 +160,8 @@ namespace rover_odometry
         odom_msg.pose.pose.position.y = y_mm_ / 1000.0;
         odom_msg.pose.pose.position.z = 0.0;
         odom_msg.pose.pose.orientation = quaternion;
-        odom_msg.twist.twist.linear.x = vx_mm_s_ / 1000.0;
-        odom_msg.twist.twist.linear.y = vy_mm_s_ / 1000.0;
+        odom_msg.twist.twist.linear.x = cos_offset * vx_m_s + sin_offset * vy_m_s;
+        odom_msg.twist.twist.linear.y = -sin_offset * vx_m_s + cos_offset * vy_m_s;
         odom_msg.twist.twist.angular.z = yaw_rate_rad_s_;
 
         const double xy_var = 0.01 + 0.05 * std::abs(yaw_rate_rad_s_);
