@@ -1,7 +1,0 @@
-image: rover_map_3.pgm
-mode: trinary
-resolution: 0.050
-origin: [-4.701, -3.605, 0]
-negate: 0
-occupied_thresh: 0.65
-free_thresh: 0.196
