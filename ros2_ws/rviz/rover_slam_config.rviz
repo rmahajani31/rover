@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /LaserScan1/Topic1
         - /Odometry1/Topic1
+        - /TF1
       Splitter Ratio: 0.5
     Tree Height: 532
   - Class: rviz_common/Selection
@@ -165,7 +166,7 @@ Visualization Manager:
       Name: TF
       Show Arrows: true
       Show Axes: true
-      Show Names: false
+      Show Names: true
       Tree:
         map:
           odom:

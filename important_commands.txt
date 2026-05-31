@@ -71,6 +71,6 @@ ros2 launch bringup jetson.launch.py 2>&1 | tee output.txt
 
 ros2 launch bringup mapping.launch.py 2>&1 | tee output.txt
 
-ros2 service call /slam_toolbox/save_map slam_toolbox/srv/SaveMap "{name: {data: '/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map_2'}}"
+ros2 service call /slam_toolbox/save_map slam_toolbox/srv/SaveMap "{name: {data: '/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map_3'}}"
 
-ros2 launch bringup pi_nav2_livox.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map_2.yaml | tee output.txt
+ros2 launch bringup pi_nav2_livox.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map_3.yaml | tee output.txt
