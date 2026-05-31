@@ -15,7 +15,7 @@ def generate_launch_description():
 
     default_params = os.path.join(bringup_dir, "config", "nav2_params_livox.yaml")
     odometry_launch = os.path.join(rover_odometry_dir, "launch", "rover_odometry.launch.py")
-    odometry_config = os.path.join(rover_odometry_dir, "config", "rover_odometry_nav.yaml")
+    odometry_config = os.path.join(rover_odometry_dir, "config", "rover_odometry.yaml")
     localization_launch = os.path.join(nav2_bringup_dir, "launch", "localization_launch.py")
     navigation_launch = os.path.join(nav2_bringup_dir, "launch", "navigation_launch.py")
 
