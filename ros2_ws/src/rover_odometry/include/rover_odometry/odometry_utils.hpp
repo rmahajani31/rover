@@ -20,6 +20,7 @@ namespace rover_odometry
 
     inline geometry_msgs::msg::Quaternion yawToQuaternion(double yaw)
     {
+        // The Pinpoint reports planar yaw, so roll and pitch stay zero.
         const double half = 0.5 * yaw;
 
         geometry_msgs::msg::Quaternion q;

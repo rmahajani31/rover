@@ -109,6 +109,8 @@ namespace rover_odometry
 
     void OdometryNode::initializeDevice()
     {
+        // Apply hardware setup once at startup so the published odometry uses
+        // the calibrated pod offsets and encoder directions from YAML.
         i2c_->resetPosAndImu();
         std::this_thread::sleep_for(std::chrono::seconds(1));
 
@@ -123,6 +125,8 @@ namespace rover_odometry
 
     void OdometryNode::initializeState()
     {
+        // Pinpoint registers 8-13 expose pose and velocity values used by the
+        // periodic publisher.
         x_mm_ = i2c_->readF32(8);
         y_mm_ = i2c_->readF32(9);
         yaw_rad_ = i2c_->readF32(10);
@@ -161,6 +165,8 @@ namespace rover_odometry
         const double xy_var = 0.01 + 0.05 * std::abs(yaw_rate_rad_s_);
         const double yaw_var = 0.02 + 0.10 * std::abs(yaw_rate_rad_s_);
 
+        // Use simple motion-dependent covariance: turns are less certain than
+        // straight, slow motion.
         odom_msg.pose.covariance.fill(0.0);
         odom_msg.pose.covariance[0] = xy_var;
         odom_msg.pose.covariance[7] = xy_var;

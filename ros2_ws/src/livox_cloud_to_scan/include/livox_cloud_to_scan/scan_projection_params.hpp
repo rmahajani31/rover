@@ -6,12 +6,14 @@
 
 namespace livox_cloud_to_scan
 {
-    struct ScanProjectionParams 
+    struct ScanProjectionParams
     {
         std::string input_topic = "/livox/lidar";
         std::string output_topic = "/scan_from_livox";
         std::string target_frame = "base_link";
 
+        // Keep points in a horizontal band around obstacle height; floor and
+        // high ceiling returns are intentionally discarded before projection.
         double min_height = 0.08;
         double max_height = 0.70;
 
@@ -28,6 +30,8 @@ namespace livox_cloud_to_scan
         bool missing_bins_as_inf = false;
         bool publish_debug_logs = true;
 
+        // Validate early so a bad launch parameter fails at startup instead of
+        // producing malformed scans while mapping or navigating.
         [[nodiscard]] bool validate(std::string * error = nullptr) const
         {
             if (!std::isfinite(min_height) || !std::isfinite(max_height) ||

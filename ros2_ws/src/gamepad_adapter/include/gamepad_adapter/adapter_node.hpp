@@ -17,16 +17,22 @@ namespace gamepad_adapter
             AdapterNode();
         
         private:
+            // Runtime parameters keep controller mapping and speed limits tunable
+            // without recompiling for a specific gamepad.
             void declare_and_load_parameters();
             void log_mapping() const;
             void zero_motion_state();
             void set_estop_state(bool estop_active, const std::string & log_message, bool warn = false);
         
+            // Button actions are edge-triggered so holding a button does not
+            // repeatedly toggle E-stop, inversion, or axis swapping.
             bool edge_pressed(int idx, const std::vector<int> & buttons) const;
             bool any_edge_pressed(const std::vector<int> & indices, const std::vector<int> & buttons) const;
         
             double apply_deadzone(double x) const;
             double scale_axis(double x, double expo, double max_value) const;
+            // Smooth commanded velocity before publishing so joystick changes
+            // are easier on the drivetrain and firmware controller.
             double step_command(
             double current,
             double target,

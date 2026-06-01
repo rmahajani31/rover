@@ -25,6 +25,8 @@ namespace rover_odometry
 
         private:
             static std::chrono::nanoseconds computeTimerPeriod(double publish_rate_hz);
+            // Publish both nav_msgs/Odometry and the matching odom -> base
+            // transform so SLAM/Nav2 can consume a consistent pose source.
             void publishCurrentState();
             void declareParameters();
             void loadParameters();

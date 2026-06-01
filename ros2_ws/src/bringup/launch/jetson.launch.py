@@ -7,6 +7,8 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    # The Jetson owns Livox preprocessing so the Pi can stay focused on
+    # navigation, odometry, and micro-ROS communication.
     livox_cloud_to_scan_launch = PathJoinSubstitution([
         FindPackageShare("livox_cloud_to_scan"),
         "launch",
@@ -14,6 +16,8 @@ def generate_launch_description():
     ])
 
     return LaunchDescription([
+        # Keep the Livox frame tied to the rover body frame before projecting
+        # the 3D cloud into a planar scan.
         Node(
             package="tf2_ros",
             executable="static_transform_publisher",

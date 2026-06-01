@@ -46,6 +46,8 @@ namespace rover_odometry
 
     std::vector<std::uint8_t> PinpointI2C::readBytes(std::uint8_t reg, std::size_t length)
     {
+        // Open per transaction so failures from unplugged/restarted hardware do
+        // not leave a stale file descriptor inside the node.
         const int fd = openI2cDevice(devicePath(), addr_);
 
         std::vector<std::uint8_t> buffer(length);
@@ -173,6 +175,7 @@ namespace rover_odometry
 
     void PinpointI2C::sendControl(std::uint32_t control_bits)
     {
+        // Pinpoint command bits are written to register 4.
         writeU32(4, control_bits);
     }
 
@@ -212,6 +215,7 @@ namespace rover_odometry
 
     void PinpointI2C::setPositionMmRad(float x_mm, float y_mm, float yaw_rad)
     {
+        // Pose registers are stored in millimeters for x/y and radians for yaw.
         writeF32(8, x_mm);
         writeF32(9, y_mm);
         writeF32(10, yaw_rad);

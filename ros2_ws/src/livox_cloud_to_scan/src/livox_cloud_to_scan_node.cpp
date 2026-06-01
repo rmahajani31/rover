@@ -28,7 +28,9 @@ class LivoxCloudToScanNode : public rclcpp::Node
             validateParameters();
 
             projector_ = std::make_unique<livox_cloud_to_scan::CloudProjector>(params_);
-            
+
+            // Publish scans reliably because downstream SLAM/Nav2 consumers
+            // should not silently miss projected obstacle data.
             rclcpp::QoS qos(rclcpp::KeepLast(10));
             qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
             qos.durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
@@ -109,6 +111,8 @@ class LivoxCloudToScanNode : public rclcpp::Node
             geometry_msgs::msg::TransformStamped transform_msg;
 
             try {
+                // Transform each cloud into the rover body frame before
+                // applying height filters and angle binning.
                 transform_msg = tf_buffer_.lookupTransform(
                     params_.target_frame,
                     msg->header.frame_id,

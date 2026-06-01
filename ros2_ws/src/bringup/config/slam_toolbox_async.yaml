@@ -1,3 +1,5 @@
+## Mapping configuration for slam_toolbox using the Livox-derived 2D scan.
+## Keep frames aligned with rover_odometry and the bringup static transforms.
 slam_toolbox:
   ros__parameters:
     use_sim_time: false

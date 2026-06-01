@@ -12,6 +12,8 @@ namespace rover_odometry
         public:
             virtual ~OdometryDevice() = default;
 
+            // Small interface boundary lets tests inject fake odometry hardware
+            // while production code talks to the Pinpoint over I2C.
             virtual float readF32(std::uint8_t reg) = 0;
             virtual void resetPosAndImu() = 0;
             virtual void setEncoderDirections(bool x_reversed, bool y_reversed) = 0;
@@ -52,6 +54,7 @@ namespace rover_odometry
             void setPositionMmRad(float x_mm, float y_mm, float yaw_rad);
         
         private:
+            // Control register bits used by the goBILDA Pinpoint I2C protocol.
             static constexpr std::uint32_t CTRL_RESET_IMU = 1u << 0;
             static constexpr std::uint32_t CTRL_RESET_IMU_AND_POS = 1u << 1;
             static constexpr std::uint32_t CTRL_SET_Y_REVERSED = 1u << 2;

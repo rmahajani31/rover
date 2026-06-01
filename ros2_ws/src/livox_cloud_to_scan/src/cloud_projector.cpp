@@ -169,6 +169,8 @@ namespace livox_cloud_to_scan
                 const double y = p_out.point.y;
                 const double z = p_out.point.z;
 
+                // Project only a configurable vertical slice of the cloud into
+                // the 2D navigation scan.
                 if (z < params_.min_height || z > params_.max_height) {
                     continue;
                 }
@@ -200,6 +202,8 @@ namespace livox_cloud_to_scan
                     continue;
                 }
 
+                // LaserScan expects one range per angle bin; keep the closest
+                // valid point so obstacles are represented conservatively.
                 if (!std::isfinite(scan.ranges[bin]) || range < scan.ranges[bin]) {
                     scan.ranges[bin] = static_cast<float>(range);
                 }

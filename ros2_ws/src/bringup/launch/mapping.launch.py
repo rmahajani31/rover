@@ -13,6 +13,8 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory("bringup")
     rover_odometry_dir = get_package_share_directory("rover_odometry")
 
+    # Mapping composes the Pi-side pieces needed to manually drive the rover
+    # while slam_toolbox builds a map from the Jetson-projected Livox scan.
     rover_odometry_launch = os.path.join(
         rover_odometry_dir, "launch", "rover_odometry.launch.py"
     )
@@ -31,6 +33,8 @@ def generate_launch_description():
     slam_params_file = LaunchConfiguration("slam_params_file")
     use_sim_time = LaunchConfiguration("use_sim_time")
 
+    # Launch arguments keep hardware paths and tuning files overrideable without
+    # editing this launch file on the robot.
     decls = [
         DeclareLaunchArgument(
             "namespace",
@@ -108,6 +112,8 @@ def generate_launch_description():
         package="tf2_ros",
         executable="static_transform_publisher",
         name="base_footprint_to_base_link_tf",
+        # Odometry reports base_footprint; scan processing and Nav2 use
+        # base_link, so publish an identity transform between them.
         arguments=[
             "0", "0", "0",
             "0", "0", "0",
@@ -123,6 +129,8 @@ def generate_launch_description():
                 "online_async_launch.py",
             ])
         ),
+        # The mapping-specific parameters select /scan_from_livox and the
+        # rover's map/odom/base frames.
         launch_arguments={
             "slam_params_file": slam_params_file,
             "use_sim_time": use_sim_time,

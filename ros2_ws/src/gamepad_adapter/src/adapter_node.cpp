@@ -21,6 +21,8 @@ namespace
     double apply_expo(double x, double expo)
     {
         expo = clamp01(expo);
+        // Blend linear and cubic response: low stick values become gentler
+        // while full-scale commands still reach the configured limit.
         return ((1.0 - expo) * x) + (expo * x * x * x);
     }
 
@@ -174,6 +176,8 @@ namespace gamepad_adapter
     bool warn)
     {
         estop_state_ = estop_active;
+        // Always publish a zero command on E-stop transitions so stale velocity
+        // commands do not keep the rover moving.
         zero_motion_state();
         publish_twist(0.0, 0.0);
 
@@ -305,6 +309,8 @@ namespace gamepad_adapter
             desired_linear_x_ = 0.0;
             desired_angular_z_ = 0.0;
         } else {
+            // on_timer applies acceleration limits; this callback only updates
+            // the desired target from the latest joystick state.
             desired_linear_x_ = scale_axis(throttle, throttle_expo_, max_linear_x_);
             desired_angular_z_ = scale_axis(steer, steer_expo_, max_angular_z_);
         }
@@ -337,4 +343,3 @@ namespace gamepad_adapter
         publish_twist(current_linear_x_, current_angular_z_); 
     }
 }
-

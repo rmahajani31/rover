@@ -100,6 +100,8 @@ typedef enum {
     RUNTIME_PHASE_CLEANUP = 11
 } runtime_phase_t;
 
+// Kept across resets so the next boot can report where the previous runtime
+// stopped, which is useful for watchdog/panic debugging.
 static RTC_NOINIT_ATTR int last_runtime_phase = RUNTIME_PHASE_NONE;
 
 // Pre-init log buffer — captures messages before the debug publisher is ready
@@ -182,6 +184,8 @@ void clear_debug_event_buffer(void) {
 }
 
 void queue_debug_event(const char *msg) {
+    // Runtime events are buffered so the control loop can report them without
+    // blocking on a ROS publish at the exact moment they occur.
     snprintf(debug_event_buffer[debug_event_head], STRING_BUFFER_LEN, "%s", msg);
     debug_event_head = (debug_event_head + 1) % DEBUG_EVENT_COUNT;
     if (debug_event_full) {
@@ -203,6 +207,7 @@ bool publish_one_debug_event(void) {
 }
 
 void stop_all_motors(void) {
+    // Used both as a safety stop and during reconnect cleanup.
     set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, 0.0f);
     set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, 0.0f);
     set_motor_speed(LEDC_CHANNEL_2, M_RF_DIR, 0.0f);
@@ -247,6 +252,8 @@ const char * reset_reason_to_string(esp_reset_reason_t reason) {
 void log_reset_reason(void) {
     char temp_buf[STRING_BUFFER_LEN];
     esp_reset_reason_t reason = esp_reset_reason();
+    // Pair the ESP reset reason with the last saved runtime phase to make
+    // field failures easier to diagnose from /rover/debug.
     int phase = last_runtime_phase;
     if (!is_valid_runtime_phase(phase)) {
         phase = RUNTIME_PHASE_NONE;
@@ -330,7 +337,8 @@ void init_hardware()
 	gpio_set_level(M_LF_SLP, 1); gpio_set_level(M_LR_SLP, 1);
 	gpio_set_level(M_RF_SLP, 1); gpio_set_level(M_RR_SLP, 1);
 
-    // Configure PWM (LEDC)
+    // Configure one shared LEDC timer so all four motor PWM channels run at
+    // the same frequency and resolution.
     ledc_timer_config_t timer_conf = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .duty_resolution = LEDC_TIMER_8_BIT,
@@ -340,7 +348,8 @@ void init_hardware()
     };
     ledc_timer_config(&timer_conf);
 
-    // Configure 4 PWM Channels
+    // Each wheel gets its own PWM channel while direction is handled by a
+    // separate GPIO pin.
     ledc_channel_config_t lcd_ch[4] = {
         {.gpio_num = M_LF_PWM, .channel = LEDC_CHANNEL_0, .speed_mode = LEDC_LOW_SPEED_MODE, .timer_sel = LEDC_TIMER_0, .duty = 0},
         {.gpio_num = M_LR_PWM, .channel = LEDC_CHANNEL_1, .speed_mode = LEDC_LOW_SPEED_MODE, .timer_sel = LEDC_TIMER_0, .duty = 0},
@@ -381,7 +390,7 @@ rcl_ret_t set_motor_speed(int channel, int dir_pin, float speed)
         return RCL_RET_OK;
     }
 
-	// Set duty cycle
+	// Convert the requested m/s command into an 8-bit LEDC duty cycle.
 	uint32_t duty = (uint32_t)((abs_speed / MAX_SPEED) * 255.0f);
 	if (duty > 255) duty = 255;
 
@@ -410,6 +419,8 @@ void cmd_vel_subscription_callback (const void * msgin)
 	
 	// Extract the linear and angular velocities from the incoming message
 	const geometry_msgs__msg__TwistStamped * msg = (const geometry_msgs__msg__TwistStamped *)msgin;
+	// Clamp at the firmware boundary so bad ROS commands cannot exceed the
+	// configured motor speed envelope.
 	latest_linear_x = clampf(msg->twist.linear.x, -MAX_SPEED, MAX_SPEED);
 	latest_angular_z = clampf(msg->twist.angular.z, -MAX_ANGULAR_SPEED, MAX_ANGULAR_SPEED);
 
@@ -457,6 +468,8 @@ void appMain(void *argument)
 	while (1) {
 		switch (state) {
 				case CONN_WAIT_FOR_AGENT: {
+					// Stay in a safe stopped state until the Pi-side
+					// micro-ROS agent is reachable over serial.
 					current_init_attempt = 0;
 					debug_publisher_ready = false;
 					last_cmd_vel_time = 0;
@@ -496,6 +509,8 @@ void appMain(void *argument)
 					}
 
 			case CONN_INIT_MICROROS:
+				// Build the micro-ROS session from scratch after every
+				// reconnect so stale handles are not reused.
 				log_msg("support_init: begin");
 				rcl_ret_t support_ret = rclc_support_init(&support, 0, NULL, &allocator);
 				if (support_ret != RCL_RET_OK) {
@@ -597,6 +612,8 @@ void appMain(void *argument)
 
 				if (last_cmd_vel_time > 0) {
                     last_runtime_phase = RUNTIME_PHASE_RUN_COMPUTE;
+					// Differential-drive mixing: positive angular_z slows the
+					// left side and speeds up the right side.
 					float left_velocity = clampf(
 						latest_linear_x - (latest_angular_z * TRACK_WIDTH / 2.0f),
 						-MAX_SPEED,
@@ -610,6 +627,8 @@ void appMain(void *argument)
 
                     if (fabsf(left_velocity - applied_left_velocity) > MOTOR_EPSILON ||
                         fabsf(right_velocity - applied_right_velocity) > MOTOR_EPSILON) {
+                        // Avoid rewriting LEDC registers for tiny command
+                        // changes; this keeps the loop quieter and cheaper.
                         last_runtime_phase = RUNTIME_PHASE_RUN_APPLY_LEFT;
                         rcl_ret_t left_front_ret = set_motor_speed(LEDC_CHANNEL_0, M_LF_DIR, left_velocity);
                         rcl_ret_t left_rear_ret = set_motor_speed(LEDC_CHANNEL_1, M_LR_DIR, left_velocity);
@@ -639,6 +658,8 @@ void appMain(void *argument)
 				int64_t now = esp_timer_get_time() / 1000;
 				if (last_cmd_vel_time > 0 && (now - last_cmd_vel_time > TIMEOUT_MS)) {
 					if (!in_safety_stop) {
+						// If the ROS side stops sending velocity commands,
+						// stop once and report the safety event.
 						last_runtime_phase = RUNTIME_PHASE_SAFETY_STOP;
 						stop_all_motors();
 						latest_linear_x = 0.0f;

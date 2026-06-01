@@ -1,3 +1,5 @@
+## Nav2 parameters for the rover when using /scan_from_livox as the laser scan.
+## Frame names should stay consistent with rover_odometry and bringup launches.
 amcl:
   ros__parameters:
     set_initial_pose: true
@@ -83,6 +85,7 @@ bt_navigator:
 
 controller_server:
   ros__parameters:
+    # MPPI handles local control for the differential-drive rover.
     controller_frequency: 10.0
     costmap_update_timeout: 0.30
     min_x_velocity_threshold: 0.001
@@ -201,6 +204,7 @@ controller_server:
 local_costmap:
   local_costmap:
     ros__parameters:
+      # Local costmap tracks nearby Livox obstacles in odom for reactive motion.
       update_frequency: 5.0
       publish_frequency: 2.0
       global_frame: odom
