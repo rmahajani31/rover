@@ -64,7 +64,7 @@
 #define STRING_BUFFER_LEN 100
 #define TIMEOUT_MS 1000 // Stop motors if no msg for 1 second
 #define PWM_FREQUENCY 20000 // Hz
-#define DEADZONE 0.05 // m/s
+#define DEADZONE 0.0 // m/s
 #define MAX_SPEED 1.0f // m/s
 #define MAX_ANGULAR_SPEED ((2.0f * MAX_SPEED) / TRACK_WIDTH) // rad/s
 #define AGENT_PING_TIMEOUT_MS 1000
