@@ -10,8 +10,16 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', ['launch/rover.launch.py']),
+        ('share/' + package_name + '/launch', [
+            'launch/jetson.launch.py',
+            'launch/mapping.launch.py',
+            'launch/pi_nav2_livox.launch.py',
+        ]),
         ('share/' + package_name + '/urdf', ['urdf/rover.urdf']),
+        ('share/' + package_name + '/config', [
+            'config/slam_toolbox_async.yaml',
+            'config/nav2_params_livox.yaml',
+        ]),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

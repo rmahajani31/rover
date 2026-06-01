@@ -18,3 +18,59 @@ ros2 launch depthai_ros_driver driver.launch.py \
   imu.i_rotation_vector_type:=GEOMAGNETIC_ROTATION_VECTOR
 
 ros2 launch depthai_ros_driver calibration.launch.py
+ros2 launch nav2_bringup navigation_launch.py params_file:=/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params.yaml > out_nav.txt
+ros2 launch nav2_bringup bringup_launch.py params_file:=/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params_orig.yaml use_sim_time:=False autostart:=False map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/basement_v2.yaml > out_nav.txt
+rviz2 -d $(ros2 pkg prefix nav2_bringup)/share/ nav2_bringup/rviz/nav2_default_view.rviz
+ros2 bag record -o test_run_1 /cmd_vel
+ros2 topic pub -r 200 /cmd_vel geometry_msgs/msg/TwistStamped \
+"{header: {stamp: {sec: 0, nanosec: 0}, frame_id: 'base_link'}, \
+twist: {linear: {x: 0.25, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}}"
+
+
+sudo vim /etc/udev/rules.d/99-rover-serial.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+
+ls -l /dev/serial/by-id
+
+./toolchain/esp-idf/components/esptool_py/esptool/esptool.py
+
+../../../toolchain/esp-idf/components/esptool_py/esptool/e
+sptool.py --chip esp32 -b 115200 write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x1000 bootloade
+r/bootloader.bin 0x10000 ping_pong.bin
+
+cp partition_table/partition-table.bin bootloader/bootloader.bin ping_pong.bin /mnt/c/Users/rmaha/Documents/flash_bin_files/
+
+
+cp ~/projects/rover/ros2_ws/firmware/freertos_apps/microros_esp32_extensions/build/rover.bin /mnt/c/Users/rmaha/Documents/flash_bin_files/
+
+cp rover.bin partition_table/partition-table.bin bootloader/bootloader.bin /mnt/c/Users/rmaha/Documents/flash_bin_files/
+
+esptool.py --chip esp32 write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition-table.bin 0x1000 bootloader.bin 0x10000 rover.bin
+
+ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/tty_rover_esp 2>&1 | tee out/output.txt
+
+ros2 run micro_ros_setup configure_firmware.sh rover --transport serial
+
+ros2 run micro_ros_setup build_firmware.sh
+
+
+ros2 launch livox_ros_driver2 rviz_MID360_launch.py 2>&1 | tee out/output.txt
+
+ros2 bag record -o bags/livox_test /livox/lidar /livox/imu
+
+ros2 bag play bag_00_stationary_livox
+
+colcon build --packages-select livox_cloud_to_scan
+
+ros2 launch livox_cloud_to_scan livox_cloud_to_scan.launch.py 2>&1 | tee out/output.txt
+
+colcon build --packages-select bringup
+
+ros2 launch bringup jetson.launch.py 2>&1 | tee out/output.txt
+
+ros2 launch bringup mapping.launch.py 2>&1 | tee out/output.txt
+
+ros2 service call /slam_toolbox/save_map slam_toolbox/srv/SaveMap "{name: {data: '/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map'}}"
+
+ros2 launch bringup pi_nav2_livox.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/output.txt
