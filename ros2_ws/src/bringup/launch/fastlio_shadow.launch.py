@@ -11,15 +11,13 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     bringup_dir = get_package_share_directory("bringup")
-    default_fastlio_config = os.path.join(
-        bringup_dir,
-        "config",
-        "mid360_fastlio2.yaml",
-    )
+    default_fastlio_config_path = os.path.join(bringup_dir, "config")
 
     fastlio_package = LaunchConfiguration("fastlio_package")
     fastlio_launch_file = LaunchConfiguration("fastlio_launch_file")
+    fastlio_config_path = LaunchConfiguration("fastlio_config_path")
     fastlio_config = LaunchConfiguration("fastlio_config")
+    fastlio_rviz = LaunchConfiguration("fastlio_rviz")
 
     livox_cloud_to_scan_launch = PathJoinSubstitution([
         FindPackageShare("livox_cloud_to_scan"),
@@ -36,21 +34,28 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             "fastlio_package",
-            default_value="official_fast_lio2",
-            description="ROS 2 package name for the FAST-LIO2 port.",
+            default_value="fast_lio",
+            description="ROS 2 package name for Ericsii/FAST_LIO_ROS2.",
         ),
         DeclareLaunchArgument(
             "fastlio_launch_file",
-            default_value="mapping_mid360.launch.py",
+            default_value="mapping.launch.py",
             description="FAST-LIO2 launch file to include from the package launch directory.",
         ),
         DeclareLaunchArgument(
+            "fastlio_config_path",
+            default_value=default_fastlio_config_path,
+            description="Directory containing the FAST-LIO2 YAML config.",
+        ),
+        DeclareLaunchArgument(
             "fastlio_config",
-            default_value=default_fastlio_config,
-            description=(
-                "MID-360 FAST-LIO2 config. If your FAST-LIO2 port uses a "
-                "different launch argument name, adjust this wrapper after cloning it."
-            ),
+            default_value="mid360_fastlio2.yaml",
+            description="FAST-LIO2 YAML config filename.",
+        ),
+        DeclareLaunchArgument(
+            "fastlio_rviz",
+            default_value="false",
+            description="Let FAST-LIO2 start its own RViz instance if true.",
         ),
         Node(
             package="tf2_ros",
@@ -71,7 +76,9 @@ def generate_launch_description():
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(fastlio_launch),
                 launch_arguments={
+                    "config_path": fastlio_config_path,
                     "config_file": fastlio_config,
+                    "rviz": fastlio_rviz,
                 }.items(),
             ),
         ]),
