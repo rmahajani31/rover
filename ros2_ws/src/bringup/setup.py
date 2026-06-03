@@ -11,12 +11,14 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', [
+            'launch/fastlio_shadow.launch.py',
             'launch/jetson.launch.py',
             'launch/mapping.launch.py',
             'launch/pi_nav2_livox.launch.py',
         ]),
         ('share/' + package_name + '/urdf', ['urdf/rover.urdf']),
         ('share/' + package_name + '/config', [
+            'config/mid360_fastlio2.yaml',
             'config/slam_toolbox_async.yaml',
             'config/nav2_params_livox.yaml',
         ]),
