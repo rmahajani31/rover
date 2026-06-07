@@ -1,5 +1,7 @@
 livox_cloud_to_scan:
   ros__parameters:
+    # Normal Jetson mode receives PointCloud2 directly on /livox/lidar.
+    # fastlio_shadow.launch.py overrides this to /livox/points.
     input_topic: "/livox/lidar"
     output_topic: "/scan_from_livox"
     target_frame: "base_link"
@@ -19,3 +21,10 @@ livox_cloud_to_scan:
 
     missing_bins_as_inf: false
     publish_debug_logs: true
+
+livox_custom_msg_to_pointcloud2:
+  ros__parameters:
+    # Used only by fastlio_shadow.launch.py when /livox/lidar is CustomMsg.
+    input_topic: "/livox/lidar"
+    output_topic: "/livox/points"
+    frame_id: "livox_frame"

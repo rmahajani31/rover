@@ -111,10 +111,7 @@ dmypy.json
 .pyre/
 
 # ROS2 specific
-*.bag
-*.db3
-*.yaml.bak
-*.launch.bak
+bags/
 
 # CMake
 CMakeCache.txt
@@ -142,9 +139,6 @@ _deps
 *.idb
 *.pdb
 
-# Ignore rosbags
-bags/
-
 # MicroROS
 ros2_ws/src/micro_ros_setup/
 ros2_ws/src/uros/
@@ -160,7 +154,9 @@ ros2_ws/firmware/freertos_apps/apps/*
 *.pdf
 
 livox_ws/
-*.md
+ros2_ws/src/fast_lio/
+phases/
+docs/
 
 install/
 build/
