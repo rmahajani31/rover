@@ -74,3 +74,7 @@ ros2 launch bringup mapping.launch.py 2>&1 | tee out/output.txt
 ros2 service call /slam_toolbox/save_map slam_toolbox/srv/SaveMap "{name: {data: '/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map'}}"
 
 ros2 launch bringup pi_nav2_livox.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/output.txt
+
+
+ros2 launch livox_ros_driver2 msg_MID360_launch.py
+ros2 launch bringup fastlio_shadow.launch.py
