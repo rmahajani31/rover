@@ -12,18 +12,18 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     bringup_dir = get_package_share_directory("bringup")
     default_fastlio_config_path = os.path.join(bringup_dir, "config")
+    livox_cloud_to_scan_dir = get_package_share_directory("livox_cloud_to_scan")
+    livox_cloud_to_scan_config = os.path.join(
+        livox_cloud_to_scan_dir,
+        "config",
+        "livox_cloud_to_scan.yaml",
+    )
 
     fastlio_package = LaunchConfiguration("fastlio_package")
     fastlio_launch_file = LaunchConfiguration("fastlio_launch_file")
     fastlio_config_path = LaunchConfiguration("fastlio_config_path")
     fastlio_config = LaunchConfiguration("fastlio_config")
     fastlio_rviz = LaunchConfiguration("fastlio_rviz")
-
-    livox_cloud_to_scan_launch = PathJoinSubstitution([
-        FindPackageShare("livox_cloud_to_scan"),
-        "launch",
-        "livox_cloud_to_scan.launch.py",
-    ])
 
     fastlio_launch = PathJoinSubstitution([
         FindPackageShare(fastlio_package),
@@ -67,8 +67,33 @@ def generate_launch_description():
                 "base_link", "livox_frame",
             ],
         ),
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(livox_cloud_to_scan_launch),
+        Node(
+            package="livox_cloud_to_scan",
+            executable="livox_custom_msg_to_pointcloud2_node",
+            name="livox_custom_msg_to_pointcloud2",
+            output="screen",
+            parameters=[
+                livox_cloud_to_scan_config,
+                {
+                    "input_topic": "/livox/lidar",
+                    "output_topic": "/livox/points",
+                    "frame_id": "livox_frame",
+                },
+            ],
+        ),
+        Node(
+            package="livox_cloud_to_scan",
+            executable="livox_cloud_to_scan_node",
+            name="livox_cloud_to_scan",
+            output="screen",
+            parameters=[
+                livox_cloud_to_scan_config,
+                {
+                    "input_topic": "/livox/points",
+                    "output_topic": "/scan_from_livox",
+                    "target_frame": "base_link",
+                },
+            ],
         ),
         GroupAction([
             SetRemap(src="/Odometry", dst="/fastlio_odom"),

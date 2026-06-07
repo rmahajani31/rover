@@ -19,3 +19,9 @@ livox_cloud_to_scan:
 
     missing_bins_as_inf: false
     publish_debug_logs: true
+
+livox_custom_msg_to_pointcloud2:
+  ros__parameters:
+    input_topic: "/livox/lidar"
+    output_topic: "/livox/points"
+    frame_id: "livox_frame"
