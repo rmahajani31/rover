@@ -10,6 +10,7 @@ def generate_launch_description():
     config_file = os.path.join(pkg_share, "config", "fastlio2_nav2_adapter.yaml")
 
     return LaunchDescription([
+        # Standalone adapter launch for focused odometry/TF testing.
         Node(
             package="fastlio2_nav2_adapter",
             executable="fastlio2_nav2_adapter_node",

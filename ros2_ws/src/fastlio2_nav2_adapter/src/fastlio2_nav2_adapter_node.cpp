@@ -15,6 +15,7 @@ public:
   Fastlio2Nav2Adapter()
   : Node("fastlio2_nav2_adapter")
   {
+    // Keep FAST-LIO2's native topic/frame choices decoupled from Nav2's contract.
     input_odom_topic_ = declare_parameter<std::string>("input_odom_topic", "/fastlio_odom");
     output_odom_topic_ = declare_parameter<std::string>("output_odom_topic", "/nav2_odom");
 
@@ -60,6 +61,7 @@ public:
 private:
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
   {
+    // Stale odometry tends to surface as TF extrapolation errors in Nav2.
     if (reject_old_timestamps_) {
       const rclcpp::Time stamp(msg->header.stamp);
       const rclcpp::Time now = this->now();
@@ -80,6 +82,8 @@ private:
     out.header.frame_id = odom_frame_;
     out.child_frame_id = base_frame_;
 
+    // Nav2 is configured as a ground robot stack; keep its odometry planar even
+    // if FAST-LIO2 estimates small vertical, roll, or pitch motion.
     if (force_planar_output_) {
       out.pose.pose.position.z = 0.0;
       out.pose.pose.orientation = planarizeOrientation(out.pose.pose.orientation);
@@ -91,6 +95,7 @@ private:
     odom_pub_->publish(out);
 
     if (publish_tf_) {
+      // This adapter is the intended single owner of odom -> base_link.
       geometry_msgs::msg::TransformStamped tf_msg;
       tf_msg.header.stamp = out.header.stamp;
       tf_msg.header.frame_id = odom_frame_;

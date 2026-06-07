@@ -14,6 +14,7 @@ def generate_launch_description():
     adapter_dir = get_package_share_directory("fastlio2_nav2_adapter")
     livox_cloud_to_scan_dir = get_package_share_directory("livox_cloud_to_scan")
 
+    # Jetson-side bringup: Livox driver is started separately in CustomMsg mode.
     default_fastlio_config_path = os.path.join(bringup_dir, "config")
     adapter_config = os.path.join(adapter_dir, "config", "fastlio2_nav2_adapter.yaml")
     livox_cloud_to_scan_config = os.path.join(
@@ -64,6 +65,7 @@ def generate_launch_description():
             package="tf2_ros",
             executable="static_transform_publisher",
             name="base_link_to_livox_tf",
+            # Measured MID-360 mounting relative to the rover base frame.
             arguments=[
                 "0.0", "0.0", "0.3175",
                 "0", "0", "0",
@@ -75,6 +77,7 @@ def generate_launch_description():
             executable="livox_custom_msg_to_pointcloud2_node",
             name="livox_custom_msg_to_pointcloud2",
             output="screen",
+            # FAST-LIO2 consumes Livox CustomMsg; Nav2 obstacle projection uses PointCloud2.
             parameters=[
                 livox_cloud_to_scan_config,
                 {
@@ -99,6 +102,7 @@ def generate_launch_description():
             ],
         ),
         GroupAction([
+            # Keep the FAST-LIO2 odometry topic stable for the adapter and bags.
             SetRemap(src="/Odometry", dst="/fastlio_odom"),
             SetRemap(src="Odometry", dst="/fastlio_odom"),
             IncludeLaunchDescription(
@@ -115,6 +119,7 @@ def generate_launch_description():
             executable="fastlio2_nav2_adapter_node",
             name="fastlio2_nav2_adapter",
             output="screen",
+            # Publishes /nav2_odom and, by default, odom -> base_link.
             parameters=[adapter_config],
         ),
     ])

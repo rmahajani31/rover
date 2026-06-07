@@ -1,5 +1,6 @@
 fastlio2_nav2_adapter:
   ros__parameters:
+    # FAST-LIO2 is remapped to /fastlio_odom by the Jetson bringup launch.
     input_odom_topic: "/fastlio_odom"
     output_odom_topic: "/nav2_odom"
 
@@ -7,10 +8,13 @@ fastlio2_nav2_adapter:
     base_frame: "base_link"
     lidar_frame: "livox_frame"
 
+    # The adapter owns odom -> base_link when FAST-LIO2 is the Nav2 odometry source.
     publish_tf: true
+    # Keep Nav2's ground-robot TF planar while preserving FAST-LIO2 upstream.
     force_planar_output: true
     apply_lidar_to_base_correction: false
 
+    # Drop stale messages before they can become Nav2 TF extrapolation errors.
     reject_old_timestamps: true
     max_stamp_age_sec: 0.5
 

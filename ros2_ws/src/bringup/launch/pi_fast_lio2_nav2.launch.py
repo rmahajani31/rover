@@ -11,6 +11,7 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory("bringup")
     nav2_bringup_dir = get_package_share_directory("nav2_bringup")
 
+    # Pi-side bringup: FAST-LIO2 odometry and Livox scan topics arrive from Jetson.
     default_params = os.path.join(bringup_dir, "config", "nav2_params_fast_lio2_nav2.yaml")
     localization_launch = os.path.join(nav2_bringup_dir, "launch", "localization_launch.py")
     navigation_launch = os.path.join(nav2_bringup_dir, "launch", "navigation_launch.py")
@@ -42,6 +43,7 @@ def generate_launch_description():
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(localization_launch),
+            # AMCL provides map -> odom; FAST-LIO2 adapter provides odom -> base_link.
             launch_arguments={
                 "map": map_yaml,
                 "use_sim_time": use_sim_time,
@@ -51,6 +53,7 @@ def generate_launch_description():
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(navigation_launch),
+            # Do not launch rover_odometry here; /nav2_odom is supplied by FAST-LIO2.
             launch_arguments={
                 "use_sim_time": use_sim_time,
                 "autostart": autostart,
