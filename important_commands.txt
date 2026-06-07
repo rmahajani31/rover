@@ -81,3 +81,5 @@ ros2 launch livox_ros_driver2 msg_MID360_launch.py
 ros2 launch bringup fastlio_shadow.launch.py
 
 ros2 launch bringup fast_lio2_nav2.launch.py
+
+ros2 launch bringup pi_fast_lio2_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/output.txt
