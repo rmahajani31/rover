@@ -36,9 +36,10 @@ On the Jetson:
 - ROS 2 Humble
 - Livox ROS driver for the Livox Mid-360
 - `livox_cloud_to_scan`
+- `fastlio2_nav2_adapter`, when using FAST-LIO2 as the Nav2 odometry source
 - `fast_lio` from
   [Ericsii/FAST_LIO_ROS2](https://github.com/Ericsii/FAST_LIO_ROS2), when
-  running FAST-LIO2 shadow mode
+  running FAST-LIO2 shadow mode or FAST-LIO2 Nav2 odometry
 
 The Livox driver used to publish point clouds is:
 
@@ -109,8 +110,8 @@ Key directories:
 | Machine      | Responsibility                                                                                                                                                                                                  |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ESP32        | Runs the low-level rover firmware and communicates with the ROS 2 system through micro-ROS.                                                                                                                     |
-| Raspberry Pi | Runs the micro-ROS agent, odometry, gamepad control, mapping, localization, and Nav2.                                                                                                                           |
-| Jetson       | Runs Livox point cloud processing and projects 3D lidar data into 2D laser scan data. The Jetson is used here to leave room for heavier lidar processing and a future camera-based visual processing component. |
+| Raspberry Pi | Runs the micro-ROS agent, gamepad control, mapping, localization, Nav2, and motor-command path. In the FAST-LIO2 Nav2 mode, it consumes `/nav2_odom` from the Jetson instead of starting `rover_odometry`.      |
+| Jetson       | Runs Livox point cloud processing, FAST-LIO2, `/scan_from_livox`, and the FAST-LIO2-to-Nav2 odometry adapter.                                                                                                  |
 
 
 ## ROS 2 Packages
@@ -126,6 +127,10 @@ cloud data into 2D scan data.
 - `fastlio_shadow.launch.py` starts FAST-LIO2 beside the existing scan
 projection path. Nav2 continues using stable rover odometry while FAST-LIO2
 publishes `/fastlio_odom` for observation and bagging.
+- `fast_lio2_nav2.launch.py` starts the Jetson-side FAST-LIO2 Nav2 odometry
+path, including scan projection and the `/nav2_odom` adapter.
+- `pi_fast_lio2_nav2.launch.py` starts Pi-side Nav2 localization and navigation
+using `/nav2_odom` from the Jetson.
 - `mapping.launch.py` launches room mapping and saves maps into `ros2_ws/maps/`.
 - `pi_nav2_livox.launch.py` launches autonomous navigation using Nav2.
 
@@ -146,6 +151,28 @@ In FAST-LIO2 shadow mode, `/livox/lidar` is kept as a Livox `CustomMsg` for
 FAST-LIO2, and a small converter publishes `/livox/points` as `PointCloud2` so
 the existing scan projection path can still publish `/scan_from_livox`.
 
+The package can also build without `livox_ros_driver2`; in that case the
+Livox CustomMsg converter is skipped. This is useful on the Pi, where the
+driver and converter are not part of the runtime path.
+
+### `fastlio2_nav2_adapter`
+
+Package that bridges official FAST-LIO2 odometry into the Nav2 odometry
+contract. It subscribes to `/fastlio_odom`, republishes `/nav2_odom`, and by
+default publishes the `odom -> base_link` transform.
+
+The adapter keeps the Nav2-facing odometry planar by default:
+
+```text
+z = 0
+roll = 0
+pitch = 0
+yaw preserved
+```
+
+This keeps the ground-robot Nav2 costmaps from inheriting small vertical,
+roll, or pitch estimates from FAST-LIO2.
+
 ### `rover_odometry`
 
 Package responsible for rover odometry. Odometry is broadcast over I2C to the
@@ -159,10 +186,11 @@ Pi from the goBILDA Pinpoint v2 odometry computer.
 | `/livox/lidar`     | Topic           | Livox input from `livox_ros_driver2`.                                |
 | `/livox/points`    | Topic           | PointCloud2 copy of Livox CustomMsg data used only in FAST-LIO2 shadow mode. |
 | `/scan_from_livox` | Topic           | 2D scan output from `livox_cloud_to_scan`; used by slam_toolbox and Nav2. |
-| `/fastlio_odom`    | Topic           | FAST-LIO2 odometry output for shadow-mode observation and bagging.         |
+| `/fastlio_odom`    | Topic           | FAST-LIO2 odometry output for observation, bagging, and adapter input.     |
+| `/nav2_odom`       | Topic           | Nav2 odometry topic republished by `fastlio2_nav2_adapter`.                |
 | `/joy`             | Topic           | Gamepad input from `joy_node`.                                            |
 | `/cmd_vel`         | Topic           | Rover velocity command published by `gamepad_adapter`.                    |
-| `odom`             | Topic and frame | Odometry output from `rover_odometry`.                                    |
+| `odom`             | Topic and frame | Wheel odometry topic in the rover-odometry path; odom frame in both Nav2 paths. |
 | `map`              | Frame           | Global map frame used by slam_toolbox and Nav2.                           |
 | `base_footprint`   | Frame           | Odometry child frame from `rover_odometry`.                               |
 | `base_link`        | Frame           | Main rover body frame.                                                    |
@@ -242,6 +270,62 @@ The normal rover tree should remain:
 map -> odom -> base_footprint -> base_link -> livox_frame
 ```
 
+### FAST-LIO2 Nav2 Odometry
+
+In this mode, FAST-LIO2 becomes the odometry source used by Nav2. The Jetson
+runs the Livox CustomMsg path, official FAST-LIO2, scan projection, and the
+adapter. The Pi runs Nav2 and the motor-command path.
+
+Start the Livox driver on the Jetson in CustomMsg mode:
+
+```bash
+ros2 launch livox_ros_driver2 msg_MID360_launch.py
+```
+
+Then start the Jetson FAST-LIO2/Nav2 odometry stack:
+
+```bash
+ros2 launch bringup fast_lio2_nav2.launch.py
+```
+
+This produces:
+
+```text
+/livox/lidar  -> FAST-LIO2                         -> /fastlio_odom
+/livox/lidar  -> livox_custom_msg_to_pointcloud2   -> /livox/points
+/livox/points -> livox_cloud_to_scan               -> /scan_from_livox
+/fastlio_odom -> fastlio2_nav2_adapter             -> /nav2_odom
+fastlio2_nav2_adapter                              -> odom -> base_link
+```
+
+On the Pi, start Nav2 with the saved map:
+
+```bash
+ros2 launch bringup pi_fast_lio2_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
+```
+
+The Pi launch starts Nav2 localization and navigation, but intentionally does
+not launch `rover_odometry`. In this mode the TF tree should be:
+
+```text
+map -> odom -> base_link -> livox_frame
+```
+
+Before sending a goal, verify:
+
+```bash
+ros2 topic hz /fastlio_odom
+ros2 topic hz /nav2_odom
+ros2 topic hz /scan_from_livox
+ros2 topic echo /nav2_odom --once
+ros2 run tf2_ros tf2_echo odom base_link
+ros2 run tf2_ros tf2_echo base_link livox_frame
+```
+
+`/nav2_odom` should use `header.frame_id: odom` and
+`child_frame_id: base_link`. Exactly one node should publish
+`odom -> base_link`.
+
 ### Navigation
 
 Autonomous navigation uses Nav2 with a saved map:
@@ -252,6 +336,15 @@ ros2 launch bringup pi_nav2_livox.launch.py map:=/home/rmahajani/Documents/proje
 
 This launch file starts rover odometry, the `base_footprint -> base_link`
 static transform, Nav2 localization, and Nav2 navigation.
+
+For FAST-LIO2 odometry-based navigation, use:
+
+```bash
+ros2 launch bringup pi_fast_lio2_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
+```
+
+This launch uses `/nav2_odom` from the Jetson-side adapter and does not start
+the wheel odometry node.
 
 ## Saving Maps
 
@@ -277,6 +370,8 @@ ESP32 device is configured as `/dev/tty_rover_esp`.
 `/scan_from_livox`.
 - In FAST-LIO2 shadow mode, `/livox/lidar` is a Livox CustomMsg topic and
 `/livox/points` is the converted PointCloud2 topic used for scan projection.
+- In FAST-LIO2 Nav2 odometry mode, the same CustomMsg conversion path is used,
+and `fastlio2_nav2_adapter` publishes `/nav2_odom` plus `odom -> base_link`.
 - `jetson.launch.py` publishes a static transform from `base_link` to
 `livox_frame` with the lidar mounted `0.3175 m` above `base_link`.
 
@@ -293,6 +388,11 @@ and that `livox_cloud_to_scan` is publishing `/scan_from_livox`.
 - In FAST-LIO2 shadow mode, also confirm `/livox/points` is publishing. If a
 bag recorder reports unknown type `livox_ros_driver2/msg/CustomMsg`, source
 the Livox workspace before recording.
+- In FAST-LIO2 Nav2 mode, confirm `/nav2_odom` is publishing and that no other
+node is also publishing `odom -> base_link`.
+- If Nav2 reports the sensor origin is out of costmap bounds, confirm
+`force_planar_output` is true in `fastlio2_nav2_adapter.yaml` and that
+`odom -> base_link` has `z = 0`.
 - If slam_toolbox does not build a map, check that `/scan_from_livox`, `odom`,
 and the `map -> odom -> base_footprint -> base_link` TF chain are valid.
 - If map saving fails, make sure the `ros2_ws/maps/` directory exists and that
@@ -315,11 +415,20 @@ an existing saved map YAML file.
    ros2 launch livox_ros_driver2 msg_MID360_launch.py
    ros2 launch bringup fastlio_shadow.launch.py
   ```
-4. For mapping, launch:
+4. For FAST-LIO2 odometry-based Nav2, start this on the Jetson:
+  ```bash
+   ros2 launch livox_ros_driver2 msg_MID360_launch.py
+   ros2 launch bringup fast_lio2_nav2.launch.py
+  ```
+5. For mapping, launch:
   ```bash
    ros2 launch bringup mapping.launch.py
   ```
-5. For autonomous navigation with Nav2, provide the saved map:
+6. For autonomous navigation with wheel odometry, provide the saved map:
   ```bash
    ros2 launch bringup pi_nav2_livox.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
+  ```
+7. For autonomous navigation with FAST-LIO2 odometry, provide the saved map:
+  ```bash
+   ros2 launch bringup pi_fast_lio2_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
   ```

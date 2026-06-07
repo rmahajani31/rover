@@ -17,10 +17,15 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(livox_ros_driver2 REQUIRED)
+find_package(livox_ros_driver2 QUIET)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+
+set(livox_cloud_to_scan_install_targets
+  livox_cloud_to_scan_projector
+  livox_cloud_to_scan_node
+)
 
 add_library(livox_cloud_to_scan_projector
   src/cloud_projector.cpp
@@ -53,15 +58,23 @@ target_link_libraries(livox_cloud_to_scan_node
   tf2_ros::tf2_ros
 )
 
-add_executable(livox_custom_msg_to_pointcloud2_node
-  src/livox_custom_msg_to_pointcloud2_node.cpp
-)
+if(livox_ros_driver2_FOUND)
+  add_executable(livox_custom_msg_to_pointcloud2_node
+    src/livox_custom_msg_to_pointcloud2_node.cpp
+  )
 
-ament_target_dependencies(livox_custom_msg_to_pointcloud2_node
-  livox_ros_driver2
-  rclcpp
-  sensor_msgs
-)
+  ament_target_dependencies(livox_custom_msg_to_pointcloud2_node
+    livox_ros_driver2
+    rclcpp
+    sensor_msgs
+  )
+
+  list(APPEND livox_cloud_to_scan_install_targets
+    livox_custom_msg_to_pointcloud2_node
+  )
+else()
+  message(STATUS "livox_ros_driver2 not found; skipping Livox CustomMsg converter")
+endif()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -96,10 +109,7 @@ if(BUILD_TESTING)
 endif()
 
 install(
-  TARGETS
-    livox_cloud_to_scan_projector
-    livox_cloud_to_scan_node
-    livox_custom_msg_to_pointcloud2_node
+  TARGETS ${livox_cloud_to_scan_install_targets}
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -120,12 +130,15 @@ ament_export_include_directories(include)
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(
   geometry_msgs
-  livox_ros_driver2
   rclcpp
   sensor_msgs
   tf2
   tf2_ros
   tf2_geometry_msgs
 )
+
+if(livox_ros_driver2_FOUND)
+  ament_export_dependencies(livox_ros_driver2)
+endif()
 
 ament_package()
