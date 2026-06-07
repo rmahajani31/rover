@@ -16,7 +16,6 @@ setup(
             'launch/mapping.launch.py',
             'launch/pi_nav2_livox.launch.py',
         ]),
-        ('share/' + package_name + '/urdf', ['urdf/rover.urdf']),
         ('share/' + package_name + '/config', [
             'config/mid360_fastlio2.yaml',
             'config/slam_toolbox_async.yaml',
