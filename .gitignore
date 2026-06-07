@@ -154,6 +154,7 @@ ros2_ws/firmware/freertos_apps/apps/*
 *.pdf
 
 livox_ws/
+ros2_ws/src/fast_lio/
 phases/
 docs/
 

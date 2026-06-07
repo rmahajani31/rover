@@ -49,6 +49,8 @@ private:
       cloud.header.frame_id = frame_id_;
     }
 
+    // Phase 1 shadow mode keeps Livox CustomMsg for FAST-LIO, while this
+    // compact PointCloud2 copy feeds the existing scan projection path.
     cloud.height = 1;
     cloud.width = static_cast<std::uint32_t>(msg->points.size());
     cloud.is_bigendian = false;
@@ -75,6 +77,8 @@ private:
     cloud.fields[3].datatype = sensor_msgs::msg::PointField::FLOAT32;
     cloud.fields[3].count = 1;
 
+    // Only x/y/z/intensity are needed for /scan_from_livox. Per-point timing
+    // stays in the original CustomMsg that FAST-LIO consumes directly.
     for (std::size_t i = 0; i < msg->points.size(); ++i) {
       const auto & point = msg->points[i];
       auto * data = cloud.data.data() + i * cloud.point_step;

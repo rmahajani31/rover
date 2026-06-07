@@ -12,6 +12,9 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     bringup_dir = get_package_share_directory("bringup")
     default_fastlio_config_path = os.path.join(bringup_dir, "config")
+
+    # Shadow mode uses Livox CustomMsg for FAST-LIO, so the normal PointCloud2
+    # scan projector is fed through an explicit /livox/points conversion here.
     livox_cloud_to_scan_dir = get_package_share_directory("livox_cloud_to_scan")
     livox_cloud_to_scan_config = os.path.join(
         livox_cloud_to_scan_dir,
@@ -67,6 +70,8 @@ def generate_launch_description():
                 "base_link", "livox_frame",
             ],
         ),
+        # This converter is intentionally launched only in FAST-LIO shadow mode.
+        # Standard jetson.launch.py still expects /livox/lidar to be PointCloud2.
         Node(
             package="livox_cloud_to_scan",
             executable="livox_custom_msg_to_pointcloud2_node",
@@ -96,6 +101,8 @@ def generate_launch_description():
             ],
         ),
         GroupAction([
+            # Ericsii/FAST_LIO_ROS2 publishes Odometry by default; keep the
+            # shadow odometry name stable for bags, RViz, and later comparison.
             SetRemap(src="/Odometry", dst="/fastlio_odom"),
             SetRemap(src="Odometry", dst="/fastlio_odom"),
             IncludeLaunchDescription(
