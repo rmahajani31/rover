@@ -119,7 +119,7 @@ controller_server:
       az_max: 3.5
       vx_std: 0.2
       vy_std: 0.2
-      wz_std: 0.45
+      wz_std: 0.4
       vx_max: 0.5
       vx_min: -0.35
       vy_max: 0.5
@@ -148,7 +148,6 @@ controller_server:
           "PathFollowCritic",
           "PathAngleCritic",
           "PreferForwardCritic",
-          "VelocityDeadbandCritic",
         ]
       ConstraintCritic:
         enabled: true
@@ -169,11 +168,6 @@ controller_server:
         cost_power: 1
         cost_weight: 5.0
         threshold_to_consider: 0.5
-      VelocityDeadbandCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 20.0
-        deadband_velocities: [0.02, 0.0, 0.25]
       CostCritic:
         enabled: true
         cost_power: 1
