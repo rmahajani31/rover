@@ -111,10 +111,7 @@ dmypy.json
 .pyre/
 
 # ROS2 specific
-*.bag
-*.db3
-*.yaml.bak
-*.launch.bak
+bags/
 
 # CMake
 CMakeCache.txt
@@ -141,9 +138,6 @@ _deps
 *.su
 *.idb
 *.pdb
-
-# Ignore rosbags
-bags/
 
 # MicroROS
 ros2_ws/src/micro_ros_setup/
