@@ -1,0 +1,16 @@
+fastlio2_nav2_adapter:
+  ros__parameters:
+    input_odom_topic: "/fastlio_odom"
+    output_odom_topic: "/nav2_odom"
+
+    odom_frame: "odom"
+    base_frame: "base_link"
+    lidar_frame: "livox_frame"
+
+    publish_tf: true
+    apply_lidar_to_base_correction: false
+
+    reject_old_timestamps: true
+    max_stamp_age_sec: 0.5
+
+    print_debug: true
