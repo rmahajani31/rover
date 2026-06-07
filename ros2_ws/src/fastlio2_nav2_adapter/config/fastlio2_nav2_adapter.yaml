@@ -8,6 +8,7 @@ fastlio2_nav2_adapter:
     lidar_frame: "livox_frame"
 
     publish_tf: true
+    force_planar_output: true
     apply_lidar_to_base_correction: false
 
     reject_old_timestamps: true

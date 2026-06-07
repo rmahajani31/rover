@@ -5,6 +5,8 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <tf2/LinearMath/Matrix3x3.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 
 class Fastlio2Nav2Adapter : public rclcpp::Node
@@ -21,6 +23,7 @@ public:
     lidar_frame_ = declare_parameter<std::string>("lidar_frame", "livox_frame");
 
     publish_tf_ = declare_parameter<bool>("publish_tf", true);
+    force_planar_output_ = declare_parameter<bool>("force_planar_output", true);
     apply_lidar_to_base_correction_ =
       declare_parameter<bool>("apply_lidar_to_base_correction", false);
     reject_old_timestamps_ = declare_parameter<bool>("reject_old_timestamps", true);
@@ -42,6 +45,10 @@ public:
     RCLCPP_INFO(get_logger(), "base_frame: %s", base_frame_.c_str());
     RCLCPP_INFO(get_logger(), "lidar_frame: %s", lidar_frame_.c_str());
     RCLCPP_INFO(get_logger(), "publish_tf: %s", publish_tf_ ? "true" : "false");
+    RCLCPP_INFO(
+      get_logger(),
+      "force_planar_output: %s",
+      force_planar_output_ ? "true" : "false");
 
     if (apply_lidar_to_base_correction_) {
       RCLCPP_WARN(
@@ -73,6 +80,14 @@ private:
     out.header.frame_id = odom_frame_;
     out.child_frame_id = base_frame_;
 
+    if (force_planar_output_) {
+      out.pose.pose.position.z = 0.0;
+      out.pose.pose.orientation = planarizeOrientation(out.pose.pose.orientation);
+      out.twist.twist.linear.z = 0.0;
+      out.twist.twist.angular.x = 0.0;
+      out.twist.twist.angular.y = 0.0;
+    }
+
     odom_pub_->publish(out);
 
     if (publish_tf_) {
@@ -101,6 +116,32 @@ private:
     }
   }
 
+  geometry_msgs::msg::Quaternion planarizeOrientation(
+    const geometry_msgs::msg::Quaternion & orientation) const
+  {
+    tf2::Quaternion input(
+      orientation.x,
+      orientation.y,
+      orientation.z,
+      orientation.w);
+
+    double roll = 0.0;
+    double pitch = 0.0;
+    double yaw = 0.0;
+    tf2::Matrix3x3(input).getRPY(roll, pitch, yaw);
+
+    tf2::Quaternion planar;
+    planar.setRPY(0.0, 0.0, yaw);
+    planar.normalize();
+
+    geometry_msgs::msg::Quaternion output;
+    output.x = planar.x();
+    output.y = planar.y();
+    output.z = planar.z();
+    output.w = planar.w();
+    return output;
+  }
+
   std::string input_odom_topic_;
   std::string output_odom_topic_;
   std::string odom_frame_;
@@ -108,6 +149,7 @@ private:
   std::string lidar_frame_;
 
   bool publish_tf_;
+  bool force_planar_output_;
   bool apply_lidar_to_base_correction_;
   bool reject_old_timestamps_;
   bool print_debug_;
