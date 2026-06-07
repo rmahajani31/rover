@@ -1,6 +1,5 @@
 ## Nav2 parameters for FAST-LIO2 odometry with /scan_from_livox.
-## This config intentionally uses odom as the working global frame for short
-## open-space validation goals before map-frame localization is reintroduced.
+## FAST-LIO2 provides odom -> base_link, while AMCL may provide map -> odom.
 amcl:
   ros__parameters:
     set_initial_pose: true
@@ -14,7 +13,7 @@ amcl:
     alpha3: 0.2
     alpha4: 0.2
     alpha5: 0.2
-    base_frame_id: "base_footprint"
+    base_frame_id: "base_link"
     beam_skip_distance: 0.5
     beam_skip_error_threshold: 0.9
     beam_skip_threshold: 0.3
@@ -50,7 +49,7 @@ amcl:
 
 bt_navigator:
   ros__parameters:
-    global_frame: odom
+    global_frame: map
     robot_base_frame: base_link
     odom_topic: /nav2_odom
     bt_loop_duration: 100
@@ -252,15 +251,12 @@ global_costmap:
     ros__parameters:
       update_frequency: 1.0
       publish_frequency: 1.0
-      global_frame: odom
+      global_frame: map
       robot_base_frame: base_link
       footprint: "[ [0.25, 0.25], [0.25, -0.25], [-0.25, -0.25], [-0.25, 0.25] ]"
       resolution: 0.05
-      rolling_window: true
-      width: 8
-      height: 8
-      track_unknown_space: false
-      plugins: ["obstacle_layer", "inflation_layer"]
+      track_unknown_space: true
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
@@ -275,6 +271,9 @@ global_costmap:
           raytrace_min_range: 0.3
           obstacle_max_range: 8.0
           obstacle_min_range: 0.3
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
@@ -374,7 +373,7 @@ behavior_server:
     assisted_teleop:
       plugin: "nav2_behaviors::AssistedTeleop"
     local_frame: odom
-    global_frame: odom
+    global_frame: map
     robot_base_frame: base_link
     transform_tolerance: 0.1
     simulate_ahead_time: 2.0

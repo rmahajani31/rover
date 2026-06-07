@@ -12,13 +12,19 @@ def generate_launch_description():
     nav2_bringup_dir = get_package_share_directory("nav2_bringup")
 
     default_params = os.path.join(bringup_dir, "config", "nav2_params_fast_lio2_nav2.yaml")
+    localization_launch = os.path.join(nav2_bringup_dir, "launch", "localization_launch.py")
     navigation_launch = os.path.join(nav2_bringup_dir, "launch", "navigation_launch.py")
 
+    map_yaml = LaunchConfiguration("map")
     params_file = LaunchConfiguration("params_file")
     use_sim_time = LaunchConfiguration("use_sim_time")
     autostart = LaunchConfiguration("autostart")
 
     return LaunchDescription([
+        DeclareLaunchArgument(
+            "map",
+            description="Absolute path to the map YAML file used by AMCL.",
+        ),
         DeclareLaunchArgument(
             "params_file",
             default_value=default_params,
@@ -33,6 +39,15 @@ def generate_launch_description():
             "autostart",
             default_value="true",
             description="Automatically startup the Nav2 stack.",
+        ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(localization_launch),
+            launch_arguments={
+                "map": map_yaml,
+                "use_sim_time": use_sim_time,
+                "autostart": autostart,
+                "params_file": params_file,
+            }.items(),
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(navigation_launch),
