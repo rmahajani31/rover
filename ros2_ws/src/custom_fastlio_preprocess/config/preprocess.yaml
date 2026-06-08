@@ -1,0 +1,38 @@
+custom_fastlio_preprocess:
+  ros__parameters:
+    input_topic: "/livox/lidar"
+
+    odom_output_topic: "/custom/points_preprocessed"
+    nav2_output_topic: "/custom/points_for_nav2"
+    diagnostics_topic: "/custom/preprocess_diagnostics"
+
+    # First version keeps points in the incoming cloud frame.
+    # Add TF later once the basic preprocessing path works.
+    target_frame: "base_link"
+    fallback_frame_id: "livox_frame"
+    use_tf_transform: false
+
+    # Livox CustomMsg filtering. FAST-LIO2 keeps valid return tags and scan lines.
+    filter_livox_line: true
+    filter_livox_tag: false
+    scan_line_count: 4
+
+    # General range filtering.
+    min_range: 0.30
+    max_range: 30.0
+
+    # Future odometry cloud filtering.
+    odom_voxel_leaf_size: 0.15
+    odom_keep_floor: true
+    odom_keep_ceiling: true
+
+    # Nav2 obstacle cloud filtering.
+    nav2_min_height: 0.05
+    nav2_max_height: 0.80
+    nav2_max_range: 12.0
+    nav2_voxel_leaf_size: 0.05
+
+    # Safety/debug switches.
+    remove_nan: true
+    publish_diagnostics: true
+    print_debug_every_n_frames: 30
