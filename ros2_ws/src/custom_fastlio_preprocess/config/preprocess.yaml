@@ -27,8 +27,11 @@ custom_fastlio_preprocess:
     odom_keep_ceiling: true
 
     # Nav2 obstacle cloud filtering.
-    nav2_min_height: 0.05
-    nav2_max_height: 0.80
+    # These are in livox_frame for the no-TF Phase 3 node. With livox_frame
+    # mounted about 0.3175 m above base_link, this maps into the existing
+    # livox_cloud_to_scan base_link slice of roughly 0.08 m to 0.30 m.
+    nav2_min_height: -0.24
+    nav2_max_height: -0.02
     nav2_max_range: 12.0
     nav2_voxel_leaf_size: 0.05
 
