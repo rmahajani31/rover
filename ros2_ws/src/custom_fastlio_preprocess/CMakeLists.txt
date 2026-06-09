@@ -17,9 +17,11 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
+# FAST-LIO2-compatible MID-360 input arrives as Livox CustomMsg.
 find_package(livox_ros_driver2 REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
+# PCL provides the internal point cloud container and voxel downsampling filter.
 find_package(PCL REQUIRED COMPONENTS common filters)
 
 add_executable(preprocess_node

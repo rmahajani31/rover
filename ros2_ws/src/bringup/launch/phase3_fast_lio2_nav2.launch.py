@@ -88,6 +88,8 @@ def generate_launch_description():
             executable="livox_cloud_to_scan_node",
             name="livox_cloud_to_scan",
             output="screen",
+            # Reuse the proven scan projector settings, but feed it the Phase 3
+            # obstacle cloud instead of the raw CustomMsg-to-PointCloud2 copy.
             parameters=[
                 livox_cloud_to_scan_config,
                 {

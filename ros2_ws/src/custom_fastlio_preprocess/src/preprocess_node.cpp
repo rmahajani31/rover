@@ -33,6 +33,8 @@ PreprocessNode::PreprocessNode()
   diag_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
     diagnostics_topic_, 10);
 
+  // Subscribe directly to the FAST-LIO2-compatible Livox stream instead of the
+  // PointCloud2 convenience copy used by the older scan projection path.
   custom_cloud_sub_ = create_subscription<livox_ros_driver2::msg::CustomMsg>(
     input_topic_,
     rclcpp::SensorDataQoS(),
@@ -66,8 +68,8 @@ void PreprocessNode::declareParameters()
   declare_parameter<bool>("odom_keep_floor", true);
   declare_parameter<bool>("odom_keep_ceiling", true);
 
-  declare_parameter<double>("nav2_min_height", 0.05);
-  declare_parameter<double>("nav2_max_height", 0.80);
+  declare_parameter<double>("nav2_min_height", -0.24);
+  declare_parameter<double>("nav2_max_height", -0.02);
   declare_parameter<double>("nav2_max_range", 12.0);
   declare_parameter<double>("nav2_voxel_leaf_size", 0.05);
 
@@ -134,11 +136,14 @@ void PreprocessNode::convertLivoxCustomMsg(
   rejected_tag = 0;
 
   for (const auto & livox_point : msg.points) {
+    // MID-360 is configured as a 4-line Livox sensor in the FAST-LIO2 params.
     if (filter_livox_line_ && livox_point.line >= scan_line_count_) {
       ++rejected_line;
       continue;
     }
 
+    // Bits 4-5 encode the Livox return number. This conservative filter is
+    // disabled by default so Phase 3 does not drop valid obstacle returns.
     const auto return_tag = livox_point.tag & 0x30;
     if (filter_livox_tag_ && return_tag != 0x10 && return_tag != 0x00) {
       ++rejected_tag;
@@ -226,6 +231,7 @@ void PreprocessNode::makeOdomCloud(
   const CloudT::Ptr & common_filtered,
   CloudT::Ptr & odom_cloud) const
 {
+  // The odometry stream keeps broad scene structure for future ICP experiments.
   voxelDownsample(common_filtered, odom_cloud, odom_voxel_leaf_size_);
 }
 
@@ -240,6 +246,8 @@ void PreprocessNode::makeNav2Cloud(
   rejected_height = 0;
 
   for (const auto & point : common_filtered->points) {
+    // Height is still evaluated in the incoming Livox frame until TF support is
+    // added to this node.
     const double range = range3D(point);
     if (range > nav2_max_range_) {
       ++rejected_height;
@@ -326,6 +334,7 @@ void PreprocessNode::customCloudCallback(
   std::size_t rejected_range = 0;
   std::size_t rejected_height = 0;
 
+  // Processing is staged so diagnostics can show exactly where points are lost.
   convertLivoxCustomMsg(*msg, converted_cloud, rejected_line, rejected_tag);
   filterCommon(converted_cloud, common_filtered, rejected_nan, rejected_range);
   makeOdomCloud(common_filtered, odom_cloud);
@@ -351,6 +360,8 @@ void PreprocessNode::customCloudCallback(
   const double processing_time_ms =
     std::chrono::duration<double, std::milli>(end_time - start_time).count();
 
+  // Livox CustomMsg carries offset_time per point; Phase 3 reports its presence
+  // for future deskewing work even though this node does not use it yet.
   constexpr bool has_point_time = true;
 
   if (publish_diagnostics_) {

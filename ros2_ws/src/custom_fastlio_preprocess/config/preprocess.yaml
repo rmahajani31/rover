@@ -12,7 +12,8 @@ custom_fastlio_preprocess:
     fallback_frame_id: "livox_frame"
     use_tf_transform: false
 
-    # Livox CustomMsg filtering. FAST-LIO2 keeps valid return tags and scan lines.
+    # Livox CustomMsg filtering. Line filtering mirrors the FAST-LIO2 MID-360
+    # scan_line setting; tag filtering stays off until validated in bags.
     filter_livox_line: true
     filter_livox_tag: false
     scan_line_count: 4
