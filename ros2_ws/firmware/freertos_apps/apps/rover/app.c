@@ -64,13 +64,15 @@
 #define STRING_BUFFER_LEN 100
 #define TIMEOUT_MS 1000 // Stop motors if no msg for 1 second
 #define PWM_FREQUENCY 20000 // Hz
-#define DEADZONE 0.0 // m/s
 #define MAX_SPEED 1.0f // m/s
 #define MAX_ANGULAR_SPEED ((2.0f * MAX_SPEED) / TRACK_WIDTH) // rad/s
+#define MOTOR_COMMAND_DEADBAND 0.005f // m/s
+#define MIN_ACTIVE_DUTY 45U // Tune for the minimum PWM that moves the rover
+#define MAX_DUTY 255U
 #define AGENT_PING_TIMEOUT_MS 1000
 #define AGENT_RETRY_BACKOFF_MS 500
 #define AGENT_SETTLE_DELAY_MS 250
-#define MOTOR_EPSILON 0.01f
+#define MOTOR_EPSILON 0.001f
 
 // Forward declarations
 void publish_debug(const char * msg);
@@ -377,8 +379,8 @@ rcl_ret_t set_motor_speed(int channel, int dir_pin, float speed)
 	// Get magnitude of the speed
 	float abs_speed = fabsf(speed);
 
-	// If the speed is less than the deadzone, set the duty cycle to 0
-	if (abs_speed < DEADZONE) {
+	// If the command is effectively zero, set the duty cycle to 0.
+	if (abs_speed <= MOTOR_COMMAND_DEADBAND) {
         esp_err_t set_ret = ledc_set_duty(LEDC_LOW_SPEED_MODE, channel, 0);
         if (set_ret != ESP_OK) {
             return RCL_RET_ERROR;
@@ -391,8 +393,11 @@ rcl_ret_t set_motor_speed(int channel, int dir_pin, float speed)
     }
 
 	// Convert the requested m/s command into an 8-bit LEDC duty cycle.
-	uint32_t duty = (uint32_t)((abs_speed / MAX_SPEED) * 255.0f);
-	if (duty > 255) duty = 255;
+    // DC motors need a nonzero PWM floor to overcome static friction, so
+    // scale active commands between MIN_ACTIVE_DUTY and MAX_DUTY.
+	float speed_ratio = clampf(abs_speed / MAX_SPEED, 0.0f, 1.0f);
+	uint32_t duty = MIN_ACTIVE_DUTY + (uint32_t)(speed_ratio * (float)(MAX_DUTY - MIN_ACTIVE_DUTY));
+	if (duty > MAX_DUTY) duty = MAX_DUTY;
 
 	// Set direction
 	gpio_set_level(dir_pin, (speed >= 0) ? 1 : 0);
