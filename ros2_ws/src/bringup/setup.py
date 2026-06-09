@@ -15,7 +15,7 @@ setup(
             'launch/fastlio_shadow.launch.py',
             'launch/jetson.launch.py',
             'launch/mapping.launch.py',
-            'launch/phase3_fast_lio2_nav2.launch.py',
+            'launch/pointcloud_preprocess_fast_lio2_nav2.launch.py',
             'launch/pi_fast_lio2_nav2.launch.py',
             'launch/pi_nav2_livox.launch.py',
         ]),
