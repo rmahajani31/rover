@@ -8,9 +8,9 @@ custom_icp_odom:
     base_frame: "base_link"
     lidar_frame: "livox_frame"
 
-    # Stricter stationary-test tuning for point-to-point scan-to-scan ICP.
-    # Larger voxels reduce Livox sampling jitter; tighter correspondence
-    # distance avoids matching weak/repetitive geometry too freely.
+    # Tuned for shadow-mode scan-to-scan testing with GICP enabled.
+    # Larger voxels reduce Livox sampling jitter; tighter correspondences
+    # avoid matching weak or repetitive geometry too freely.
     voxel_leaf_size: 0.30
 
     max_correspondence_distance: 0.35
@@ -20,8 +20,7 @@ custom_icp_odom:
 
     min_points_per_scan: 300
 
-    # Keep false during shadow-mode testing so this node cannot conflict with
-    # the official odom -> base_link TF source used by Nav2.
+    # Keep false in shadow mode so Nav2 keeps using the stable odometry TF.
     publish_tf: false
 
     publish_debug_clouds: true

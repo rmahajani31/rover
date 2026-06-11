@@ -55,6 +55,7 @@ def generate_launch_description():
             output="screen",
             parameters=[
                 icp_odom_config,
+                # This bringup is for shadow-mode validation only.
                 {
                     "publish_tf": False,
                 },

@@ -185,6 +185,7 @@ void IcpOdomNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr m
   const Eigen::Matrix4d transform_previous_to_current =
     transform_current_to_previous.inverse();
 
+  // PCL aligns current -> previous; odometry needs the opposite motion.
   global_pose_ = global_pose_ * transform_previous_to_current;
 
   publishOdometry(msg->header, global_pose_);
