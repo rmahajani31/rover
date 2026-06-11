@@ -62,8 +62,15 @@ install(
 )
 
 install(
-  DIRECTORY config launch docs
+  DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs")
+  install(
+    DIRECTORY docs
+    DESTINATION share/${PROJECT_NAME}
+  )
+endif()
 
 ament_package()
