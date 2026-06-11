@@ -73,6 +73,7 @@ private:
 
   bool publish_tf_;
   bool publish_debug_clouds_;
+  bool use_gicp_;
 
   std::string aligned_cloud_topic_;
   std::string source_cloud_topic_;

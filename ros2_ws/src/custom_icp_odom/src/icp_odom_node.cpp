@@ -74,6 +74,8 @@ void IcpOdomNode::declareParameters()
   declare_parameter<std::string>("aligned_cloud_topic", "/custom/icp/aligned_cloud");
   declare_parameter<std::string>("source_cloud_topic", "/custom/icp/source_cloud");
   declare_parameter<std::string>("target_cloud_topic", "/custom/icp/target_cloud");
+
+  declare_parameter<bool>("use_gicp", false);
 }
 
 void IcpOdomNode::readParameters()
@@ -109,10 +111,18 @@ void IcpOdomNode::readParameters()
   source_cloud_topic_ = get_parameter("source_cloud_topic").as_string();
   target_cloud_topic_ = get_parameter("target_cloud_topic").as_string();
 
+  use_gicp_ = get_parameter("use_gicp").as_bool();
+
   if (publish_tf_) {
     RCLCPP_WARN(
       get_logger(),
       "publish_tf is true, but TF publishing is not implemented in this point-to-point ICP version");
+  }
+
+  if (use_gicp_) {
+    RCLCPP_WARN(
+      get_logger(),
+      "use_gicp is true, but GICP is not implemented in this point-to-point ICP version");
   }
 }
 

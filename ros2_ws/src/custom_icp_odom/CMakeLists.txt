@@ -24,12 +24,42 @@ find_package(pcl_conversions REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common filters registration)
 find_package(Eigen3 REQUIRED)
 
-# Core node target will be added after the Phase 4 .hpp/.cpp files are approved.
-# Planned target:
-#   custom_icp_odom_node
-# Planned sources:
-#   src/icp_odom_node.cpp
-#   src/icp_utils.cpp
+add_executable(custom_icp_odom_node
+  src/icp_odom_node.cpp
+  src/icp_utils.cpp
+)
+
+target_include_directories(custom_icp_odom_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${PCL_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
+)
+
+target_link_libraries(custom_icp_odom_node
+  ${PCL_LIBRARIES}
+)
+
+ament_target_dependencies(custom_icp_odom_node
+  rclcpp
+  sensor_msgs
+  nav_msgs
+  geometry_msgs
+  std_msgs
+  tf2
+  tf2_ros
+  pcl_conversions
+)
+
+install(
+  TARGETS custom_icp_odom_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
 
 install(
   DIRECTORY config launch docs
