@@ -29,4 +29,4 @@ custom_icp_odom:
     source_cloud_topic: "/custom/icp/source_cloud"
     target_cloud_topic: "/custom/icp/target_cloud"
 
-    use_gicp: false
+    use_gicp: true
