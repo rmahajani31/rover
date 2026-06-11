@@ -1,0 +1,31 @@
+custom_icp_odom:
+  ros__parameters:
+    input_topic: "/custom/points_preprocessed"
+    odom_topic: "/custom/icp_odom"
+    path_topic: "/custom/icp_path"
+
+    odom_frame: "odom"
+    base_frame: "base_link"
+    lidar_frame: "livox_frame"
+
+    # Tuned for shadow-mode scan-to-scan testing with GICP enabled.
+    # Larger voxels reduce Livox sampling jitter; tighter correspondences
+    # avoid matching weak or repetitive geometry too freely.
+    voxel_leaf_size: 0.30
+
+    max_correspondence_distance: 0.35
+    max_iterations: 30
+    transformation_epsilon: 1.0e-6
+    fitness_epsilon: 1.0e-5
+
+    min_points_per_scan: 300
+
+    # Keep false in shadow mode so Nav2 keeps using the stable odometry TF.
+    publish_tf: false
+
+    publish_debug_clouds: true
+    aligned_cloud_topic: "/custom/icp/aligned_cloud"
+    source_cloud_topic: "/custom/icp/source_cloud"
+    target_cloud_topic: "/custom/icp/target_cloud"
+
+    use_gicp: true
