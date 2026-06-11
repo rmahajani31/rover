@@ -8,10 +8,10 @@ custom_icp_odom:
     base_frame: "base_link"
     lidar_frame: "livox_frame"
 
-    voxel_leaf_size: 0.20
+    voxel_leaf_size: 0.25
 
-    max_correspondence_distance: 0.75
-    max_iterations: 20
+    max_correspondence_distance: 0.50
+    max_iterations: 30
     transformation_epsilon: 1.0e-6
     fitness_epsilon: 1.0e-5
 
