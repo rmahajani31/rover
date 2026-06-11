@@ -8,6 +8,7 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <pcl/common/transforms.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/registration/gicp.h>
 #include <pcl/registration/icp.h>
 #include <pcl_conversions/pcl_conversions.h>
 
@@ -119,11 +120,10 @@ void IcpOdomNode::readParameters()
       "publish_tf is true, but TF publishing is not implemented in this point-to-point ICP version");
   }
 
-  if (use_gicp_) {
-    RCLCPP_WARN(
-      get_logger(),
-      "use_gicp is true, but GICP is not implemented in this point-to-point ICP version");
-  }
+  RCLCPP_INFO(
+    get_logger(),
+    "Registration mode: %s",
+    use_gicp_ ? "GICP" : "point-to-point ICP");
 }
 
 void IcpOdomNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -156,16 +156,25 @@ void IcpOdomNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr m
   Eigen::Matrix4d transform_current_to_previous = Eigen::Matrix4d::Identity();
   double fitness_score = 0.0;
 
-  const bool icp_ok = runPointToPointIcp(
-    current_cloud,
-    previous_cloud_,
-    transform_current_to_previous,
-    fitness_score);
+  const char * registration_mode = use_gicp_ ? "GICP" : "ICP";
+
+  const bool icp_ok = use_gicp_ ?
+    runGicp(
+      current_cloud,
+      previous_cloud_,
+      transform_current_to_previous,
+      fitness_score) :
+    runPointToPointIcp(
+      current_cloud,
+      previous_cloud_,
+      transform_current_to_previous,
+      fitness_score);
 
   if (!icp_ok) {
     RCLCPP_WARN(
       get_logger(),
-      "ICP failed to converge | points=%zu | fitness=%.6f",
+      "%s failed to converge | points=%zu | fitness=%.6f",
+      registration_mode,
       current_cloud->size(),
       fitness_score);
 
@@ -202,7 +211,8 @@ void IcpOdomNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr m
 
   RCLCPP_INFO(
     get_logger(),
-    "ICP ok | points=%zu | fitness=%.6f | dx=%.3f dy=%.3f dz=%.3f dyaw=%.3f",
+    "%s ok | points=%zu | fitness=%.6f | dx=%.3f dy=%.3f dz=%.3f dyaw=%.3f",
+    registration_mode,
     current_cloud->size(),
     fitness_score,
     delta_translation.x(),
@@ -267,6 +277,35 @@ bool IcpOdomNode::runPointToPointIcp(
   }
 
   transform_source_to_target = icp.getFinalTransformation().cast<double>();
+  return true;
+}
+
+bool IcpOdomNode::runGicp(
+  const CloudTPtr & source,
+  const CloudTPtr & target,
+  Eigen::Matrix4d & transform_source_to_target,
+  double & fitness_score)
+{
+  pcl::GeneralizedIterativeClosestPoint<PointT, PointT> gicp;
+
+  gicp.setInputSource(source);
+  gicp.setInputTarget(target);
+
+  gicp.setMaxCorrespondenceDistance(max_correspondence_distance_);
+  gicp.setMaximumIterations(max_iterations_);
+  gicp.setTransformationEpsilon(transformation_epsilon_);
+  gicp.setEuclideanFitnessEpsilon(fitness_epsilon_);
+
+  CloudT aligned;
+  gicp.align(aligned);
+
+  fitness_score = gicp.getFitnessScore();
+
+  if (!gicp.hasConverged()) {
+    return false;
+  }
+
+  transform_source_to_target = gicp.getFinalTransformation().cast<double>();
   return true;
 }
 

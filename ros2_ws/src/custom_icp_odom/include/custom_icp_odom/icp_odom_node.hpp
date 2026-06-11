@@ -42,6 +42,12 @@ private:
     Eigen::Matrix4d & transform_source_to_target,
     double & fitness_score);
 
+  bool runGicp(
+    const CloudTPtr & source,
+    const CloudTPtr & target,
+    Eigen::Matrix4d & transform_source_to_target,
+    double & fitness_score);
+
   void publishOdometry(
     const std_msgs::msg::Header & header,
     const Eigen::Matrix4d & pose);
