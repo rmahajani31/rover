@@ -35,6 +35,10 @@ add_library(ros_conversions
   src/ros_conversions.cpp
 )
 
+add_library(plane_fitter
+  src/plane_fitter.cpp
+)
+
 target_include_directories(se3_utils PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -45,6 +49,12 @@ target_include_directories(ros_conversions PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${PCL_INCLUDE_DIRS}
+)
+
+target_include_directories(plane_fitter PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 ament_target_dependencies(se3_utils
@@ -65,6 +75,7 @@ install(
   TARGETS
     se3_utils
     ros_conversions
+    plane_fitter
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
