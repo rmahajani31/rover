@@ -43,6 +43,10 @@ add_library(local_map
   src/local_map.cpp
 )
 
+add_library(scan_to_map_optimizer
+  src/scan_to_map_optimizer.cpp
+)
+
 target_include_directories(se3_utils PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -68,6 +72,13 @@ target_include_directories(local_map PUBLIC
   ${PCL_INCLUDE_DIRS}
 )
 
+target_include_directories(scan_to_map_optimizer PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
+)
+
 ament_target_dependencies(se3_utils
   geometry_msgs
 )
@@ -87,12 +98,21 @@ target_link_libraries(local_map
   ${PCL_LIBRARIES}
 )
 
+target_link_libraries(scan_to_map_optimizer
+  local_map
+  plane_fitter
+  ros_conversions
+  se3_utils
+  ${PCL_LIBRARIES}
+)
+
 install(
   TARGETS
     se3_utils
     ros_conversions
     plane_fitter
     local_map
+    scan_to_map_optimizer
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
