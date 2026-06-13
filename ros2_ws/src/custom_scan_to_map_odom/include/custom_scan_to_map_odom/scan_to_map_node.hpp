@@ -43,7 +43,7 @@ private:
 
   bool lookupLidarToBaseTransform(
     const rclcpp::Time& stamp,
-    Eigen::Isometry3d& T_lidar_base) const;
+    Eigen::Isometry3d& T_lidar_base);
 
   void publishOdometry(
     const std_msgs::msg::Header& header,
