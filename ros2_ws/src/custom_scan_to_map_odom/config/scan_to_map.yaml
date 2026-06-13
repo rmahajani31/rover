@@ -1,0 +1,46 @@
+custom_scan_to_map_odom:
+  ros__parameters:
+    input_topic: "/custom/points_preprocessed"
+    odom_topic: "/custom/scan_to_map_odom"
+    path_topic: "/custom/scan_to_map_path"
+    local_map_topic: "/custom/local_map"
+    diagnostics_topic: "/custom/scan_to_map_diagnostics"
+
+    odom_frame: "odom"
+    base_frame: "base_link"
+    lidar_frame: "livox_frame"
+    publish_tf: false
+
+    # Current scan filtering
+    scan_voxel_leaf_size: 0.20
+    min_range: 0.30
+    max_range: 30.0
+    max_points_per_scan: 3000
+
+    # Optimization
+    max_iterations: 5
+    min_valid_correspondences: 100
+    convergence_translation_epsilon: 0.001
+    convergence_rotation_epsilon: 0.001
+    max_pose_update_translation: 0.50
+    max_pose_update_rotation_deg: 10.0
+
+    # Nearest neighbor and plane fitting
+    k_neighbors: 5
+    max_neighbor_distance: 1.0
+    max_plane_error: 0.10
+    max_point_to_plane_residual: 0.50
+    min_plane_eigen_ratio: 5.0
+
+    # Local map
+    map_voxel_leaf_size: 0.20
+    local_map_half_size_x: 20.0
+    local_map_half_size_y: 20.0
+    local_map_half_size_z: 4.0
+    max_map_points: 300000
+    rebuild_kdtree_every_frame: true
+
+    # Publishing
+    publish_local_map_every_n_frames: 5
+    publish_path: true
+    publish_diagnostics: true
