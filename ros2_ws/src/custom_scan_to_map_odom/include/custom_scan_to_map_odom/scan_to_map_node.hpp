@@ -13,6 +13,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
 #include "custom_scan_to_map_odom/diagnostics.hpp"
@@ -58,6 +59,11 @@ private:
   void publishDiagnostics(
     const std_msgs::msg::Header& header,
     const ScanToMapDiagnostics& diagnostics);
+
+  void publishTransform(
+    const std_msgs::msg::Header& header,
+    const Eigen::Isometry3d& T_odom_child,
+    const std::string& child_frame);
 
   ScanToMapOptimizerOptions optimizerOptionsFromParameters() const;
   PlaneFitterOptions planeFitterOptionsFromParameters() const;
@@ -114,6 +120,7 @@ private:
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
 

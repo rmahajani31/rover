@@ -51,6 +51,7 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
   cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
     input_topic_,
@@ -74,8 +75,9 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
   if (publish_tf_) {
     RCLCPP_WARN(
       get_logger(),
-      "publish_tf is true, but TF broadcasting is intentionally not enabled in this first "
-      "scan-to-map implementation. Keep this node in shadow mode for now.");
+      "publish_tf is true. Verify no other node is publishing %s -> %s before using Nav2.",
+      odom_frame_.c_str(),
+      base_frame_.c_str());
   }
 
   RCLCPP_INFO(get_logger(), "custom_scan_to_map_odom initialized");
@@ -468,6 +470,20 @@ void ScanToMapNode::publishOdometry(
 
   odom_pub_->publish(odom);
 
+  if (publish_tf_) {
+    if (child_frame == base_frame_) {
+      publishTransform(header, T_odom_child, child_frame);
+    } else {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        2000,
+        "Skipping TF broadcast because odometry child frame is %s, not %s",
+        child_frame.c_str(),
+        base_frame_.c_str());
+    }
+  }
+
   if (publish_path_) {
     publishPath(header, odom);
   }
@@ -515,6 +531,29 @@ void ScanToMapNode::publishDiagnostics(
 
   diagnostics_pub_->publish(
     makeDiagnosticArray(diagnostics, header.stamp, "custom_scan_to_map_odom"));
+}
+
+void ScanToMapNode::publishTransform(
+  const std_msgs::msg::Header& header,
+  const Eigen::Isometry3d& T_odom_child,
+  const std::string& child_frame)
+{
+  if (!tf_broadcaster_) {
+    return;
+  }
+
+  const geometry_msgs::msg::Pose pose = toRosPose(T_odom_child);
+
+  geometry_msgs::msg::TransformStamped transform;
+  transform.header.stamp = header.stamp;
+  transform.header.frame_id = odom_frame_;
+  transform.child_frame_id = child_frame;
+  transform.transform.translation.x = pose.position.x;
+  transform.transform.translation.y = pose.position.y;
+  transform.transform.translation.z = pose.position.z;
+  transform.transform.rotation = pose.orientation;
+
+  tf_broadcaster_->sendTransform(transform);
 }
 
 PlaneFitterOptions ScanToMapNode::planeFitterOptionsFromParameters() const
