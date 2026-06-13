@@ -45,6 +45,9 @@ private:
     const rclcpp::Time& stamp,
     Eigen::Isometry3d& T_lidar_base);
 
+  void ensureTfListener();
+  void ensureTfBroadcaster();
+
   void publishOdometry(
     const std_msgs::msg::Header& header,
     const Eigen::Isometry3d& T_odom_lidar,

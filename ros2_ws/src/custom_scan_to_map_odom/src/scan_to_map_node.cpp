@@ -49,10 +49,6 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
 
   optimizer_ = std::make_unique<ScanToMapOptimizer>(optimizerOptionsFromParameters());
 
-  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
-  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-  tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
-
   cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
     input_topic_,
     rclcpp::SensorDataQoS(),
@@ -204,12 +200,33 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
   }
 
   if (!local_map_.isInitialized()) {
+    RCLCPP_INFO(
+      get_logger(),
+      "First scan callback: filtered_points=%zu",
+      filtered_scan->size());
+
     current_pose_ = Eigen::Isometry3d::Identity();
 
     CloudTPtr first_scan_map = transformCloud(filtered_scan, current_pose_);
+    RCLCPP_INFO(
+      get_logger(),
+      "First scan transformed: map_frame_points=%zu",
+      first_scan_map->size());
+
     local_map_.initialize(first_scan_map);
+    RCLCPP_INFO(
+      get_logger(),
+      "Local map initialized: points=%zu",
+      local_map_.size());
+
     local_map_.downsample(map_voxel_leaf_size_);
+    RCLCPP_INFO(
+      get_logger(),
+      "Local map downsampled: points=%zu",
+      local_map_.size());
+
     local_map_.rebuildKdTree();
+    RCLCPP_INFO(get_logger(), "Local map k-d tree built");
 
     diagnostics.map_initialized = true;
     diagnostics.map_points = local_map_.size();
@@ -218,10 +235,14 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     diagnostics.optimization.input_points = filtered_scan->size();
 
     publishOdometry(msg->header, current_pose_, diagnostics.optimization);
+    RCLCPP_INFO(get_logger(), "Initial odometry published");
+
     publishLocalMap(msg->header);
+    RCLCPP_INFO(get_logger(), "Initial local map published");
 
     if (publish_diagnostics_) {
       publishDiagnostics(msg->header, diagnostics);
+      RCLCPP_INFO(get_logger(), "Initial diagnostics published");
     }
 
     RCLCPP_INFO(
@@ -419,6 +440,8 @@ bool ScanToMapNode::lookupLidarToBaseTransform(
   const rclcpp::Time& stamp,
   Eigen::Isometry3d& T_lidar_base)
 {
+  ensureTfListener();
+
   try {
     const geometry_msgs::msg::TransformStamped transform =
       tf_buffer_->lookupTransform(
@@ -442,6 +465,31 @@ bool ScanToMapNode::lookupLidarToBaseTransform(
   }
 }
 
+void ScanToMapNode::ensureTfListener()
+{
+  if (!tf_buffer_) {
+    RCLCPP_INFO(get_logger(), "Creating TF buffer");
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+  }
+
+  if (!tf_listener_) {
+    RCLCPP_INFO(get_logger(), "Creating TF listener");
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(
+      *tf_buffer_,
+      shared_from_this(),
+      false);
+  }
+}
+
+void ScanToMapNode::ensureTfBroadcaster()
+{
+  if (!tf_broadcaster_) {
+    RCLCPP_INFO(get_logger(), "Creating TF broadcaster");
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(
+      shared_from_this());
+  }
+}
+
 void ScanToMapNode::publishOdometry(
   const std_msgs::msg::Header& header,
   const Eigen::Isometry3d& T_odom_lidar,
@@ -451,6 +499,12 @@ void ScanToMapNode::publishOdometry(
   std::string child_frame = lidar_frame_;
 
   Eigen::Isometry3d T_lidar_base = Eigen::Isometry3d::Identity();
+
+  RCLCPP_DEBUG(
+    get_logger(),
+    "Publishing odometry: attempting %s -> %s lookup",
+    lidar_frame_.c_str(),
+    base_frame_.c_str());
 
   if (lookupLidarToBaseTransform(rclcpp::Time(header.stamp), T_lidar_base)) {
     T_odom_child = T_odom_lidar * T_lidar_base;
@@ -543,9 +597,7 @@ void ScanToMapNode::publishTransform(
   const Eigen::Isometry3d& T_odom_child,
   const std::string& child_frame)
 {
-  if (!tf_broadcaster_) {
-    return;
-  }
+  ensureTfBroadcaster();
 
   const geometry_msgs::msg::Pose pose = toRosPose(T_odom_child);
 
