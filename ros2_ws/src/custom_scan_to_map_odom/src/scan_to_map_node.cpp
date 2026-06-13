@@ -240,10 +240,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     publishLocalMap(msg->header);
     RCLCPP_INFO(get_logger(), "Initial local map published");
 
-    if (publish_diagnostics_) {
-      publishDiagnostics(msg->header, diagnostics);
-      RCLCPP_INFO(get_logger(), "Initial diagnostics published");
-    }
+    RCLCPP_INFO(get_logger(), "Skipping initial diagnostics publish during first-frame startup");
 
     RCLCPP_INFO(
       get_logger(),
@@ -470,6 +467,7 @@ void ScanToMapNode::ensureTfListener()
   if (!tf_buffer_) {
     RCLCPP_INFO(get_logger(), "Creating TF buffer");
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+    tf_buffer_->setUsingDedicatedThread(true);
   }
 
   if (!tf_listener_) {
@@ -477,7 +475,7 @@ void ScanToMapNode::ensureTfListener()
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(
       *tf_buffer_,
       shared_from_this(),
-      false);
+      true);
   }
 }
 
@@ -588,8 +586,11 @@ void ScanToMapNode::publishDiagnostics(
     return;
   }
 
-  diagnostics_pub_->publish(
-    makeDiagnosticArray(diagnostics, header.stamp, "custom_scan_to_map_odom"));
+  RCLCPP_INFO(get_logger(), "Publishing diagnostics: status=%s", diagnostics.optimization.status.c_str());
+  const auto diagnostic_msg =
+    makeDiagnosticArray(diagnostics, header.stamp, "custom_scan_to_map_odom");
+  diagnostics_pub_->publish(diagnostic_msg);
+  RCLCPP_INFO(get_logger(), "Diagnostics published");
 }
 
 void ScanToMapNode::publishTransform(
