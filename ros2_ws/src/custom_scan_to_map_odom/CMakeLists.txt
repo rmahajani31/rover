@@ -181,8 +181,18 @@ install(
 )
 
 install(
-  DIRECTORY config launch
+  DIRECTORY config launch rviz
   DESTINATION share/${PROJECT_NAME}
 )
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_se3_utils test/test_se3_utils.cpp)
+  target_link_libraries(test_se3_utils se3_utils)
+
+  ament_add_gtest(test_plane_fitter test/test_plane_fitter.cpp)
+  target_link_libraries(test_plane_fitter plane_fitter)
+endif()
 
 ament_package()

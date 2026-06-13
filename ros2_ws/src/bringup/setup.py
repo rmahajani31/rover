@@ -19,6 +19,7 @@ setup(
             'launch/pointcloud_preprocess_fast_lio2_nav2.launch.py',
             'launch/pi_fast_lio2_nav2.launch.py',
             'launch/pi_nav2_livox.launch.py',
+            'launch/scan_to_map_primary_odom.launch.py',
         ]),
         ('share/' + package_name + '/config', [
             'config/mid360_fastlio2.yaml',
