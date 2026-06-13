@@ -128,6 +128,9 @@ private:
 
   nav_msgs::msg::Path path_msg_;
 
+  rclcpp::CallbackGroup::SharedPtr cloud_callback_group_;
+  rclcpp::CallbackGroup::SharedPtr tf_callback_group_;
+
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;

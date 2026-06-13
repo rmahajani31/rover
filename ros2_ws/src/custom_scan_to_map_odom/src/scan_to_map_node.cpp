@@ -49,10 +49,17 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
 
   optimizer_ = std::make_unique<ScanToMapOptimizer>(optimizerOptionsFromParameters());
 
+  cloud_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  tf_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+  rclcpp::SubscriptionOptions cloud_subscription_options;
+  cloud_subscription_options.callback_group = cloud_callback_group_;
+
   cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
     input_topic_,
     rclcpp::SensorDataQoS(),
-    std::bind(&ScanToMapNode::cloudCallback, this, _1));
+    std::bind(&ScanToMapNode::cloudCallback, this, _1),
+    cloud_subscription_options);
 
   odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(odom_topic_, 10);
   local_map_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(local_map_topic_, 10);
@@ -82,7 +89,8 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
 
       tf_timer_ = create_wall_timer(
         tf_period,
-        std::bind(&ScanToMapNode::publishLatestTransform, this));
+        std::bind(&ScanToMapNode::publishLatestTransform, this),
+        tf_callback_group_);
 
       RCLCPP_INFO(
         get_logger(),
@@ -687,7 +695,12 @@ ScanToMapOptimizerOptions ScanToMapNode::optimizerOptionsFromParameters() const
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<custom_scan_to_map_odom::ScanToMapNode>());
+
+  auto node = std::make_shared<custom_scan_to_map_odom::ScanToMapNode>();
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 2);
+  executor.add_node(node);
+  executor.spin();
+
   rclcpp::shutdown();
   return 0;
 }
