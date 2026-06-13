@@ -33,6 +33,8 @@ ros2 launch custom_scan_to_map_odom scan_to_map.launch.py publish_tf:=true
 
 When TF lookup for `livox_frame -> base_link` succeeds, the node publishes odometry and TF as `odom -> base_link`. If that static transform is unavailable, odometry falls back to `odom -> livox_frame` and TF broadcasting is skipped.
 
+When `publish_tf` is enabled, the node republishes the latest accepted `odom -> base_link` transform at a steady `tf_publish_rate_hz` so Nav2 has fresh TF timestamps even if scan-to-map optimization runs more slowly.
+
 For the existing Nav2 parameters in `bringup`, use the Phase 5 primary odometry launch so odometry is published on `/nav2_odom`:
 
 ```bash

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include <Eigen/Geometry>
@@ -47,6 +48,7 @@ private:
 
   void ensureTfListener();
   void ensureTfBroadcaster();
+  void publishLatestTransform();
 
   void publishOdometry(
     const std_msgs::msg::Header& header,
@@ -64,7 +66,7 @@ private:
     const ScanToMapDiagnostics& diagnostics);
 
   void publishTransform(
-    const std_msgs::msg::Header& header,
+    const rclcpp::Time& stamp,
     const Eigen::Isometry3d& T_odom_child,
     const std::string& child_frame);
 
@@ -84,6 +86,7 @@ private:
   bool publish_tf_ = false;
   bool publish_path_ = true;
   bool publish_diagnostics_ = true;
+  double tf_publish_rate_hz_ = 20.0;
 
   double scan_voxel_leaf_size_ = 0.20;
   double min_range_ = 0.30;
@@ -115,6 +118,10 @@ private:
   std::size_t frame_count_ = 0;
 
   Eigen::Isometry3d current_pose_ = Eigen::Isometry3d::Identity();
+  Eigen::Isometry3d latest_T_odom_child_ = Eigen::Isometry3d::Identity();
+  std::string latest_tf_child_frame_;
+  bool has_latest_tf_ = false;
+  std::mutex latest_tf_mutex_;
 
   LocalMap local_map_;
   std::unique_ptr<ScanToMapOptimizer> optimizer_;
@@ -124,6 +131,7 @@ private:
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+  rclcpp::TimerBase::SharedPtr tf_timer_;
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
 

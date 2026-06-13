@@ -86,6 +86,7 @@ def generate_launch_description():
                     "publish_tf": True,
                     "odom_topic": "/nav2_odom",
                     "publish_diagnostics": False,
+                    "tf_publish_rate_hz": 20.0,
                 },
             ],
         ),

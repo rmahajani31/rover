@@ -10,6 +10,7 @@ custom_scan_to_map_odom:
     base_frame: "base_link"
     lidar_frame: "livox_frame"
     publish_tf: false
+    tf_publish_rate_hz: 20.0
 
     # Current scan filtering
     scan_voxel_leaf_size: 0.20

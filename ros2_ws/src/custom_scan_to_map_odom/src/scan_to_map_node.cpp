@@ -74,6 +74,25 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
       "publish_tf is true. Verify no other node is publishing %s -> %s before using Nav2.",
       odom_frame_.c_str(),
       base_frame_.c_str());
+
+    if (tf_publish_rate_hz_ > 0.0) {
+      const auto tf_period =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::duration<double>(1.0 / tf_publish_rate_hz_));
+
+      tf_timer_ = create_wall_timer(
+        tf_period,
+        std::bind(&ScanToMapNode::publishLatestTransform, this));
+
+      RCLCPP_INFO(
+        get_logger(),
+        "Publishing %s -> %s TF at %.2f Hz from latest scan-to-map pose",
+        odom_frame_.c_str(),
+        base_frame_.c_str(),
+        tf_publish_rate_hz_);
+    } else {
+      RCLCPP_WARN(get_logger(), "publish_tf is true but tf_publish_rate_hz is not positive");
+    }
   }
 
   if (!rebuild_kdtree_every_frame_) {
@@ -98,6 +117,7 @@ void ScanToMapNode::declareParameters()
   declare_parameter<std::string>("base_frame", "base_link");
   declare_parameter<std::string>("lidar_frame", "livox_frame");
   declare_parameter<bool>("publish_tf", false);
+  declare_parameter<double>("tf_publish_rate_hz", 20.0);
 
   declare_parameter<double>("scan_voxel_leaf_size", 0.20);
   declare_parameter<double>("min_range", 0.30);
@@ -141,6 +161,7 @@ void ScanToMapNode::readParameters()
   base_frame_ = get_parameter("base_frame").as_string();
   lidar_frame_ = get_parameter("lidar_frame").as_string();
   publish_tf_ = get_parameter("publish_tf").as_bool();
+  tf_publish_rate_hz_ = get_parameter("tf_publish_rate_hz").as_double();
 
   scan_voxel_leaf_size_ = get_parameter("scan_voxel_leaf_size").as_double();
   min_range_ = get_parameter("min_range").as_double();
@@ -488,6 +509,25 @@ void ScanToMapNode::ensureTfBroadcaster()
   }
 }
 
+void ScanToMapNode::publishLatestTransform()
+{
+  Eigen::Isometry3d T_odom_child = Eigen::Isometry3d::Identity();
+  std::string child_frame;
+
+  {
+    std::lock_guard<std::mutex> lock(latest_tf_mutex_);
+
+    if (!has_latest_tf_) {
+      return;
+    }
+
+    T_odom_child = latest_T_odom_child_;
+    child_frame = latest_tf_child_frame_;
+  }
+
+  publishTransform(get_clock()->now(), T_odom_child, child_frame);
+}
+
 void ScanToMapNode::publishOdometry(
   const std_msgs::msg::Header& header,
   const Eigen::Isometry3d& T_odom_lidar,
@@ -529,7 +569,10 @@ void ScanToMapNode::publishOdometry(
 
   if (publish_tf_) {
     if (child_frame == base_frame_) {
-      publishTransform(header, T_odom_child, child_frame);
+      std::lock_guard<std::mutex> lock(latest_tf_mutex_);
+      latest_T_odom_child_ = T_odom_child;
+      latest_tf_child_frame_ = child_frame;
+      has_latest_tf_ = true;
     } else {
       RCLCPP_WARN_THROTTLE(
         get_logger(),
@@ -594,7 +637,7 @@ void ScanToMapNode::publishDiagnostics(
 }
 
 void ScanToMapNode::publishTransform(
-  const std_msgs::msg::Header& header,
+  const rclcpp::Time& stamp,
   const Eigen::Isometry3d& T_odom_child,
   const std::string& child_frame)
 {
@@ -603,7 +646,7 @@ void ScanToMapNode::publishTransform(
   const geometry_msgs::msg::Pose pose = toRosPose(T_odom_child);
 
   geometry_msgs::msg::TransformStamped transform;
-  transform.header.stamp = header.stamp;
+  transform.header.stamp = stamp;
   transform.header.frame_id = odom_frame_;
   transform.child_frame_id = child_frame;
   transform.transform.translation.x = pose.position.x;
