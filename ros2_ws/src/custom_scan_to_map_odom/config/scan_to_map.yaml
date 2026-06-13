@@ -43,4 +43,4 @@ custom_scan_to_map_odom:
     # Publishing
     publish_local_map_every_n_frames: 5
     publish_path: true
-    publish_diagnostics: true
+    publish_diagnostics: false

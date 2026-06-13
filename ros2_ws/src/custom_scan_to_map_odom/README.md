@@ -13,6 +13,8 @@ The node subscribes to `/custom/points_preprocessed`, maintains a local point cl
 - Local map: `/custom/local_map` (`sensor_msgs/msg/PointCloud2`)
 - Diagnostics: `/custom/scan_to_map_diagnostics` (`diagnostic_msgs/msg/DiagnosticArray`)
 
+Diagnostics are disabled by default while Phase 5 odometry is being smoke-tested on the Jetson.
+
 ## Shadow Mode
 
 Use shadow mode first so another stable odometry source can continue publishing TF:
