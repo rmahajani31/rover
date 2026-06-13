@@ -18,6 +18,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -49,6 +50,10 @@ add_library(scan_to_map_optimizer
 
 add_library(diagnostics
   src/diagnostics.cpp
+)
+
+add_executable(custom_scan_to_map_odom_node
+  src/scan_to_map_node.cpp
 )
 
 target_include_directories(se3_utils PUBLIC
@@ -88,6 +93,13 @@ target_include_directories(diagnostics PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
+target_include_directories(custom_scan_to_map_odom_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
+)
+
 ament_target_dependencies(se3_utils
   geometry_msgs
 )
@@ -124,6 +136,27 @@ target_link_libraries(diagnostics
   scan_to_map_optimizer
 )
 
+ament_target_dependencies(custom_scan_to_map_odom_node
+  rclcpp
+  sensor_msgs
+  nav_msgs
+  geometry_msgs
+  std_msgs
+  diagnostic_msgs
+  tf2
+  tf2_ros
+  tf2_eigen
+)
+
+target_link_libraries(custom_scan_to_map_odom_node
+  diagnostics
+  local_map
+  ros_conversions
+  scan_to_map_optimizer
+  se3_utils
+  ${PCL_LIBRARIES}
+)
+
 install(
   TARGETS
     se3_utils
@@ -135,6 +168,11 @@ install(
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+)
+
+install(
+  TARGETS custom_scan_to_map_odom_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 install(
