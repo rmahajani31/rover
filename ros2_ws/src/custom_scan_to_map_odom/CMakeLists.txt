@@ -39,6 +39,10 @@ add_library(plane_fitter
   src/plane_fitter.cpp
 )
 
+add_library(local_map
+  src/local_map.cpp
+)
+
 target_include_directories(se3_utils PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -57,6 +61,13 @@ target_include_directories(plane_fitter PUBLIC
   ${EIGEN3_INCLUDE_DIRS}
 )
 
+target_include_directories(local_map PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
+)
+
 ament_target_dependencies(se3_utils
   geometry_msgs
 )
@@ -71,11 +82,17 @@ target_link_libraries(ros_conversions
   ${PCL_LIBRARIES}
 )
 
+target_link_libraries(local_map
+  ros_conversions
+  ${PCL_LIBRARIES}
+)
+
 install(
   TARGETS
     se3_utils
     ros_conversions
     plane_fitter
+    local_map
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
