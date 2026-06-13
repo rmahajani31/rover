@@ -27,6 +27,32 @@ find_package(pcl_ros REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common filters kdtree)
 find_package(Eigen3 REQUIRED)
 
+add_library(se3_utils
+  src/se3_utils.cpp
+)
+
+target_include_directories(se3_utils PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
+)
+
+ament_target_dependencies(se3_utils
+  geometry_msgs
+)
+
+install(
+  TARGETS se3_utils
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
 install(
   DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
