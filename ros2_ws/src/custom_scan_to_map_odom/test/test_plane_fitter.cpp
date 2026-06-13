@@ -1,5 +1,6 @@
 #include "custom_scan_to_map_odom/plane_fitter.hpp"
 
+#include <cmath>
 #include <limits>
 #include <vector>
 

@@ -84,7 +84,7 @@ def generate_launch_description():
                 scan_to_map_config,
                 {
                     "publish_tf": True,
-                    "odom_topic": "/custom/scan_to_map_odom",
+                    "odom_topic": "/nav2_odom",
                 },
             ],
         ),

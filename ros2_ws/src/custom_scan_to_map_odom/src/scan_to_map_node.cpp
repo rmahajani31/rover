@@ -80,6 +80,13 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
       base_frame_.c_str());
   }
 
+  if (!rebuild_kdtree_every_frame_) {
+    RCLCPP_WARN(
+      get_logger(),
+      "rebuild_kdtree_every_frame is false, but the current LocalMap backend requires a rebuild "
+      "after map updates. The node will rebuild the k-d tree every frame.");
+  }
+
   RCLCPP_INFO(get_logger(), "custom_scan_to_map_odom initialized");
 }
 
@@ -261,9 +268,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     local_map_.cropAround(current_pose_.translation(), half_size);
     local_map_.downsample(map_voxel_leaf_size_);
 
-    if (rebuild_kdtree_every_frame_) {
-      local_map_.rebuildKdTree();
-    }
+    local_map_.rebuildKdTree();
 
     const auto map_update_end = std::chrono::steady_clock::now();
     diagnostics.map_update_time_ms =

@@ -46,14 +46,14 @@ bool ScanToMapOptimizer::optimize(
     return false;
   }
 
-  if (!local_map.isInitialized() ||
-      local_map.size() < static_cast<std::size_t>(options_.k_neighbors)) {
-    stats.status = "map_not_ready";
+  if (options_.max_iterations <= 0 || options_.k_neighbors < 3) {
+    stats.status = "invalid_options";
     return false;
   }
 
-  if (options_.max_iterations <= 0 || options_.k_neighbors < 3) {
-    stats.status = "invalid_options";
+  if (!local_map.isInitialized() ||
+      local_map.size() < static_cast<std::size_t>(options_.k_neighbors)) {
+    stats.status = "map_not_ready";
     return false;
   }
 
@@ -147,6 +147,14 @@ bool ScanToMapOptimizer::optimize(
 
     if (ldlt.info() != Eigen::Success) {
       stats.status = "linear_solve_failed";
+      return false;
+    }
+
+    constexpr double kMinLdltDiagonal = 1.0e-9;
+
+    if (!ldlt.isPositive() ||
+        ldlt.vectorD().array().abs().minCoeff() < kMinLdltDiagonal) {
+      stats.status = "singular_system";
       return false;
     }
 
