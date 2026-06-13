@@ -39,6 +39,19 @@ double elapsedMilliseconds(
   return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
+Eigen::Isometry3d makePlanarTransform(const Eigen::Isometry3d& transform)
+{
+  const double yaw = std::atan2(transform.linear()(1, 0), transform.linear()(0, 0));
+
+  Eigen::Isometry3d planar_transform = Eigen::Isometry3d::Identity();
+  planar_transform.translation().x() = transform.translation().x();
+  planar_transform.translation().y() = transform.translation().y();
+  planar_transform.linear() =
+    Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+
+  return planar_transform;
+}
+
 }  // namespace
 
 ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
@@ -557,11 +570,14 @@ void ScanToMapNode::publishOdometry(
     child_frame = base_frame_;
   }
 
+  const Eigen::Isometry3d T_nav_odom_child =
+    (child_frame == base_frame_) ? makePlanarTransform(T_odom_child) : T_odom_child;
+
   nav_msgs::msg::Odometry odom;
   odom.header.stamp = header.stamp;
   odom.header.frame_id = odom_frame_;
   odom.child_frame_id = child_frame;
-  odom.pose.pose = toRosPose(T_odom_child);
+  odom.pose.pose = toRosPose(T_nav_odom_child);
 
   const double position_covariance = stats.success ? 0.05 : 0.25;
   const double orientation_covariance = stats.success ? 0.10 : 0.50;
@@ -578,7 +594,7 @@ void ScanToMapNode::publishOdometry(
   if (publish_tf_) {
     if (child_frame == base_frame_) {
       std::lock_guard<std::mutex> lock(latest_tf_mutex_);
-      latest_T_odom_child_ = T_odom_child;
+      latest_T_odom_child_ = T_nav_odom_child;
       latest_tf_child_frame_ = child_frame;
       has_latest_tf_ = true;
     } else {
