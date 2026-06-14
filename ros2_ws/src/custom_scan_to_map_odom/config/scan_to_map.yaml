@@ -27,7 +27,7 @@ custom_scan_to_map_odom:
     convergence_translation_epsilon: 0.001
     convergence_rotation_epsilon: 0.001
     max_pose_update_translation: 0.15
-    max_pose_update_rotation_deg: 5.0
+    max_pose_update_rotation_deg: 7.0
 
     # Nearest neighbor and plane fitting
     k_neighbors: 5
