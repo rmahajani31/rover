@@ -26,8 +26,8 @@ struct ScanToMapOptimizerOptions
   double convergence_translation_epsilon = 0.001;
   double convergence_rotation_epsilon = 0.001;
 
-  double max_pose_update_translation = 0.50;
-  double max_pose_update_rotation_deg = 10.0;
+  double max_pose_update_translation = 0.15;
+  double max_pose_update_rotation_deg = 5.0;
 
   PlaneFitterOptions plane_fitter;
 };

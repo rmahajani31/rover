@@ -10,6 +10,7 @@ custom_scan_to_map_odom:
     base_frame: "base_link"
     lidar_frame: "livox_frame"
     publish_tf: false
+    constrain_to_planar: true
     tf_publish_rate_hz: 20.0
 
     # Current scan filtering
@@ -23,8 +24,8 @@ custom_scan_to_map_odom:
     min_valid_correspondences: 100
     convergence_translation_epsilon: 0.001
     convergence_rotation_epsilon: 0.001
-    max_pose_update_translation: 0.50
-    max_pose_update_rotation_deg: 10.0
+    max_pose_update_translation: 0.15
+    max_pose_update_rotation_deg: 5.0
 
     # Nearest neighbor and plane fitting
     k_neighbors: 5

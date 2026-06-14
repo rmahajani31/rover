@@ -86,6 +86,7 @@ private:
   bool publish_tf_ = false;
   bool publish_path_ = true;
   bool publish_diagnostics_ = true;
+  bool constrain_to_planar_ = true;
   double tf_publish_rate_hz_ = 20.0;
 
   double scan_voxel_leaf_size_ = 0.20;
@@ -106,8 +107,8 @@ private:
 
   double convergence_translation_epsilon_ = 0.001;
   double convergence_rotation_epsilon_ = 0.001;
-  double max_pose_update_translation_ = 0.50;
-  double max_pose_update_rotation_deg_ = 10.0;
+  double max_pose_update_translation_ = 0.15;
+  double max_pose_update_rotation_deg_ = 5.0;
 
   int k_neighbors_ = 5;
   double max_neighbor_distance_ = 1.0;

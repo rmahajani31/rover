@@ -39,9 +39,20 @@ double elapsedMilliseconds(
   return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
+double degreesToRadians(double degrees)
+{
+  constexpr double kPi = 3.14159265358979323846;
+  return degrees * kPi / 180.0;
+}
+
+double yawFromTransform(const Eigen::Isometry3d& transform)
+{
+  return std::atan2(transform.linear()(1, 0), transform.linear()(0, 0));
+}
+
 Eigen::Isometry3d makePlanarTransform(const Eigen::Isometry3d& transform)
 {
-  const double yaw = std::atan2(transform.linear()(1, 0), transform.linear()(0, 0));
+  const double yaw = yawFromTransform(transform);
 
   Eigen::Isometry3d planar_transform = Eigen::Isometry3d::Identity();
   planar_transform.translation().x() = transform.translation().x();
@@ -138,6 +149,7 @@ void ScanToMapNode::declareParameters()
   declare_parameter<std::string>("base_frame", "base_link");
   declare_parameter<std::string>("lidar_frame", "livox_frame");
   declare_parameter<bool>("publish_tf", false);
+  declare_parameter<bool>("constrain_to_planar", true);
   declare_parameter<double>("tf_publish_rate_hz", 20.0);
 
   declare_parameter<double>("scan_voxel_leaf_size", 0.20);
@@ -149,8 +161,8 @@ void ScanToMapNode::declareParameters()
   declare_parameter<int>("min_valid_correspondences", 100);
   declare_parameter<double>("convergence_translation_epsilon", 0.001);
   declare_parameter<double>("convergence_rotation_epsilon", 0.001);
-  declare_parameter<double>("max_pose_update_translation", 0.50);
-  declare_parameter<double>("max_pose_update_rotation_deg", 10.0);
+  declare_parameter<double>("max_pose_update_translation", 0.15);
+  declare_parameter<double>("max_pose_update_rotation_deg", 5.0);
 
   declare_parameter<int>("k_neighbors", 5);
   declare_parameter<double>("max_neighbor_distance", 1.0);
@@ -182,6 +194,7 @@ void ScanToMapNode::readParameters()
   base_frame_ = get_parameter("base_frame").as_string();
   lidar_frame_ = get_parameter("lidar_frame").as_string();
   publish_tf_ = get_parameter("publish_tf").as_bool();
+  constrain_to_planar_ = get_parameter("constrain_to_planar").as_bool();
   tf_publish_rate_hz_ = get_parameter("tf_publish_rate_hz").as_double();
 
   scan_voxel_leaf_size_ = get_parameter("scan_voxel_leaf_size").as_double();
@@ -310,29 +323,53 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
   diagnostics.optimization = stats;
 
   if (optimization_ok) {
-    current_pose_ = optimized_pose;
-
-    const auto map_update_start = std::chrono::steady_clock::now();
-
-    CloudTPtr scan_map = transformCloud(filtered_scan, current_pose_);
-    local_map_.insertCloud(scan_map);
-
-    if (local_map_.size() > static_cast<std::size_t>(max_map_points_)) {
-      local_map_.downsample(map_voxel_leaf_size_);
+    if (constrain_to_planar_) {
+      optimized_pose = makePlanarTransform(optimized_pose);
     }
 
-    const Eigen::Vector3d half_size(
-      local_map_half_size_x_,
-      local_map_half_size_y_,
-      local_map_half_size_z_);
-    local_map_.cropAround(current_pose_.translation(), half_size);
-    local_map_.downsample(map_voxel_leaf_size_);
+    const Eigen::Isometry3d pose_delta = current_pose_.inverse() * optimized_pose;
+    const double delta_translation = pose_delta.translation().norm();
+    const double delta_rotation = std::abs(yawFromTransform(pose_delta));
+    const double max_delta_rotation = degreesToRadians(max_pose_update_rotation_deg_);
 
-    local_map_.rebuildKdTree();
+    if (delta_translation > max_pose_update_translation_ ||
+        delta_rotation > max_delta_rotation) {
+      stats.success = false;
+      stats.status = "accepted_pose_jump_too_large";
+      diagnostics.optimization = stats;
 
-    const auto map_update_end = std::chrono::steady_clock::now();
-    diagnostics.map_update_time_ms =
-      elapsedMilliseconds(map_update_start, map_update_end);
+      RCLCPP_WARN_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        2000,
+        "Scan-to-map pose gate rejected jump: translation=%.3f m rotation=%.3f deg",
+        delta_translation,
+        delta_rotation * 180.0 / 3.14159265358979323846);
+    } else {
+      current_pose_ = optimized_pose;
+
+      const auto map_update_start = std::chrono::steady_clock::now();
+
+      CloudTPtr scan_map = transformCloud(filtered_scan, current_pose_);
+      local_map_.insertCloud(scan_map);
+
+      if (local_map_.size() > static_cast<std::size_t>(max_map_points_)) {
+        local_map_.downsample(map_voxel_leaf_size_);
+      }
+
+      const Eigen::Vector3d half_size(
+        local_map_half_size_x_,
+        local_map_half_size_y_,
+        local_map_half_size_z_);
+      local_map_.cropAround(current_pose_.translation(), half_size);
+      local_map_.downsample(map_voxel_leaf_size_);
+
+      local_map_.rebuildKdTree();
+
+      const auto map_update_end = std::chrono::steady_clock::now();
+      diagnostics.map_update_time_ms =
+        elapsedMilliseconds(map_update_start, map_update_end);
+    }
   } else {
     RCLCPP_WARN_THROTTLE(
       get_logger(),
