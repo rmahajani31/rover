@@ -68,7 +68,7 @@
 // #define MAX_ANGULAR_SPEED ((2.0f * MAX_SPEED) / TRACK_WIDTH) // rad/s
 #define MAX_LINEAR_SPEED 0.20f // m/s
 #define MAX_WHEEL_SPEED 0.20f // m/s
-#define MAX_ANGULAR_SPEED 0.50f // rad/s
+#define MAX_ANGULAR_SPEED 0.25f // rad/s
 #define PWM_FULL_SCALE_SPEED 1.0f // m/s command that maps to MAX_DUTY
 #define MOTOR_COMMAND_DEADBAND 0.005f // m/s
 #define MIN_ACTIVE_DUTY 45U // Tune for the minimum PWM that moves the rover
