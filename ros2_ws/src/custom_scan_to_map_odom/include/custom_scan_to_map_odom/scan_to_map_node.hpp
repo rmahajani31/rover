@@ -50,7 +50,7 @@ private:
   void ensureTfBroadcaster();
   void publishLatestTransform();
 
-  void publishOdometry(
+  bool publishOdometry(
     const std_msgs::msg::Header& header,
     const Eigen::Isometry3d& T_odom_lidar,
     const OptimizationStats& stats);
@@ -87,7 +87,10 @@ private:
   bool publish_path_ = true;
   bool publish_diagnostics_ = true;
   bool constrain_to_planar_ = true;
+  bool stop_tf_on_tracking_degraded_ = true;
   double tf_publish_rate_hz_ = 20.0;
+  int max_consecutive_tracking_failures_ = 3;
+  int max_path_poses_ = 2000;
 
   double scan_voxel_leaf_size_ = 0.20;
   double min_range_ = 0.30;
@@ -117,11 +120,16 @@ private:
   double min_plane_eigen_ratio_ = 5.0;
 
   std::size_t frame_count_ = 0;
+  int consecutive_tracking_failures_ = 0;
 
   Eigen::Isometry3d current_pose_ = Eigen::Isometry3d::Identity();
+  Eigen::Isometry3d previous_odom_pose_ = Eigen::Isometry3d::Identity();
   Eigen::Isometry3d latest_T_odom_child_ = Eigen::Isometry3d::Identity();
   std::string latest_tf_child_frame_;
+  std::string previous_odom_child_frame_;
   bool has_latest_tf_ = false;
+  bool has_previous_odom_ = false;
+  rclcpp::Time previous_odom_stamp_{0, 0, RCL_ROS_TIME};
   std::mutex latest_tf_mutex_;
 
   LocalMap local_map_;

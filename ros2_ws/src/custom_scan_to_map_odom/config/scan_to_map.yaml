@@ -11,7 +11,9 @@ custom_scan_to_map_odom:
     lidar_frame: "livox_frame"
     publish_tf: false
     constrain_to_planar: true
+    stop_tf_on_tracking_degraded: true
     tf_publish_rate_hz: 20.0
+    max_consecutive_tracking_failures: 3
 
     # Current scan filtering
     scan_voxel_leaf_size: 0.20
@@ -44,5 +46,6 @@ custom_scan_to_map_odom:
 
     # Publishing
     publish_local_map_every_n_frames: 5
+    max_path_poses: 2000
     publish_path: true
     publish_diagnostics: false

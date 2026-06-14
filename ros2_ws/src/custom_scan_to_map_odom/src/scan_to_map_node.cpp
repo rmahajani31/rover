@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -150,7 +151,9 @@ void ScanToMapNode::declareParameters()
   declare_parameter<std::string>("lidar_frame", "livox_frame");
   declare_parameter<bool>("publish_tf", false);
   declare_parameter<bool>("constrain_to_planar", true);
+  declare_parameter<bool>("stop_tf_on_tracking_degraded", true);
   declare_parameter<double>("tf_publish_rate_hz", 20.0);
+  declare_parameter<int>("max_consecutive_tracking_failures", 3);
 
   declare_parameter<double>("scan_voxel_leaf_size", 0.20);
   declare_parameter<double>("min_range", 0.30);
@@ -178,6 +181,7 @@ void ScanToMapNode::declareParameters()
   declare_parameter<bool>("rebuild_kdtree_every_frame", true);
 
   declare_parameter<int>("publish_local_map_every_n_frames", 5);
+  declare_parameter<int>("max_path_poses", 2000);
   declare_parameter<bool>("publish_path", true);
   declare_parameter<bool>("publish_diagnostics", true);
 }
@@ -195,7 +199,10 @@ void ScanToMapNode::readParameters()
   lidar_frame_ = get_parameter("lidar_frame").as_string();
   publish_tf_ = get_parameter("publish_tf").as_bool();
   constrain_to_planar_ = get_parameter("constrain_to_planar").as_bool();
+  stop_tf_on_tracking_degraded_ = get_parameter("stop_tf_on_tracking_degraded").as_bool();
   tf_publish_rate_hz_ = get_parameter("tf_publish_rate_hz").as_double();
+  max_consecutive_tracking_failures_ =
+    get_parameter("max_consecutive_tracking_failures").as_int();
 
   scan_voxel_leaf_size_ = get_parameter("scan_voxel_leaf_size").as_double();
   min_range_ = get_parameter("min_range").as_double();
@@ -226,6 +233,7 @@ void ScanToMapNode::readParameters()
 
   publish_local_map_every_n_frames_ =
     get_parameter("publish_local_map_every_n_frames").as_int();
+  max_path_poses_ = get_parameter("max_path_poses").as_int();
   publish_path_ = get_parameter("publish_path").as_bool();
   publish_diagnostics_ = get_parameter("publish_diagnostics").as_bool();
 }
@@ -288,9 +296,13 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     diagnostics.optimization.success = true;
     diagnostics.optimization.status = "map_initialized";
     diagnostics.optimization.input_points = filtered_scan->size();
+    consecutive_tracking_failures_ = 0;
 
-    publishOdometry(msg->header, current_pose_, diagnostics.optimization);
-    RCLCPP_INFO(get_logger(), "Initial odometry published");
+    if (publishOdometry(msg->header, current_pose_, diagnostics.optimization)) {
+      RCLCPP_INFO(get_logger(), "Initial odometry published");
+    } else {
+      RCLCPP_WARN(get_logger(), "Initial odometry skipped until lidar -> base transform is available");
+    }
 
     publishLocalMap(msg->header);
     RCLCPP_INFO(get_logger(), "Initial local map published");
@@ -379,8 +391,28 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
       stats.status.c_str());
   }
 
+  if (stats.success) {
+    consecutive_tracking_failures_ = 0;
+  } else {
+    ++consecutive_tracking_failures_;
+
+    if (max_consecutive_tracking_failures_ > 0 &&
+        consecutive_tracking_failures_ >= max_consecutive_tracking_failures_) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        2000,
+        "Scan-to-map tracking degraded after %d consecutive rejected frames; last status=%s",
+        consecutive_tracking_failures_,
+        stats.status.c_str());
+
+      stats.status = "tracking_degraded";
+    }
+  }
+
   diagnostics.map_initialized = local_map_.isInitialized();
   diagnostics.map_points = local_map_.size();
+  diagnostics.optimization = stats;
 
   publishOdometry(msg->header, current_pose_, stats);
 
@@ -519,13 +551,20 @@ bool ScanToMapNode::lookupLidarToBaseTransform(
   ensureTfListener();
 
   try {
-    const geometry_msgs::msg::TransformStamped transform =
-      tf_buffer_->lookupTransform(
+    geometry_msgs::msg::TransformStamped transform;
+    try {
+      transform = tf_buffer_->lookupTransform(
         lidar_frame_,
         base_frame_,
         stamp,
         rclcpp::Duration::from_seconds(0.05));
-
+    } catch (const tf2::TransformException&) {
+      transform = tf_buffer_->lookupTransform(
+        lidar_frame_,
+        base_frame_,
+        rclcpp::Time(0, 0, stamp.get_clock_type()),
+        rclcpp::Duration::from_seconds(0.05));
+    }
     T_lidar_base = tf2::transformToEigen(transform);
     return true;
   } catch (const tf2::TransformException& ex) {
@@ -586,14 +625,11 @@ void ScanToMapNode::publishLatestTransform()
   publishTransform(get_clock()->now(), T_odom_child, child_frame);
 }
 
-void ScanToMapNode::publishOdometry(
+bool ScanToMapNode::publishOdometry(
   const std_msgs::msg::Header& header,
   const Eigen::Isometry3d& T_odom_lidar,
   const OptimizationStats& stats)
 {
-  Eigen::Isometry3d T_odom_child = T_odom_lidar;
-  std::string child_frame = lidar_frame_;
-
   Eigen::Isometry3d T_lidar_base = Eigen::Isometry3d::Identity();
 
   RCLCPP_DEBUG(
@@ -602,13 +638,21 @@ void ScanToMapNode::publishOdometry(
     lidar_frame_.c_str(),
     base_frame_.c_str());
 
-  if (lookupLidarToBaseTransform(rclcpp::Time(header.stamp), T_lidar_base)) {
-    T_odom_child = T_odom_lidar * T_lidar_base;
-    child_frame = base_frame_;
+  if (!lookupLidarToBaseTransform(rclcpp::Time(header.stamp), T_lidar_base)) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(),
+      *get_clock(),
+      2000,
+      "Skipping odometry publish until %s -> %s transform is available",
+      lidar_frame_.c_str(),
+      base_frame_.c_str());
+    return false;
   }
 
-  const Eigen::Isometry3d T_nav_odom_child =
-    (child_frame == base_frame_) ? makePlanarTransform(T_odom_child) : T_odom_child;
+  const std::string child_frame = base_frame_;
+  const Eigen::Isometry3d T_odom_child = T_odom_lidar * T_lidar_base;
+  const Eigen::Isometry3d T_nav_odom_child = makePlanarTransform(T_odom_child);
+  const bool tracking_degraded = stats.status == "tracking_degraded";
 
   nav_msgs::msg::Odometry odom;
   odom.header.stamp = header.stamp;
@@ -616,8 +660,13 @@ void ScanToMapNode::publishOdometry(
   odom.child_frame_id = child_frame;
   odom.pose.pose = toRosPose(T_nav_odom_child);
 
-  const double position_covariance = stats.success ? 0.05 : 0.25;
-  const double orientation_covariance = stats.success ? 0.10 : 0.50;
+  double position_covariance = stats.success ? 0.05 : 0.25;
+  double orientation_covariance = stats.success ? 0.10 : 0.50;
+
+  if (tracking_degraded) {
+    position_covariance = 4.0;
+    orientation_covariance = 4.0;
+  }
 
   odom.pose.covariance[0] = position_covariance;
   odom.pose.covariance[7] = position_covariance;
@@ -626,28 +675,49 @@ void ScanToMapNode::publishOdometry(
   odom.pose.covariance[28] = orientation_covariance;
   odom.pose.covariance[35] = orientation_covariance;
 
+  if (stats.success && has_previous_odom_ && previous_odom_child_frame_ == child_frame) {
+    const rclcpp::Time current_stamp(header.stamp);
+    const double dt = (current_stamp - previous_odom_stamp_).seconds();
+
+    if (dt > 1.0e-6 && dt < 5.0) {
+      const Eigen::Isometry3d odom_delta = previous_odom_pose_.inverse() * T_nav_odom_child;
+
+      odom.twist.twist.linear.x = odom_delta.translation().x() / dt;
+      odom.twist.twist.linear.y = odom_delta.translation().y() / dt;
+      odom.twist.twist.angular.z = yawFromTransform(odom_delta) / dt;
+    }
+  }
+
+  odom.twist.covariance[0] = stats.success ? 0.05 : position_covariance;
+  odom.twist.covariance[7] = stats.success ? 0.05 : position_covariance;
+  odom.twist.covariance[35] = stats.success ? 0.10 : orientation_covariance;
+
   odom_pub_->publish(odom);
 
   if (publish_tf_) {
-    if (child_frame == base_frame_) {
+    if (tracking_degraded && stop_tf_on_tracking_degraded_) {
+      std::lock_guard<std::mutex> lock(latest_tf_mutex_);
+      has_latest_tf_ = false;
+    } else {
       std::lock_guard<std::mutex> lock(latest_tf_mutex_);
       latest_T_odom_child_ = T_nav_odom_child;
       latest_tf_child_frame_ = child_frame;
       has_latest_tf_ = true;
-    } else {
-      RCLCPP_WARN_THROTTLE(
-        get_logger(),
-        *get_clock(),
-        2000,
-        "Skipping TF broadcast because odometry child frame is %s, not %s",
-        child_frame.c_str(),
-        base_frame_.c_str());
     }
   }
 
-  if (publish_path_) {
+  if (stats.success) {
+    previous_odom_pose_ = T_nav_odom_child;
+    previous_odom_stamp_ = rclcpp::Time(header.stamp);
+    previous_odom_child_frame_ = child_frame;
+    has_previous_odom_ = true;
+  }
+
+  if (publish_path_ && stats.success) {
     publishPath(header, odom);
   }
+
+  return true;
 }
 
 void ScanToMapNode::publishPath(
@@ -666,6 +736,15 @@ void ScanToMapNode::publishPath(
   path_msg_.header.stamp = header.stamp;
   path_msg_.header.frame_id = odom_frame_;
   path_msg_.poses.push_back(pose_stamped);
+
+  if (max_path_poses_ > 0 &&
+      path_msg_.poses.size() > static_cast<std::size_t>(max_path_poses_)) {
+    const auto excess =
+      path_msg_.poses.size() - static_cast<std::size_t>(max_path_poses_);
+    path_msg_.poses.erase(
+      path_msg_.poses.begin(),
+      path_msg_.poses.begin() + static_cast<std::ptrdiff_t>(excess));
+  }
 
   path_pub_->publish(path_msg_);
 }
@@ -690,11 +769,14 @@ void ScanToMapNode::publishDiagnostics(
     return;
   }
 
-  RCLCPP_INFO(get_logger(), "Publishing diagnostics: status=%s", diagnostics.optimization.status.c_str());
+  RCLCPP_DEBUG(
+    get_logger(),
+    "Publishing diagnostics: status=%s",
+    diagnostics.optimization.status.c_str());
   const auto diagnostic_msg =
     makeDiagnosticArray(diagnostics, header.stamp, "custom_scan_to_map_odom");
   diagnostics_pub_->publish(diagnostic_msg);
-  RCLCPP_INFO(get_logger(), "Diagnostics published");
+  RCLCPP_DEBUG(get_logger(), "Diagnostics published");
 }
 
 void ScanToMapNode::publishTransform(
