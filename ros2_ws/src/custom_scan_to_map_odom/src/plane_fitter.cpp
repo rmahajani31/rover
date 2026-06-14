@@ -35,6 +35,7 @@ bool PlaneFitter::fitPlane(
 
   Eigen::Matrix3d covariance = Eigen::Matrix3d::Zero();
 
+  // The smallest covariance direction is the plane normal; scale does not matter here.
   for (const auto& point : points) {
     const Eigen::Vector3d centered = point - centroid;
     covariance += centered * centered.transpose();
@@ -67,6 +68,7 @@ bool PlaneFitter::fitPlane(
   const double middle_ratio = middle / ratio_denominator;
   const double largest_ratio = largest / ratio_denominator;
 
+  // Planes should have two strong in-plane directions and one weak normal direction.
   if (middle_ratio < options_.min_plane_eigen_ratio ||
       largest_ratio < options_.min_plane_eigen_ratio) {
     return false;

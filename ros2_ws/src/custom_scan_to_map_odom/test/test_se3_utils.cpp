@@ -11,6 +11,7 @@ namespace
 
 constexpr double kTolerance = 1.0e-9;
 
+// These helpers define the pose-update convention used in scan-to-map optimization.
 TEST(Se3UtilsTest, SkewMatchesCrossProduct)
 {
   const Eigen::Vector3d a(1.0, -2.0, 3.0);

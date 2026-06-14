@@ -11,6 +11,7 @@
 namespace custom_scan_to_map_odom
 {
 
+// Per-frame summary used both for ROS diagnostics and scan-to-map log messages.
 struct ScanToMapDiagnostics
 {
   bool map_initialized = false;

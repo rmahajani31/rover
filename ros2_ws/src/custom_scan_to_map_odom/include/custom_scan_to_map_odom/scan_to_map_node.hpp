@@ -25,6 +25,8 @@
 namespace custom_scan_to_map_odom
 {
 
+// ROS wrapper that filters scans, runs scan-to-map registration, maintains the
+// local map, and publishes odometry/TF for Nav2.
 class ScanToMapNode : public rclcpp::Node
 {
 public:
@@ -120,10 +122,12 @@ private:
   double min_plane_eigen_ratio_ = 5.0;
 
   std::size_t frame_count_ = 0;
+  // Consecutive rejected frames mark odometry as degraded instead of pretending it is healthy.
   int consecutive_tracking_failures_ = 0;
 
   Eigen::Isometry3d current_pose_ = Eigen::Isometry3d::Identity();
   Eigen::Isometry3d previous_odom_pose_ = Eigen::Isometry3d::Identity();
+  // TF is published by a timer from the latest accepted pose to keep a steady TF cadence.
   Eigen::Isometry3d latest_T_odom_child_ = Eigen::Isometry3d::Identity();
   std::string latest_tf_child_frame_;
   std::string previous_odom_child_frame_;

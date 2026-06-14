@@ -58,6 +58,7 @@ std::uint8_t diagnosticLevel(const ScanToMapDiagnostics& diagnostics)
 
   const std::string& status = diagnostics.optimization.status;
 
+  // Startup and sparse-data states are actionable but not necessarily fatal.
   if (status == "not_started" ||
       status == "empty_scan" ||
       status == "map_not_ready" ||
@@ -93,6 +94,7 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.level = diagnosticLevel(diagnostics);
   status.message = diagnosticMessage(diagnostics);
 
+  // Keep diagnostics flat so ros2 topic echo and rqt_robot_monitor remain easy to scan.
   status.values.push_back(makeKeyValue("map_initialized", diagnostics.map_initialized));
   status.values.push_back(makeKeyValue("input_points", diagnostics.input_points));
   status.values.push_back(makeKeyValue("downsampled_points", diagnostics.downsampled_points));

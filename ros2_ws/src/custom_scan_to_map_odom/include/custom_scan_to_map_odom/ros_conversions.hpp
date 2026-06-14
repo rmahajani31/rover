@@ -11,6 +11,7 @@
 namespace custom_scan_to_map_odom
 {
 
+// Shared PCL point-cloud aliases keep the package consistent at ROS/PCL boundaries.
 using PointT = pcl::PointXYZI;
 using CloudT = pcl::PointCloud<PointT>;
 using CloudTPtr = CloudT::Ptr;

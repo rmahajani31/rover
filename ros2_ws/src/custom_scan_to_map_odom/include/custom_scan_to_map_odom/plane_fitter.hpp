@@ -7,6 +7,7 @@
 namespace custom_scan_to_map_odom
 {
 
+// Local planar patch estimated from a k-nearest-neighbor map neighborhood.
 struct Plane
 {
   Eigen::Vector3d centroid = Eigen::Vector3d::Zero();
@@ -21,7 +22,9 @@ struct Plane
 
 struct PlaneFitterOptions
 {
+  // Reject neighborhoods whose points do not stay close to the fitted plane.
   double max_plane_error = 0.10;
+  // Require spread along the plane to be much larger than spread normal to it.
   double min_plane_eigen_ratio = 5.0;
 };
 

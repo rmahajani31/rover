@@ -10,6 +10,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     pkg_dir = get_package_share_directory("custom_scan_to_map_odom")
     config_file = os.path.join(pkg_dir, "config", "scan_to_map.yaml")
+    # Launch-time override lets the same config run with or without odom -> base_link TF.
     publish_tf = LaunchConfiguration("publish_tf")
 
     return LaunchDescription([

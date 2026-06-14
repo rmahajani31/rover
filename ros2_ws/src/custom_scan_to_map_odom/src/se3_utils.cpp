@@ -20,6 +20,7 @@ Eigen::Matrix3d expSO3(const Eigen::Vector3d& w)
   const Eigen::Matrix3d W = skew(w);
   const Eigen::Matrix3d W2 = W * W;
 
+  // Series form avoids division by very small angles.
   if (theta < 1.0e-10) {
     return Eigen::Matrix3d::Identity() + W + 0.5 * W2;
   }
@@ -38,6 +39,7 @@ Eigen::Isometry3d expSE3(const Vector6d& dx)
   const Eigen::Vector3d dtheta = dx.head<3>();
   const Eigen::Vector3d dt = dx.tail<3>();
 
+  // For these small Gauss-Newton increments, translation is applied directly.
   T.linear() = expSO3(dtheta);
   T.translation() = dt;
 
@@ -62,6 +64,7 @@ geometry_msgs::msg::Pose toRosPose(const Eigen::Isometry3d& T)
   Eigen::Quaterniond q(T.rotation());
   q.normalize();
 
+  // Normalize before publishing so downstream TF consumers receive a valid quaternion.
   pose.orientation.x = q.x();
   pose.orientation.y = q.y();
   pose.orientation.z = q.z();

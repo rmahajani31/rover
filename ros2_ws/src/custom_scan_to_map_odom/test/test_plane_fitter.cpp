@@ -11,6 +11,7 @@ namespace custom_scan_to_map_odom
 namespace
 {
 
+// These tests anchor the geometric acceptance/rejection rules used by the optimizer.
 TEST(PlaneFitterTest, FitsHorizontalPlane)
 {
   const std::vector<Eigen::Vector3d> points{

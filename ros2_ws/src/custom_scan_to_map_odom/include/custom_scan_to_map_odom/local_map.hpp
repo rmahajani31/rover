@@ -12,6 +12,7 @@
 namespace custom_scan_to_map_odom
 {
 
+// Lightweight local map backend for Phase 5 scan-to-map registration.
 class LocalMap
 {
 public:
@@ -23,6 +24,7 @@ public:
 
   void insertCloud(const CloudTConstPtr& cloud_map_frame);
 
+  // Map mutations invalidate the k-d tree; rebuildKdTree() must run before search.
   void downsample(double leaf_size);
 
   void cropAround(
@@ -31,6 +33,7 @@ public:
 
   void rebuildKdTree();
 
+  // Returns Eigen-space neighbor points so the optimizer stays independent of PCL.
   bool nearestKSearch(
     const Eigen::Vector3d& query,
     int k,

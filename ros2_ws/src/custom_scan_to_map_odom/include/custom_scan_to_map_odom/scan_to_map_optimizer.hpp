@@ -13,6 +13,7 @@
 namespace custom_scan_to_map_odom
 {
 
+// Tuning knobs for one scan-to-map registration attempt.
 struct ScanToMapOptimizerOptions
 {
   int max_iterations = 5;
@@ -29,11 +30,13 @@ struct ScanToMapOptimizerOptions
   double max_pose_update_translation = 0.15;
   double max_pose_update_rotation_deg = 5.0;
 
+  // Phase 5 is intended for rover navigation on mostly flat ground.
   bool constrain_to_planar = true;
 
   PlaneFitterOptions plane_fitter;
 };
 
+// Captures why an optimization accepted or rejected a scan.
 struct OptimizationStats
 {
   bool success = false;

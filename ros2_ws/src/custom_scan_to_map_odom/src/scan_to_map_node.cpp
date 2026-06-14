@@ -51,6 +51,7 @@ double yawFromTransform(const Eigen::Isometry3d& transform)
   return std::atan2(transform.linear()(1, 0), transform.linear()(0, 0));
 }
 
+// Nav2 consumes planar rover odometry, so strip roll, pitch, and z before publishing.
 Eigen::Isometry3d makePlanarTransform(const Eigen::Isometry3d& transform)
 {
   const double yaw = yawFromTransform(transform);
@@ -318,6 +319,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     return;
   }
 
+  // After the first frame, each scan is registered against the current local map.
   OptimizationStats stats;
   Eigen::Isometry3d optimized_pose = current_pose_;
 
@@ -362,6 +364,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
 
       const auto map_update_start = std::chrono::steady_clock::now();
 
+      // Only accepted poses are fused into the map; rejected scans cannot corrupt it.
       CloudTPtr scan_map = transformCloud(filtered_scan, current_pose_);
       local_map_.insertCloud(scan_map);
 
@@ -396,6 +399,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
   } else {
     ++consecutive_tracking_failures_;
 
+    // Nav2 should see degraded covariance once failures persist across several frames.
     if (max_consecutive_tracking_failures_ > 0 &&
         consecutive_tracking_failures_ >= max_consecutive_tracking_failures_) {
       RCLCPP_WARN_THROTTLE(
@@ -474,6 +478,7 @@ CloudTPtr ScanToMapNode::filterScan(const CloudTConstPtr& cloud) const
 
   updateCloudLayout(range_filtered);
 
+  // Voxel filtering keeps registration cost bounded and reduces duplicate surfaces.
   CloudTPtr voxel_filtered(new CloudT());
 
   if (scan_voxel_leaf_size_ > 0.0 && !range_filtered->empty()) {
@@ -501,6 +506,7 @@ CloudTPtr ScanToMapNode::filterScan(const CloudTConstPtr& cloud) const
   const double step =
     static_cast<double>(voxel_filtered->size()) / static_cast<double>(max_points_per_scan_);
 
+  // Keep a deterministic spread through the scan instead of taking only the first points.
   for (int i = 0; i < max_points_per_scan_; ++i) {
     const std::size_t index = std::min(
       static_cast<std::size_t>(std::floor(static_cast<double>(i) * step)),
@@ -559,6 +565,7 @@ bool ScanToMapNode::lookupLidarToBaseTransform(
         stamp,
         rclcpp::Duration::from_seconds(0.05));
     } catch (const tf2::TransformException&) {
+      // Static transforms may not have data at the scan timestamp, so fall back to latest.
       transform = tf_buffer_->lookupTransform(
         lidar_frame_,
         base_frame_,
@@ -682,6 +689,7 @@ bool ScanToMapNode::publishOdometry(
     if (dt > 1.0e-6 && dt < 5.0) {
       const Eigen::Isometry3d odom_delta = previous_odom_pose_.inverse() * T_nav_odom_child;
 
+      // Publish measured planar velocity from accepted odometry deltas for Nav2 feedback.
       odom.twist.twist.linear.x = odom_delta.translation().x() / dt;
       odom.twist.twist.linear.y = odom_delta.translation().y() / dt;
       odom.twist.twist.angular.z = yawFromTransform(odom_delta) / dt;
@@ -696,6 +704,7 @@ bool ScanToMapNode::publishOdometry(
 
   if (publish_tf_) {
     if (tracking_degraded && stop_tf_on_tracking_degraded_) {
+      // Stop refreshing TF rather than broadcasting a stale pose as if tracking were healthy.
       std::lock_guard<std::mutex> lock(latest_tf_mutex_);
       has_latest_tf_ = false;
     } else {
@@ -737,6 +746,7 @@ void ScanToMapNode::publishPath(
   path_msg_.header.frame_id = odom_frame_;
   path_msg_.poses.push_back(pose_stamped);
 
+  // Keep the path useful in RViz without letting it grow forever during long tests.
   if (max_path_poses_ > 0 &&
       path_msg_.poses.size() > static_cast<std::size_t>(max_path_poses_)) {
     const auto excess =

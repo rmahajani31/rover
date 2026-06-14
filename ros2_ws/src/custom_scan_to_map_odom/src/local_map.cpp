@@ -90,6 +90,7 @@ void LocalMap::cropAround(
 
   CloudTPtr cropped(new CloudT());
 
+  // PCL CropBox uses homogeneous bounds; w=1 means these are points, not directions.
   pcl::CropBox<PointT> crop;
   crop.setInputCloud(map_cloud_);
   crop.setMin(Eigen::Vector4f(
@@ -146,6 +147,7 @@ bool LocalMap::nearestKSearch(
   query_point.z = static_cast<float>(query.z());
   query_point.intensity = 0.0F;
 
+  // PCL fills these pre-sized buffers with neighbor indices and squared distances.
   std::vector<int> indices(static_cast<std::size_t>(k));
   std::vector<float> distances(static_cast<std::size_t>(k));
 
@@ -161,6 +163,7 @@ bool LocalMap::nearestKSearch(
   for (int i = 0; i < found; ++i) {
     const auto& point = map_cloud_->points[static_cast<std::size_t>(indices[i])];
 
+    // Convert PCL's float point storage into Eigen doubles for optimizer math.
     neighbors.emplace_back(
       static_cast<double>(point.x),
       static_cast<double>(point.y),

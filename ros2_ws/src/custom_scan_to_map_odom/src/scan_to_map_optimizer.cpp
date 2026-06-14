@@ -120,9 +120,11 @@ bool ScanToMapOptimizer::optimize(
       }
 
       Eigen::Matrix<double, 1, 6> J;
+      // Point-to-plane residual linearized for a left SE(3) update.
       J.block<1, 3>(0, 0) = -plane.normal.transpose() * skew(point_map);
       J.block<1, 3>(0, 3) = plane.normal.transpose();
 
+      // Accumulate normal equations for a Gauss-Newton step: H dx = -b.
       H += J.transpose() * J;
       b += J.transpose() * residual;
 
@@ -150,6 +152,7 @@ bool ScanToMapOptimizer::optimize(
       Eigen::Matrix3d H_planar;
       Eigen::Vector3d b_planar;
 
+      // Solve only yaw, x, and y while keeping roll, pitch, and z fixed.
       H_planar << H(2, 2), H(2, 3), H(2, 4),
                   H(3, 2), H(3, 3), H(3, 4),
                   H(4, 2), H(4, 3), H(4, 4);
@@ -162,6 +165,7 @@ bool ScanToMapOptimizer::optimize(
         return false;
       }
 
+      // Near-zero diagonal pivots mean the scan did not constrain this update well enough.
       if (!ldlt.isPositive() ||
           ldlt.vectorD().array().abs().minCoeff() < kMinLdltDiagonal) {
         stats.status = "singular_system";
@@ -180,6 +184,7 @@ bool ScanToMapOptimizer::optimize(
         return false;
       }
 
+      // Same conditioning checks for the full 6-DoF solve path.
       if (!ldlt.isPositive() ||
           ldlt.vectorD().array().abs().minCoeff() < kMinLdltDiagonal) {
         stats.status = "singular_system";
@@ -200,6 +205,7 @@ bool ScanToMapOptimizer::optimize(
     stats.final_update_rotation_norm = rotation_norm;
     stats.final_update_translation_norm = translation_norm;
 
+    // Reject frame-to-frame jumps that are too large for this odometry source to trust.
     if (translation_norm > options_.max_pose_update_translation ||
         rotation_norm > max_rotation_update) {
       stats.status = "pose_update_too_large";

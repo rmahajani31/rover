@@ -8,6 +8,7 @@ namespace custom_scan_to_map_odom
 CloudTPtr fromRosCloud(const sensor_msgs::msg::PointCloud2& msg)
 {
   auto cloud = std::make_shared<CloudT>();
+  // pcl_conversions preserves the XYZ/intensity fields expected by PointT.
   pcl::fromROSMsg(msg, *cloud);
   return cloud;
 }
