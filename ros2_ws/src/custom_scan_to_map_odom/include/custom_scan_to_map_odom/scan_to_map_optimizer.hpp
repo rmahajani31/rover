@@ -29,6 +29,8 @@ struct ScanToMapOptimizerOptions
   double max_pose_update_translation = 0.15;
   double max_pose_update_rotation_deg = 5.0;
 
+  bool constrain_to_planar = true;
+
   PlaneFitterOptions plane_fitter;
 };
 

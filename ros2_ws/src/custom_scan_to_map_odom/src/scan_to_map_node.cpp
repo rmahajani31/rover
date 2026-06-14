@@ -739,6 +739,7 @@ ScanToMapOptimizerOptions ScanToMapNode::optimizerOptionsFromParameters() const
   options.convergence_rotation_epsilon = convergence_rotation_epsilon_;
   options.max_pose_update_translation = max_pose_update_translation_;
   options.max_pose_update_rotation_deg = max_pose_update_rotation_deg_;
+  options.constrain_to_planar = constrain_to_planar_;
   options.plane_fitter = planeFitterOptionsFromParameters();
   return options;
 }

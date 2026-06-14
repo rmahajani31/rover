@@ -143,22 +143,51 @@ bool ScanToMapOptimizer::optimize(
       return false;
     }
 
-    const Eigen::LDLT<Eigen::Matrix<double, 6, 6>> ldlt(H);
-
-    if (ldlt.info() != Eigen::Success) {
-      stats.status = "linear_solve_failed";
-      return false;
-    }
-
     constexpr double kMinLdltDiagonal = 1.0e-9;
+    Eigen::Matrix<double, 6, 1> dx = Eigen::Matrix<double, 6, 1>::Zero();
 
-    if (!ldlt.isPositive() ||
-        ldlt.vectorD().array().abs().minCoeff() < kMinLdltDiagonal) {
-      stats.status = "singular_system";
-      return false;
+    if (options_.constrain_to_planar) {
+      Eigen::Matrix3d H_planar;
+      Eigen::Vector3d b_planar;
+
+      H_planar << H(2, 2), H(2, 3), H(2, 4),
+                  H(3, 2), H(3, 3), H(3, 4),
+                  H(4, 2), H(4, 3), H(4, 4);
+      b_planar << b(2), b(3), b(4);
+
+      const Eigen::LDLT<Eigen::Matrix3d> ldlt(H_planar);
+
+      if (ldlt.info() != Eigen::Success) {
+        stats.status = "linear_solve_failed";
+        return false;
+      }
+
+      if (!ldlt.isPositive() ||
+          ldlt.vectorD().array().abs().minCoeff() < kMinLdltDiagonal) {
+        stats.status = "singular_system";
+        return false;
+      }
+
+      const Eigen::Vector3d planar_dx = -ldlt.solve(b_planar);
+      dx(2) = planar_dx(0);
+      dx(3) = planar_dx(1);
+      dx(4) = planar_dx(2);
+    } else {
+      const Eigen::LDLT<Eigen::Matrix<double, 6, 6>> ldlt(H);
+
+      if (ldlt.info() != Eigen::Success) {
+        stats.status = "linear_solve_failed";
+        return false;
+      }
+
+      if (!ldlt.isPositive() ||
+          ldlt.vectorD().array().abs().minCoeff() < kMinLdltDiagonal) {
+        stats.status = "singular_system";
+        return false;
+      }
+
+      dx = -ldlt.solve(b);
     }
-
-    const Eigen::Matrix<double, 6, 1> dx = -ldlt.solve(b);
 
     if (!dx.allFinite()) {
       stats.status = "non_finite_update";
