@@ -117,13 +117,13 @@ controller_server:
       ay_max: 3.0
       ay_min: -3.0
       az_max: 3.5
-      vx_std: 0.2
+      vx_std: 0.1
       vy_std: 0.2
-      wz_std: 0.4
-      vx_max: 0.5
-      vx_min: -0.35
+      wz_std: 0.1
+      vx_max: 0.2
+      vx_min: -0.1
       vy_max: 0.5
-      wz_max: 1.9
+      wz_max: 0.25
       iteration_count: 1
       prune_distance: 1.7
       transform_tolerance: 0.1
@@ -416,8 +416,8 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: false
     feedback: "OPEN_LOOP"
-    max_velocity: [0.5, 0.0, 2.0]
-    min_velocity: [-0.5, 0.0, -2.0]
+    max_velocity: [0.2, 0.0, 0.25]
+    min_velocity: [-0.1, 0.0, -0.25]
     max_accel: [2.5, 0.0, 3.2]
     max_decel: [-2.5, 0.0, -3.2]
     # Keep the smoother's feedback aligned with the controller's odometry source.
