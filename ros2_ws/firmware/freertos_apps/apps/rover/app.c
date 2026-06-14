@@ -64,8 +64,12 @@
 #define STRING_BUFFER_LEN 100
 #define TIMEOUT_MS 1000 // Stop motors if no msg for 1 second
 #define PWM_FREQUENCY 20000 // Hz
-#define MAX_SPEED 1.0f // m/s
-#define MAX_ANGULAR_SPEED ((2.0f * MAX_SPEED) / TRACK_WIDTH) // rad/s
+// #define MAX_SPEED 1.0f // m/s
+// #define MAX_ANGULAR_SPEED ((2.0f * MAX_SPEED) / TRACK_WIDTH) // rad/s
+#define MAX_LINEAR_SPEED 0.20f // m/s
+#define MAX_WHEEL_SPEED 0.20f // m/s
+#define MAX_ANGULAR_SPEED 0.50f // rad/s
+#define PWM_FULL_SCALE_SPEED 1.0f // m/s command that maps to MAX_DUTY
 #define MOTOR_COMMAND_DEADBAND 0.005f // m/s
 #define MIN_ACTIVE_DUTY 45U // Tune for the minimum PWM that moves the rover
 #define MAX_DUTY 255U
@@ -395,7 +399,7 @@ rcl_ret_t set_motor_speed(int channel, int dir_pin, float speed)
 	// Convert the requested m/s command into an 8-bit LEDC duty cycle.
     // DC motors need a nonzero PWM floor to overcome static friction, so
     // scale active commands between MIN_ACTIVE_DUTY and MAX_DUTY.
-	float speed_ratio = clampf(abs_speed / MAX_SPEED, 0.0f, 1.0f);
+	float speed_ratio = clampf(abs_speed / PWM_FULL_SCALE_SPEED, 0.0f, 1.0f);
 	uint32_t duty = MIN_ACTIVE_DUTY + (uint32_t)(speed_ratio * (float)(MAX_DUTY - MIN_ACTIVE_DUTY));
 	if (duty > MAX_DUTY) duty = MAX_DUTY;
 
@@ -426,7 +430,7 @@ void cmd_vel_subscription_callback (const void * msgin)
 	const geometry_msgs__msg__TwistStamped * msg = (const geometry_msgs__msg__TwistStamped *)msgin;
 	// Clamp at the firmware boundary so bad ROS commands cannot exceed the
 	// configured motor speed envelope.
-	latest_linear_x = clampf(msg->twist.linear.x, -MAX_SPEED, MAX_SPEED);
+	latest_linear_x = clampf(msg->twist.linear.x, -MAX_LINEAR_SPEED, MAX_LINEAR_SPEED);
 	latest_angular_z = clampf(msg->twist.angular.z, -MAX_ANGULAR_SPEED, MAX_ANGULAR_SPEED);
 
 	last_runtime_phase = RUNTIME_PHASE_CALLBACK_STORED;
@@ -621,13 +625,13 @@ void appMain(void *argument)
 					// left side and speeds up the right side.
 					float left_velocity = clampf(
 						latest_linear_x - (latest_angular_z * TRACK_WIDTH / 2.0f),
-						-MAX_SPEED,
-						MAX_SPEED
+						-MAX_WHEEL_SPEED,
+						MAX_WHEEL_SPEED
 					);
 					float right_velocity = clampf(
 						latest_linear_x + (latest_angular_z * TRACK_WIDTH / 2.0f),
-						-MAX_SPEED,
-						MAX_SPEED
+						-MAX_WHEEL_SPEED,
+						MAX_WHEEL_SPEED
 					);
 
                     if (fabsf(left_velocity - applied_left_velocity) > MOTOR_EPSILON ||
