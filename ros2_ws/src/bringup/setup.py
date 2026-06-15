@@ -16,6 +16,7 @@ setup(
             'launch/jetson.launch.py',
             'launch/scan_to_scan_icp.launch.py',
             'launch/mapping.launch.py',
+            'launch/costmap_projection_test.launch.py',
             'launch/pointcloud_preprocess_fast_lio2_nav2.launch.py',
             'launch/pi_fast_lio2_nav2.launch.py',
             'launch/pi_nav2_livox.launch.py',
