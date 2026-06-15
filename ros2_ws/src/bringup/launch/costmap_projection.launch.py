@@ -13,14 +13,20 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory("bringup")
     adapter_dir = get_package_share_directory("fastlio2_nav2_adapter")
     preprocess_dir = get_package_share_directory("custom_fastlio_preprocess")
+    livox_cloud_to_scan_dir = get_package_share_directory("livox_cloud_to_scan")
     costmap_projection_dir = get_package_share_directory("custom_livox_costmap_projection")
 
-    # Costmap projection test stack: Livox driver is started separately in CustomMsg mode.
-    # This launch starts the custom PointCloud2 obstacle projection path without
-    # the older /scan_from_livox baseline projector.
+    # Costmap projection stack: Livox driver is started separately in CustomMsg mode.
+    # /custom/obstacle_cloud is the Nav2 costmap obstacle source. /scan_from_livox
+    # is kept only as the LaserScan input AMCL needs for map localization.
     default_fastlio_config_path = os.path.join(bringup_dir, "config")
     adapter_config = os.path.join(adapter_dir, "config", "fastlio2_nav2_adapter.yaml")
     preprocess_config = os.path.join(preprocess_dir, "config", "preprocess.yaml")
+    livox_cloud_to_scan_config = os.path.join(
+        livox_cloud_to_scan_dir,
+        "config",
+        "livox_cloud_to_scan.yaml",
+    )
     costmap_projection_config = os.path.join(
         costmap_projection_dir,
         "config",
@@ -88,6 +94,20 @@ def generate_launch_description():
             name="livox_costmap_projection_node",
             output="screen",
             parameters=[costmap_projection_config],
+        ),
+        Node(
+            package="livox_cloud_to_scan",
+            executable="livox_cloud_to_scan_node",
+            name="livox_cloud_to_scan_for_amcl",
+            output="screen",
+            parameters=[
+                livox_cloud_to_scan_config,
+                {
+                    "input_topic": "/custom/points_for_nav2",
+                    "output_topic": "/scan_from_livox",
+                    "target_frame": "base_link",
+                },
+            ],
         ),
         GroupAction([
             SetRemap(src="/Odometry", dst="/fastlio_odom"),
