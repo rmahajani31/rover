@@ -99,7 +99,7 @@ void LivoxCostmapProjectionNode::cloudCallback(
 bool LivoxCostmapProjectionNode::transformCloudToTargetFrame(
   const sensor_msgs::msg::PointCloud2 & input_cloud,
   sensor_msgs::msg::PointCloud2 & target_cloud,
-  TfStatus & tf_status) const
+  TfStatus & tf_status)
 {
   if (input_cloud.header.frame_id.empty()) {
     tf_status.cloud_to_target_success = false;
@@ -140,7 +140,7 @@ bool LivoxCostmapProjectionNode::transformCloudToTargetFrame(
 bool LivoxCostmapProjectionNode::lookupGridTransform(
   const rclcpp::Time & stamp,
   geometry_msgs::msg::TransformStamped & grid_from_target_transform,
-  TfStatus & tf_status) const
+  TfStatus & tf_status)
 {
   try {
     grid_from_target_transform = tf_buffer_->lookupTransform(

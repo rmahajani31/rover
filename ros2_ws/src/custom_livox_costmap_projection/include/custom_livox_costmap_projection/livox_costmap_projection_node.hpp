@@ -31,12 +31,12 @@ private:
   bool transformCloudToTargetFrame(
     const sensor_msgs::msg::PointCloud2 & input_cloud,
     sensor_msgs::msg::PointCloud2 & target_cloud,
-    TfStatus & tf_status) const;
+    TfStatus & tf_status);
 
   bool lookupGridTransform(
     const rclcpp::Time & stamp,
     geometry_msgs::msg::TransformStamped & grid_from_target_transform,
-    TfStatus & tf_status) const;
+    TfStatus & tf_status);
 
   void filterObstacleCloud(
     const sensor_msgs::msg::PointCloud2 & target_cloud,
