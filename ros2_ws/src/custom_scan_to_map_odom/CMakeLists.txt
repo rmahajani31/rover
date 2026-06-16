@@ -44,6 +44,10 @@ add_library(local_map
   src/local_map.cpp
 )
 
+add_library(local_map_manager
+  src/local_map_manager.cpp
+)
+
 add_library(scan_to_map_optimizer
   src/scan_to_map_optimizer.cpp
 )
@@ -79,6 +83,12 @@ target_include_directories(local_map PUBLIC
   $<INSTALL_INTERFACE:include>
   ${EIGEN3_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
+)
+
+target_include_directories(local_map_manager PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 target_include_directories(scan_to_map_optimizer PUBLIC
@@ -117,6 +127,10 @@ target_link_libraries(ros_conversions
 target_link_libraries(local_map
   ros_conversions
   ${PCL_LIBRARIES}
+)
+
+target_link_libraries(local_map_manager
+  local_map
 )
 
 target_link_libraries(scan_to_map_optimizer
@@ -163,6 +177,7 @@ install(
     ros_conversions
     plane_fitter
     local_map
+    local_map_manager
     scan_to_map_optimizer
     diagnostics
   ARCHIVE DESTINATION lib
