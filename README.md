@@ -45,6 +45,7 @@ mode
 - `custom_scan_to_map_odom`, when using scan-to-map registration based
 odometry as the Nav2 odometry source
 - `fastlio2_nav2_adapter`, when using FAST-LIO2 as the Nav2 odometry source
+- `custom_livox_costmap_projection`, when using the upgraded costmap mode
 - `fast_lio` from
   [Ericsii/FAST_LIO_ROS2](https://github.com/Ericsii/FAST_LIO_ROS2), when
   running FAST-LIO2 shadow mode or FAST-LIO2 Nav2 odometry
@@ -69,17 +70,18 @@ the packages it needs built and sourced in its own ROS 2 environment.
 The Jetson should build the lidar-heavy packages:
 
 ```bash
-colcon build --packages-select custom_fastlio_preprocess custom_icp_odom custom_scan_to_map_odom livox_cloud_to_scan bringup
+colcon build --packages-select custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_scan_to_map_odom livox_cloud_to_scan bringup
 source install/setup.bash
 ```
 
 The Pi does not need `livox_ros_driver2`, `custom_fastlio_preprocess`,
-`custom_icp_odom`, or `custom_scan_to_map_odom` for normal driving/mapping. If
-those Jetson-only packages are present in the Pi workspace but their
-dependencies are not installed, skip them:
+`custom_livox_costmap_projection`, `custom_icp_odom`, or
+`custom_scan_to_map_odom` for normal driving/mapping. If those Jetson-only
+packages are present in the Pi workspace but their dependencies are not
+installed, skip them:
 
 ```bash
-colcon build --packages-skip custom_fastlio_preprocess custom_icp_odom custom_scan_to_map_odom
+colcon build --packages-skip custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_scan_to_map_odom
 source install/setup.bash
 ```
 
@@ -156,6 +158,9 @@ publishes `/fastlio_odom` for observation and bagging.
 path, including scan projection and the `/nav2_odom` adapter.
 - `pointcloud_preprocess_fast_lio2_nav2.launch.py` starts the Jetson-side FAST-LIO2 Nav2
 odometry path with the custom Livox preprocessing node feeding scan projection.
+- `costmap_projection.launch.py` starts the Jetson-side upgraded costmap mode:
+custom preprocessing, FAST-LIO2, `/nav2_odom`, `/scan_from_livox` for AMCL,
+and `/custom/obstacle_cloud` for Nav2 costmaps.
 - `scan_to_map_primary_odom.launch.py` starts the Jetson-side scan-to-map
 registration based odometry path, publishes `/nav2_odom`, broadcasts
 `odom -> base_link`, and keeps `/scan_from_livox` available for Nav2.
@@ -165,6 +170,9 @@ debugging but does not publish `odom -> base_link`.
 - `pi_fast_lio2_nav2.launch.py` starts Pi-side Nav2 localization and
 navigation using `/nav2_odom` from the Jetson. The same Pi launch is used for
 FAST-LIO2 odometry and scan-to-map registration based odometry.
+- `pi_fast_lio2_costmap_projection_nav2.launch.py` starts Pi-side Nav2 using
+`/nav2_odom` from the Jetson, `/scan_from_livox` for AMCL, and
+`/custom/obstacle_cloud` for Nav2 costmaps and collision monitoring.
 - `mapping.launch.py` launches room mapping and saves maps into `ros2_ws/maps/`.
 - `pi_nav2_livox.launch.py` launches autonomous navigation using Nav2.
 
@@ -209,6 +217,32 @@ The first implementation does not transform clouds internally. Nav2 height
 filtering is tuned in `livox_frame` so the output remains compatible with the
 existing `livox_cloud_to_scan` height slice after the cloud is transformed into
 `base_link`.
+
+### `custom_livox_costmap_projection`
+
+Package that runs on the Jetson in upgraded costmap mode. It consumes the
+preprocessed Livox point cloud:
+
+```text
+/custom/points_preprocessed
+```
+
+It transforms the cloud into `base_link`, filters obstacle points by range,
+height, and rover self-body bounds, then publishes:
+
+```text
+/custom/obstacle_cloud
+/custom/projected_occupancy_grid
+/custom/costmap_projection_diagnostics
+```
+
+`/custom/obstacle_cloud` is the Nav2 obstacle source for the local costmap,
+global costmap, and collision monitor. `/custom/projected_occupancy_grid` is a
+debug view for RViz, not the primary Nav2 costmap input.
+
+In this mode, `/scan_from_livox` is still published, but it is reserved for
+AMCL localization. This keeps localization scan matching separate from obstacle
+marking.
 
 ### `custom_icp_odom`
 
@@ -303,6 +337,9 @@ Pi from the goBILDA Pinpoint v2 odometry computer.
 | `/custom/points_preprocessed` | Topic | Filtered PointCloud2 stream used by scan-to-map registration and scan-matching work. |
 | `/custom/points_for_nav2` | Topic | Filtered PointCloud2 stream projected into `/scan_from_livox` in the custom preprocessing mode. |
 | `/custom/preprocess_diagnostics` | Topic | Runtime point counts, rejection counts, and processing time from `custom_fastlio_preprocess`. |
+| `/custom/obstacle_cloud` | Topic | Filtered obstacle PointCloud2 stream used by Nav2 costmaps and collision monitor in upgraded costmap mode. |
+| `/custom/projected_occupancy_grid` | Topic | Debug occupancy grid built from `/custom/obstacle_cloud` for RViz inspection. |
+| `/custom/costmap_projection_diagnostics` | Topic | Runtime projection health, TF status, point counts, and grid occupancy counts. |
 | `/custom/icp_odom` | Topic | Shadow-mode scan-to-scan ICP odometry from `custom_icp_odom`. |
 | `/custom/icp_path` | Topic | Accumulated custom ICP path for RViz comparison. |
 | `/custom/icp/aligned_cloud` | Topic | Current scan transformed onto the previous scan by ICP/GICP. |
@@ -334,6 +371,9 @@ The completed rover stack can be run in these main ways:
 `/scan_from_livox`.
 - FAST-LIO2 providing odometry to Nav2 while custom filtered clouds feed
 `/scan_from_livox`.
+- FAST-LIO2 providing odometry to Nav2 while the upgraded costmap mode feeds
+Nav2 costmaps with `/custom/obstacle_cloud` and keeps `/scan_from_livox` for
+AMCL only.
 - Scan-to-map registration based odometry providing `/nav2_odom` to Nav2 while
 custom filtered clouds feed `/scan_from_livox`.
 - Custom scan-to-scan ICP odometry running in shadow mode while the rover is
@@ -538,6 +578,80 @@ ros2 topic hz /nav2_odom
 This mode is the preferred current setup for testing custom point cloud
 preprocessing while still relying on official FAST-LIO2 for rover odometry.
 
+### Upgraded Costmap Mode
+
+This mode keeps FAST-LIO2 as the odometry source for Nav2, but changes the
+obstacle pipeline used by the costmaps. AMCL still receives `/scan_from_livox`
+for localization, while the local costmap, global costmap, and collision
+monitor consume `/custom/obstacle_cloud`.
+
+This is an upgrade over using only the earlier scan projection because obstacle
+marking no longer depends on compressing the Livox 3D cloud into a single 2D
+LaserScan. The projection node filters the cloud in `base_link`, preserves the
+obstacle points as PointCloud2 data for Nav2, and leaves `/scan_from_livox`
+focused on AMCL where a 2D scan is still useful.
+
+Start the Livox driver on the Jetson:
+
+```bash
+ros2 launch livox_ros_driver2 msg_MID360_launch.py
+```
+
+Then start the Jetson upgraded costmap stack:
+
+```bash
+ros2 launch bringup costmap_projection.launch.py
+```
+
+This produces:
+
+```text
+/livox/lidar                  -> FAST-LIO2                         -> /fastlio_odom
+/fastlio_odom                 -> fastlio2_nav2_adapter             -> /nav2_odom
+/livox/lidar                  -> custom_fastlio_preprocess         -> /custom/points_preprocessed
+/custom/points_preprocessed   -> custom_livox_costmap_projection   -> /custom/obstacle_cloud
+/custom/points_preprocessed   -> custom_livox_costmap_projection   -> /custom/projected_occupancy_grid
+/livox/lidar                  -> custom_fastlio_preprocess         -> /custom/points_for_nav2
+/custom/points_for_nav2       -> livox_cloud_to_scan               -> /scan_from_livox
+fastlio2_nav2_adapter                                              -> odom -> base_link
+static_transform_publisher                                         -> base_link -> livox_frame
+```
+
+Then start Nav2 on the Pi with the upgraded costmap parameters:
+
+```bash
+ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
+```
+
+Before sending a goal, verify the Jetson outputs:
+
+```bash
+ros2 topic hz /custom/points_preprocessed
+ros2 topic hz /custom/obstacle_cloud
+ros2 topic hz /custom/projected_occupancy_grid
+ros2 topic echo /custom/costmap_projection_diagnostics --once
+ros2 topic hz /scan_from_livox
+ros2 topic hz /nav2_odom
+```
+
+Expected topic usage:
+
+```text
+/scan_from_livox      -> AMCL
+/custom/obstacle_cloud -> Nav2 costmaps and collision monitor
+```
+
+Run order summary:
+
+```bash
+# Jetson
+ros2 launch livox_ros_driver2 msg_MID360_launch.py
+ros2 launch bringup costmap_projection.launch.py
+
+# Pi
+ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
+```
+
 ### Scan-To-Map Registration Based Odometry
 
 In this mode, scan-to-map registration becomes the odometry source used by
@@ -682,6 +796,10 @@ and `fastlio2_nav2_adapter` publishes `/nav2_odom` plus `odom -> base_link`.
 topic, `custom_fastlio_preprocess` publishes `/custom/points_preprocessed` and
 `/custom/points_for_nav2`, and `livox_cloud_to_scan` projects
 `/custom/points_for_nav2` into `/scan_from_livox`.
+- In upgraded costmap mode, `custom_livox_costmap_projection` consumes
+`/custom/points_preprocessed`, publishes `/custom/obstacle_cloud` for Nav2
+costmaps, and publishes `/custom/projected_occupancy_grid` for RViz/debugging.
+`/scan_from_livox` remains available for AMCL localization.
 - In custom scan-to-scan ICP shadow mode, `custom_icp_odom` consumes
 `/custom/points_preprocessed` and publishes `/custom/icp_odom` plus
 `/custom/icp_path` without publishing TF.
@@ -708,6 +826,17 @@ the Livox workspace before recording.
 node is also publishing `odom -> base_link`.
 - In custom preprocessing mode, confirm `/custom/points_for_nav2` is non-empty
 before debugging `/scan_from_livox`.
+- In upgraded costmap mode, confirm `/custom/obstacle_cloud`,
+`/custom/projected_occupancy_grid`, `/custom/costmap_projection_diagnostics`,
+`/scan_from_livox`, and `/nav2_odom` are publishing before sending a Nav2 goal.
+- If Nav2 starts but obstacles do not appear in the costmaps in upgraded
+costmap mode, confirm the Pi was launched with
+`pi_fast_lio2_costmap_projection_nav2.launch.py`, not the older
+`pi_fast_lio2_nav2.launch.py`.
+- If `/custom/projected_occupancy_grid` is missing but `/custom/obstacle_cloud`
+is publishing, check `/custom/costmap_projection_diagnostics` for
+`tf_target_to_grid_success` and verify `odom -> base_link` is available at the
+cloud timestamps.
 - In scan-to-map registration based odometry mode, confirm
 `/custom/points_preprocessed`, `/nav2_odom`, and `/scan_from_livox` are
 publishing on the Jetson before starting Nav2 on the Pi.
@@ -766,27 +895,38 @@ an existing saved map YAML file.
    ros2 launch livox_ros_driver2 msg_MID360_launch.py
    ros2 launch bringup pointcloud_preprocess_fast_lio2_nav2.launch.py
    ```
-6. For custom scan-to-scan ICP shadow mode, start this on the Jetson:
+6. For upgraded costmap mode:
+
+   ```bash
+   # Jetson
+   ros2 launch livox_ros_driver2 msg_MID360_launch.py
+   ros2 launch bringup costmap_projection.launch.py
+
+   # Pi
+   ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py \
+     map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
+   ```
+7. For custom scan-to-scan ICP shadow mode, start this on the Jetson:
 
    ```bash
    ros2 launch livox_ros_driver2 msg_MID360_launch.py
    ros2 launch bringup scan_to_scan_icp.launch.py
    ```
-7. For scan-to-map registration based odometry, start this on the Jetson:
+8. For scan-to-map registration based odometry, start this on the Jetson:
 
    ```bash
    ros2 launch livox_ros_driver2 msg_MID360_launch.py
    ros2 launch bringup scan_to_map_primary_odom.launch.py
    ```
-8. For mapping, launch:
+9. For mapping, launch:
   ```bash
    ros2 launch bringup mapping.launch.py
   ```
-9. For autonomous navigation with wheel odometry, provide the saved map:
+10. For autonomous navigation with wheel odometry, provide the saved map:
   ```bash
    ros2 launch bringup pi_nav2_livox.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
   ```
-10. For autonomous navigation with Jetson odometry on `/nav2_odom`, provide the saved map:
+11. For autonomous navigation with Jetson odometry on `/nav2_odom`, provide the saved map:
   ```bash
    ros2 launch bringup pi_fast_lio2_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
   ```

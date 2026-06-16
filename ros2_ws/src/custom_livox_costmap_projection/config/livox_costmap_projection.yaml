@@ -1,0 +1,43 @@
+livox_costmap_projection_node:
+  ros__parameters:
+    input_cloud_topic: "/custom/points_preprocessed"
+
+    obstacle_cloud_topic: "/custom/obstacle_cloud"
+    occupancy_grid_topic: "/custom/projected_occupancy_grid"
+    diagnostics_topic: "/custom/costmap_projection_diagnostics"
+
+    publish_obstacle_cloud: true
+    publish_occupancy_grid: true
+    publish_diagnostics: true
+
+    target_frame: "base_link"
+    grid_frame: "odom"
+    robot_frame: "base_link"
+
+    min_range: 0.25
+    max_range: 8.0
+
+    floor_threshold: 0.03
+    ceiling_threshold: 1.20
+    obstacle_min_z: 0.05
+    obstacle_max_z: 1.20
+
+    remove_self_points: true
+    self_filter_min_x: -0.35
+    self_filter_max_x: 0.35
+    self_filter_min_y: -0.35
+    self_filter_max_y: 0.35
+    self_filter_min_z: -0.20
+    self_filter_max_z: 0.50
+
+    grid_resolution: 0.05
+    grid_width_m: 10.0
+    grid_height_m: 10.0
+    occupied_value: 100
+    unknown_value: -1
+
+    obstacle_cell_dilation_radius_cells: 1
+
+    tf_lookup_timeout_sec: 0.05
+
+    diagnostics_frame_count_window: 30
