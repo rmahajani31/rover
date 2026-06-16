@@ -37,12 +37,16 @@ custom_scan_to_map_odom:
     min_plane_eigen_ratio: 5.0
 
     # Local map
-    map_voxel_leaf_size: 0.20
-    local_map_half_size_x: 20.0
-    local_map_half_size_y: 20.0
-    local_map_half_size_z: 4.0
-    max_map_points: 300000
-    rebuild_kdtree_every_frame: true
+    local_map:
+      cube_size_x: 40.0
+      cube_size_y: 40.0
+      cube_size_z: 8.0
+      movement_threshold_xy: 5.0
+      movement_threshold_z: 2.0
+      voxel_leaf_size: 0.20
+      min_points_for_kdtree: 100
+      publish_local_map: true
+      local_map_publish_period_sec: 1.0
 
     # Publishing
     publish_local_map_every_n_frames: 5

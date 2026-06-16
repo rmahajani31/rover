@@ -165,6 +165,7 @@ ament_target_dependencies(custom_scan_to_map_odom_node
 target_link_libraries(custom_scan_to_map_odom_node
   diagnostics
   local_map
+  local_map_manager
   ros_conversions
   scan_to_map_optimizer
   se3_utils

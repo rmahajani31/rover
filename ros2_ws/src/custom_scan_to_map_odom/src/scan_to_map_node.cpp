@@ -73,6 +73,9 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
   declareParameters();
   readParameters();
 
+  local_map_config_ = localMapConfigFromParameters();
+  local_map_manager_.configure(local_map_config_);
+
   optimizer_ = std::make_unique<ScanToMapOptimizer>(optimizerOptionsFromParameters());
 
   cloud_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -129,13 +132,6 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
     }
   }
 
-  if (!rebuild_kdtree_every_frame_) {
-    RCLCPP_WARN(
-      get_logger(),
-      "rebuild_kdtree_every_frame is false, but the current LocalMap backend requires a rebuild "
-      "after map updates. The node will rebuild the k-d tree every frame.");
-  }
-
   RCLCPP_INFO(get_logger(), "custom_scan_to_map_odom initialized");
 }
 
@@ -174,12 +170,15 @@ void ScanToMapNode::declareParameters()
   declare_parameter<double>("max_point_to_plane_residual", 0.50);
   declare_parameter<double>("min_plane_eigen_ratio", 5.0);
 
-  declare_parameter<double>("map_voxel_leaf_size", 0.20);
-  declare_parameter<double>("local_map_half_size_x", 20.0);
-  declare_parameter<double>("local_map_half_size_y", 20.0);
-  declare_parameter<double>("local_map_half_size_z", 4.0);
-  declare_parameter<int>("max_map_points", 300000);
-  declare_parameter<bool>("rebuild_kdtree_every_frame", true);
+  declare_parameter<double>("local_map.cube_size_x", 30.0);
+  declare_parameter<double>("local_map.cube_size_y", 30.0);
+  declare_parameter<double>("local_map.cube_size_z", 6.0);
+  declare_parameter<double>("local_map.movement_threshold_xy", 5.0);
+  declare_parameter<double>("local_map.movement_threshold_z", 2.0);
+  declare_parameter<double>("local_map.voxel_leaf_size", 0.15);
+  declare_parameter<int>("local_map.min_points_for_kdtree", 100);
+  declare_parameter<bool>("local_map.publish_local_map", true);
+  declare_parameter<double>("local_map.local_map_publish_period_sec", 1.0);
 
   declare_parameter<int>("publish_local_map_every_n_frames", 5);
   declare_parameter<int>("max_path_poses", 2000);
@@ -225,13 +224,6 @@ void ScanToMapNode::readParameters()
   max_point_to_plane_residual_ = get_parameter("max_point_to_plane_residual").as_double();
   min_plane_eigen_ratio_ = get_parameter("min_plane_eigen_ratio").as_double();
 
-  map_voxel_leaf_size_ = get_parameter("map_voxel_leaf_size").as_double();
-  local_map_half_size_x_ = get_parameter("local_map_half_size_x").as_double();
-  local_map_half_size_y_ = get_parameter("local_map_half_size_y").as_double();
-  local_map_half_size_z_ = get_parameter("local_map_half_size_z").as_double();
-  max_map_points_ = get_parameter("max_map_points").as_int();
-  rebuild_kdtree_every_frame_ = get_parameter("rebuild_kdtree_every_frame").as_bool();
-
   publish_local_map_every_n_frames_ =
     get_parameter("publish_local_map_every_n_frames").as_int();
   max_path_poses_ = get_parameter("max_path_poses").as_int();
@@ -244,7 +236,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
   const auto callback_start = std::chrono::steady_clock::now();
 
   ScanToMapDiagnostics diagnostics;
-  diagnostics.map_initialized = local_map_.isInitialized();
+  diagnostics.map_initialized = local_map_manager_.isInitialized();
 
   CloudTPtr raw_cloud = fromRosCloud(*msg);
   diagnostics.input_points = raw_cloud->size();
@@ -254,7 +246,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
 
   if (filtered_scan->empty()) {
     diagnostics.optimization.status = "empty_filtered_scan";
-    diagnostics.map_points = local_map_.size();
+    diagnostics.map_points = local_map_manager_.size();
 
     if (publish_diagnostics_) {
       publishDiagnostics(msg->header, diagnostics);
@@ -263,7 +255,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     return;
   }
 
-  if (!local_map_.isInitialized()) {
+  if (!local_map_manager_.isInitialized()) {
     RCLCPP_INFO(
       get_logger(),
       "First scan callback: filtered_points=%zu",
@@ -277,23 +269,18 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
       "First scan transformed: map_frame_points=%zu",
       first_scan_map->size());
 
-    local_map_.initialize(first_scan_map);
+    local_map_manager_.initialize(
+      first_scan_map,
+      current_pose_.translation());
     RCLCPP_INFO(
       get_logger(),
       "Local map initialized: points=%zu",
-      local_map_.size());
-
-    local_map_.downsample(map_voxel_leaf_size_);
-    RCLCPP_INFO(
-      get_logger(),
-      "Local map downsampled: points=%zu",
-      local_map_.size());
-
-    local_map_.rebuildKdTree();
-    RCLCPP_INFO(get_logger(), "Local map k-d tree built");
+      local_map_manager_.size());
 
     diagnostics.map_initialized = true;
-    diagnostics.map_points = local_map_.size();
+    diagnostics.map_points = local_map_manager_.size();
+    diagnostics.map_update_time_ms =
+      local_map_manager_.diagnostics().total_update_time_ms;
     diagnostics.optimization.success = true;
     diagnostics.optimization.status = "map_initialized";
     diagnostics.optimization.input_points = filtered_scan->size();
@@ -313,7 +300,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     RCLCPP_INFO(
       get_logger(),
       "Initialized local map with %zu points",
-      local_map_.size());
+      local_map_manager_.size());
 
     ++frame_count_;
     return;
@@ -326,7 +313,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
   const auto optimization_start = std::chrono::steady_clock::now();
   const bool optimization_ok = optimizer_->optimize(
     filtered_scan,
-    local_map_,
+    local_map_manager_.localMap(),
     current_pose_,
     optimized_pose,
     stats);
@@ -366,20 +353,9 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
 
       // Only accepted poses are fused into the map; rejected scans cannot corrupt it.
       CloudTPtr scan_map = transformCloud(filtered_scan, current_pose_);
-      local_map_.insertCloud(scan_map);
-
-      if (local_map_.size() > static_cast<std::size_t>(max_map_points_)) {
-        local_map_.downsample(map_voxel_leaf_size_);
-      }
-
-      const Eigen::Vector3d half_size(
-        local_map_half_size_x_,
-        local_map_half_size_y_,
-        local_map_half_size_z_);
-      local_map_.cropAround(current_pose_.translation(), half_size);
-      local_map_.downsample(map_voxel_leaf_size_);
-
-      local_map_.rebuildKdTree();
+      local_map_manager_.updateAfterOptimization(
+        scan_map,
+        current_pose_.translation());
 
       const auto map_update_end = std::chrono::steady_clock::now();
       diagnostics.map_update_time_ms =
@@ -414,8 +390,8 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     }
   }
 
-  diagnostics.map_initialized = local_map_.isInitialized();
-  diagnostics.map_points = local_map_.size();
+  diagnostics.map_initialized = local_map_manager_.isInitialized();
+  diagnostics.map_points = local_map_manager_.size();
   diagnostics.optimization = stats;
 
   publishOdometry(msg->header, current_pose_, stats);
@@ -438,7 +414,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     "scan-to-map %s | points=%zu | map=%zu | corr=%zu | residual=%.4f | time=%.2f ms",
     stats.status.c_str(),
     filtered_scan->size(),
-    local_map_.size(),
+    local_map_manager_.size(),
     stats.valid_correspondences,
     stats.mean_residual,
     elapsedMilliseconds(callback_start, callback_end));
@@ -761,14 +737,16 @@ void ScanToMapNode::publishPath(
 
 void ScanToMapNode::publishLocalMap(const std_msgs::msg::Header& header)
 {
-  if (!local_map_pub_ || !local_map_.isInitialized()) {
+  if (!local_map_config_.publish_local_map ||
+      !local_map_pub_ ||
+      !local_map_manager_.isInitialized()) {
     return;
   }
 
   std_msgs::msg::Header map_header = header;
   map_header.frame_id = odom_frame_;
 
-  local_map_pub_->publish(toRosCloud(*local_map_.cloud(), map_header));
+  local_map_pub_->publish(toRosCloud(*local_map_manager_.cloud(), map_header));
 }
 
 void ScanToMapNode::publishDiagnostics(
@@ -834,6 +812,25 @@ ScanToMapOptimizerOptions ScanToMapNode::optimizerOptionsFromParameters() const
   options.constrain_to_planar = constrain_to_planar_;
   options.plane_fitter = planeFitterOptionsFromParameters();
   return options;
+}
+
+LocalMapConfig ScanToMapNode::localMapConfigFromParameters() const
+{
+  LocalMapConfig config;
+  config.cube_size_x = get_parameter("local_map.cube_size_x").as_double();
+  config.cube_size_y = get_parameter("local_map.cube_size_y").as_double();
+  config.cube_size_z = get_parameter("local_map.cube_size_z").as_double();
+  config.movement_threshold_xy =
+    get_parameter("local_map.movement_threshold_xy").as_double();
+  config.movement_threshold_z =
+    get_parameter("local_map.movement_threshold_z").as_double();
+  config.voxel_leaf_size = get_parameter("local_map.voxel_leaf_size").as_double();
+  config.min_points_for_kdtree =
+    get_parameter("local_map.min_points_for_kdtree").as_int();
+  config.publish_local_map = get_parameter("local_map.publish_local_map").as_bool();
+  config.local_map_publish_period_sec =
+    get_parameter("local_map.local_map_publish_period_sec").as_double();
+  return config;
 }
 
 }  // namespace custom_scan_to_map_odom
