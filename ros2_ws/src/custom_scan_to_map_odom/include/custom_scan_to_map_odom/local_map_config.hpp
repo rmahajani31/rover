@@ -14,8 +14,6 @@ struct LocalMapConfig
 
   double voxel_leaf_size = 0.15;
 
-  int min_points_for_kdtree = 100;
-
   bool publish_local_map = true;
   double local_map_publish_period_sec = 1.0;
 };

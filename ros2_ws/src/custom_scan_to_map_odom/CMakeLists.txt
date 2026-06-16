@@ -209,6 +209,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_plane_fitter test/test_plane_fitter.cpp)
   target_link_libraries(test_plane_fitter plane_fitter)
+
+  ament_add_gtest(test_local_map_manager test/test_local_map_manager.cpp)
+  target_link_libraries(test_local_map_manager local_map_manager)
 endif()
 
 ament_package()

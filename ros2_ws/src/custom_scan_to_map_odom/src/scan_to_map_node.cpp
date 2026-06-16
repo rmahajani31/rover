@@ -176,7 +176,6 @@ void ScanToMapNode::declareParameters()
   declare_parameter<double>("local_map.movement_threshold_xy", 5.0);
   declare_parameter<double>("local_map.movement_threshold_z", 2.0);
   declare_parameter<double>("local_map.voxel_leaf_size", 0.15);
-  declare_parameter<int>("local_map.min_points_for_kdtree", 100);
   declare_parameter<bool>("local_map.publish_local_map", true);
   declare_parameter<double>("local_map.local_map_publish_period_sec", 1.0);
 
@@ -825,8 +824,6 @@ LocalMapConfig ScanToMapNode::localMapConfigFromParameters() const
   config.movement_threshold_z =
     get_parameter("local_map.movement_threshold_z").as_double();
   config.voxel_leaf_size = get_parameter("local_map.voxel_leaf_size").as_double();
-  config.min_points_for_kdtree =
-    get_parameter("local_map.min_points_for_kdtree").as_int();
   config.publish_local_map = get_parameter("local_map.publish_local_map").as_bool();
   config.local_map_publish_period_sec =
     get_parameter("local_map.local_map_publish_period_sec").as_double();

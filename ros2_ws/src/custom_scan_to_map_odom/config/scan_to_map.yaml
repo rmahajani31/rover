@@ -44,7 +44,6 @@ custom_scan_to_map_odom:
       movement_threshold_xy: 5.0
       movement_threshold_z: 2.0
       voxel_leaf_size: 0.20
-      min_points_for_kdtree: 100
       publish_local_map: true
       local_map_publish_period_sec: 1.0
 
