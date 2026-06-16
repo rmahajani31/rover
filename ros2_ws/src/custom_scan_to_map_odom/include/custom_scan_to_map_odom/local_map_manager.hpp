@@ -30,7 +30,6 @@ public:
     const Eigen::Vector3d& robot_position);
 
   const LocalMap& localMap() const;
-  LocalMap& localMap();
 
   CloudTConstPtr cloud() const;
 
