@@ -20,6 +20,8 @@ LivoxCostmapProjectionNode::LivoxCostmapProjectionNode()
   params_ = ProjectionParameters::load(*this);
   params_.logSummary(get_logger());
 
+  // The listener fills the buffer asynchronously; early clouds may arrive before
+  // every transform is available, so lookup failures are reported in diagnostics.
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
@@ -65,6 +67,8 @@ void LivoxCostmapProjectionNode::cloudCallback(
 
   sensor_msgs::msg::PointCloud2 target_cloud;
   if (!transformCloudToTargetFrame(*msg, target_cloud, tf_status)) {
+    // Without the cloud transform, any downstream filtering would happen in the
+    // wrong frame, so drop the frame and publish diagnostics instead.
     stats.processing_time_ms = elapsedMs(start_time);
     publishDiagnostics(msg->header.stamp, stats, tf_status);
     return;
@@ -79,6 +83,8 @@ void LivoxCostmapProjectionNode::cloudCallback(
 
   if (params_.publish_occupancy_grid) {
     geometry_msgs::msg::TransformStamped grid_from_target_transform;
+    // Grid lookup uses the original cloud stamp. This avoids drawing obstacles
+    // at the robot's current pose when the cloud came from an older pose.
     if (lookupGridTransform(msg->header.stamp, grid_from_target_transform, tf_status)) {
       std::uint64_t occupied_cell_count = 0U;
       auto grid = grid_builder_->buildGrid(
@@ -108,6 +114,8 @@ bool LivoxCostmapProjectionNode::transformCloudToTargetFrame(
   }
 
   try {
+    // Transform at the cloud timestamp so the points line up with the robot pose
+    // that existed when the sensor captured them.
     const auto transform = tf_buffer_->lookupTransform(
       params_.target_frame,
       input_cloud.header.frame_id,
@@ -143,6 +151,7 @@ bool LivoxCostmapProjectionNode::lookupGridTransform(
   TfStatus & tf_status)
 {
   try {
+    // This gives the robot pose in grid_frame at the same time as the cloud.
     grid_from_target_transform = tf_buffer_->lookupTransform(
       params_.grid_frame,
       params_.target_frame,
@@ -192,6 +201,8 @@ void LivoxCostmapProjectionNode::filterObstacleCloud(
       continue;
     }
 
+    // Use XY range in base_link so vertical structure does not make nearby
+    // points look farther away than they are on the ground plane.
     const double range_xy = std::sqrt(point.x * point.x + point.y * point.y);
     if (range_xy < params_.min_range || range_xy > params_.max_range) {
       ++stats.rejected_range;
@@ -208,6 +219,7 @@ void LivoxCostmapProjectionNode::filterObstacleCloud(
       continue;
     }
 
+    // Remove points from the rover body after transforming into target_frame.
     if (params_.remove_self_points && isInsideSelfFilterBox(point)) {
       ++stats.rejected_self;
       continue;

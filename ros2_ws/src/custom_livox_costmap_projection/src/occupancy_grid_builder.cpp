@@ -15,6 +15,7 @@ namespace
 
 std::uint32_t metersToCells(const double meters, const double resolution)
 {
+  // Use ceil so the requested physical size is never rounded down.
   return static_cast<std::uint32_t>(
     std::max(1.0, std::ceil(meters / resolution)));
 }
@@ -56,6 +57,8 @@ nav_msgs::msg::OccupancyGrid OccupancyGridBuilder::buildGrid(
   const double robot_x = grid_from_target_transform.transform.translation.x;
   const double robot_y = grid_from_target_transform.transform.translation.y;
 
+  // The grid origin is the lower-left corner in grid_frame. Centering it on the
+  // robot makes cell coordinates local to a fixed-size window around the rover.
   grid.info.origin.position.x = robot_x - params_.grid_width_m * 0.5;
   grid.info.origin.position.y = robot_y - params_.grid_height_m * 0.5;
   grid.info.origin.position.z = 0.0;
@@ -105,6 +108,8 @@ void OccupancyGridBuilder::markOccupiedWithDilation(
 {
   const int radius = params_.obstacle_cell_dilation_radius_cells;
 
+  // Inflate each hit by a small square kernel so sparse Livox returns are easier
+  // to see in RViz and less likely to disappear between cells.
   for (int dy = -radius; dy <= radius; ++dy) {
     for (int dx = -radius; dx <= radius; ++dx) {
       const int cell_x = center_cell_x + dx;
@@ -137,6 +142,8 @@ bool OccupancyGridBuilder::worldToGridCell(
     return false;
   }
 
+  // Resolution converts meters to discrete cell indices. floor maps every point
+  // inside a cell-sized interval to that cell.
   cell_x = static_cast<int>(std::floor(local_x / params_.grid_resolution));
   cell_y = static_cast<int>(std::floor(local_y / params_.grid_resolution));
 

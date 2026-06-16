@@ -68,6 +68,8 @@ diagnostic_msgs::msg::DiagnosticArray ProjectionDiagnostics::buildMessage(
 
   const bool tf_ok = tf_status.cloud_to_target_success && tf_status.target_to_grid_success;
 
+  // Treat TF failures as errors, but distinguish empty input from aggressive
+  // filtering so runtime logs point at the right part of the pipeline.
   if (!tf_ok) {
     status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
     status.message = "TF lookup failed";
@@ -111,6 +113,7 @@ diagnostic_msgs::msg::DiagnosticArray ProjectionDiagnostics::buildMessage(
 
 void ProjectionDiagnostics::updateRollingWindow(const FilterStats & stats)
 {
+  // Smooth short-term noise without hiding the latest per-frame counters.
   processing_time_ms_window_.push_back(stats.processing_time_ms);
   kept_ratio_window_.push_back(keptRatio(stats));
 

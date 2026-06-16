@@ -19,6 +19,8 @@ class OccupancyGridBuilder
 public:
   explicit OccupancyGridBuilder(const ProjectionParameters & params);
 
+  // Converts already-filtered obstacle points into a robot-centered occupancy
+  // grid for visualization/debugging. The costmap path uses the obstacle cloud.
   nav_msgs::msg::OccupancyGrid buildGrid(
     const pcl::PointCloud<pcl::PointXYZI> & obstacle_cloud,
     const geometry_msgs::msg::TransformStamped & grid_from_target_transform,
@@ -39,6 +41,7 @@ private:
     int & cell_x,
     int & cell_y) const;
 
+  // OccupancyGrid stores row-major data: index = y * width + x.
   bool isInsideGrid(int cell_x, int cell_y) const;
   std::size_t cellIndex(int cell_x, int cell_y) const;
 

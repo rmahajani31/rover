@@ -9,6 +9,8 @@ namespace custom_livox_costmap_projection
 
 struct ProjectionParameters
 {
+  // Topics keep the Phase 6 data path explicit:
+  // preprocessed cloud in, obstacle cloud/grid/diagnostics out.
   std::string input_cloud_topic = "/custom/points_preprocessed";
   std::string obstacle_cloud_topic = "/custom/obstacle_cloud";
   std::string occupancy_grid_topic = "/custom/projected_occupancy_grid";
@@ -18,10 +20,14 @@ struct ProjectionParameters
   bool publish_occupancy_grid = true;
   bool publish_diagnostics = true;
 
+  // Clouds are filtered in target_frame. The debug occupancy grid is published in
+  // grid_frame and centered around robot_frame/target_frame at the cloud stamp.
   std::string target_frame = "base_link";
   std::string grid_frame = "odom";
   std::string robot_frame = "base_link";
 
+  // Geometric filters remove points that are too close/far or outside the
+  // obstacle height band used by Nav2.
   double min_range = 0.25;
   double max_range = 8.0;
 
@@ -30,6 +36,7 @@ struct ProjectionParameters
   double obstacle_min_z = 0.05;
   double obstacle_max_z = 1.20;
 
+  // Axis-aligned exclusion box around the robot body in target_frame.
   bool remove_self_points = true;
   double self_filter_min_x = -0.35;
   double self_filter_max_x = 0.35;
@@ -38,6 +45,8 @@ struct ProjectionParameters
   double self_filter_min_z = -0.20;
   double self_filter_max_z = 0.50;
 
+  // Debug grid dimensions. Costmaps consume obstacle_cloud directly; this grid
+  // is mainly for RViz and diagnostics.
   double grid_resolution = 0.05;
   double grid_width_m = 10.0;
   double grid_height_m = 10.0;

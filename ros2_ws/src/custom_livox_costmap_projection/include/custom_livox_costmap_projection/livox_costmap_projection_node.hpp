@@ -26,6 +26,8 @@ public:
   LivoxCostmapProjectionNode();
 
 private:
+  // Main pipeline: transform cloud into the robot frame, filter obstacle points,
+  // publish the Nav2 obstacle cloud, then optionally build a debug grid in odom.
   void cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
   bool transformCloudToTargetFrame(
@@ -38,6 +40,7 @@ private:
     geometry_msgs::msg::TransformStamped & grid_from_target_transform,
     TfStatus & tf_status);
 
+  // Keeps only points that should be considered obstacles for navigation.
   void filterObstacleCloud(
     const sensor_msgs::msg::PointCloud2 & target_cloud,
     pcl::PointCloud<pcl::PointXYZI> & obstacle_cloud,

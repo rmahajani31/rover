@@ -15,6 +15,8 @@ namespace custom_livox_costmap_projection
 
 struct FilterStats
 {
+  // Per-cloud counters. These explain why points were removed before Nav2 sees
+  // the obstacle cloud.
   std::uint64_t raw_count = 0;
   std::uint64_t kept_count = 0;
 
@@ -31,6 +33,8 @@ struct FilterStats
 
 struct TfStatus
 {
+  // Cloud and grid transforms are tracked separately because obstacle_cloud can
+  // still be useful even if the debug occupancy grid transform fails.
   bool cloud_to_target_success = true;
   bool target_to_grid_success = true;
 
@@ -45,6 +49,8 @@ class ProjectionDiagnostics
 public:
   explicit ProjectionDiagnostics(const ProjectionParameters & params);
 
+  // Builds a standard DiagnosticArray so the projection health can be checked
+  // with normal ROS diagnostic tooling or a simple topic echo.
   diagnostic_msgs::msg::DiagnosticArray buildMessage(
     const rclcpp::Time & stamp,
     const FilterStats & stats,

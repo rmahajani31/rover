@@ -38,6 +38,8 @@ void requireInOccupancyRange(const int value, const std::string & name)
 
 void ProjectionParameters::declare(rclcpp::Node & node)
 {
+  // Keep declared defaults synchronized with the struct defaults so the node can
+  // run even when the YAML file omits a value.
   node.declare_parameter<std::string>("input_cloud_topic", "/custom/points_preprocessed");
   node.declare_parameter<std::string>("obstacle_cloud_topic", "/custom/obstacle_cloud");
   node.declare_parameter<std::string>("occupancy_grid_topic", "/custom/projected_occupancy_grid");
@@ -134,6 +136,8 @@ ProjectionParameters ProjectionParameters::load(rclcpp::Node & node)
 
 void ProjectionParameters::validate() const
 {
+  // Fail fast during node startup; bad frame/topic names or impossible bounds are
+  // easier to diagnose here than as quiet empty costmaps later.
   requireNonEmpty(input_cloud_topic, "input_cloud_topic");
   requireNonEmpty(obstacle_cloud_topic, "obstacle_cloud_topic");
   requireNonEmpty(occupancy_grid_topic, "occupancy_grid_topic");
