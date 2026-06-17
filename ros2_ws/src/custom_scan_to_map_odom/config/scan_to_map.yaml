@@ -48,7 +48,6 @@ custom_scan_to_map_odom:
       local_map_publish_period_sec: 1.0
 
     # Publishing
-    publish_local_map_every_n_frames: 5
     max_path_poses: 2000
     publish_path: true
-    publish_diagnostics: false
+    publish_diagnostics: true

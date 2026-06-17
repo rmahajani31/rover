@@ -64,6 +64,8 @@ private:
 
   void publishLocalMap(const std_msgs::msg::Header& header);
 
+  bool shouldPublishLocalMap(const std_msgs::msg::Header& header) const;
+
   void publishDiagnostics(
     const std_msgs::msg::Header& header,
     const ScanToMapDiagnostics& diagnostics);
@@ -102,7 +104,6 @@ private:
   int max_points_per_scan_ = 3000;
 
   LocalMapConfig local_map_config_;
-  int publish_local_map_every_n_frames_ = 5;
 
   int max_iterations_ = 5;
   int min_valid_correspondences_ = 100;
@@ -130,7 +131,9 @@ private:
   std::string previous_odom_child_frame_;
   bool has_latest_tf_ = false;
   bool has_previous_odom_ = false;
+  bool has_last_local_map_publish_stamp_ = false;
   rclcpp::Time previous_odom_stamp_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time last_local_map_publish_stamp_{0, 0, RCL_ROS_TIME};
   std::mutex latest_tf_mutex_;
 
   LocalMapManager local_map_manager_;

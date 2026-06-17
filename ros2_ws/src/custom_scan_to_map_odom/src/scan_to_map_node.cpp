@@ -185,7 +185,6 @@ void ScanToMapNode::declareParameters()
   declare_parameter<bool>("local_map.publish_local_map", true);
   declare_parameter<double>("local_map.local_map_publish_period_sec", 1.0);
 
-  declare_parameter<int>("publish_local_map_every_n_frames", 5);
   declare_parameter<int>("max_path_poses", 2000);
   declare_parameter<bool>("publish_path", true);
   declare_parameter<bool>("publish_diagnostics", true);
@@ -229,8 +228,6 @@ void ScanToMapNode::readParameters()
   max_point_to_plane_residual_ = get_parameter("max_point_to_plane_residual").as_double();
   min_plane_eigen_ratio_ = get_parameter("min_plane_eigen_ratio").as_double();
 
-  publish_local_map_every_n_frames_ =
-    get_parameter("publish_local_map_every_n_frames").as_int();
   max_path_poses_ = get_parameter("max_path_poses").as_int();
   publish_path_ = get_parameter("publish_path").as_bool();
   publish_diagnostics_ = get_parameter("publish_diagnostics").as_bool();
@@ -252,6 +249,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
   if (filtered_scan->empty()) {
     diagnostics.optimization.status = "empty_filtered_scan";
     diagnostics.map_points = local_map_manager_.size();
+    diagnostics.local_map = local_map_manager_.diagnostics();
 
     if (publish_diagnostics_) {
       publishDiagnostics(msg->header, diagnostics);
@@ -286,6 +284,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     diagnostics.map_points = local_map_manager_.size();
     diagnostics.map_update_time_ms =
       local_map_manager_.diagnostics().total_update_time_ms;
+    diagnostics.local_map = local_map_manager_.diagnostics();
     diagnostics.optimization.success = true;
     diagnostics.optimization.status = "map_initialized";
     diagnostics.optimization.input_points = filtered_scan->size();
@@ -300,7 +299,9 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     publishLocalMap(msg->header);
     RCLCPP_INFO(get_logger(), "Initial local map published");
 
-    RCLCPP_INFO(get_logger(), "Skipping initial diagnostics publish during first-frame startup");
+    if (publish_diagnostics_) {
+      publishDiagnostics(msg->header, diagnostics);
+    }
 
     RCLCPP_INFO(
       get_logger(),
@@ -412,11 +413,11 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
   diagnostics.map_initialized = local_map_manager_.isInitialized();
   diagnostics.map_points = local_map_manager_.size();
   diagnostics.optimization = stats;
+  diagnostics.local_map = local_map_manager_.diagnostics();
 
   publishOdometry(msg->header, current_pose_, stats);
 
-  if (publish_local_map_every_n_frames_ > 0 &&
-      frame_count_ % static_cast<std::size_t>(publish_local_map_every_n_frames_) == 0) {
+  if (shouldPublishLocalMap(msg->header)) {
     publishLocalMap(msg->header);
   }
 
@@ -766,6 +767,30 @@ void ScanToMapNode::publishLocalMap(const std_msgs::msg::Header& header)
   map_header.frame_id = odom_frame_;
 
   local_map_pub_->publish(toRosCloud(*local_map_manager_.cloud(), map_header));
+
+  last_local_map_publish_stamp_ = rclcpp::Time(header.stamp);
+  has_last_local_map_publish_stamp_ = true;
+}
+
+bool ScanToMapNode::shouldPublishLocalMap(const std_msgs::msg::Header& header) const
+{
+  if (!local_map_config_.publish_local_map ||
+      !local_map_manager_.isInitialized()) {
+    return false;
+  }
+
+  if (!has_last_local_map_publish_stamp_ ||
+      local_map_config_.local_map_publish_period_sec <= 0.0) {
+    return true;
+  }
+
+  const rclcpp::Time current_stamp(header.stamp);
+  if (current_stamp < last_local_map_publish_stamp_) {
+    return true;
+  }
+
+  return (current_stamp - last_local_map_publish_stamp_).seconds() >=
+    local_map_config_.local_map_publish_period_sec;
 }
 
 void ScanToMapNode::publishDiagnostics(
