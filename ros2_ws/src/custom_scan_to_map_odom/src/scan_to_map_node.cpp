@@ -46,6 +46,12 @@ double degreesToRadians(double degrees)
   return degrees * kPi / 180.0;
 }
 
+double radiansToDegrees(double radians)
+{
+  constexpr double kPi = 3.14159265358979323846;
+  return radians * 180.0 / kPi;
+}
+
 double yawFromTransform(const Eigen::Isometry3d& transform)
 {
   return std::atan2(transform.linear()(1, 0), transform.linear()(0, 0));
@@ -361,12 +367,26 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
         elapsedMilliseconds(map_update_start, map_update_end);
     }
   } else {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(),
-      *get_clock(),
-      2000,
-      "Scan-to-map optimization rejected: %s",
-      stats.status.c_str());
+    if (stats.status == "pose_update_too_large") {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        2000,
+        "Scan-to-map optimization rejected: %s | update_translation=%.3f m "
+        "update_rotation=%.3f deg | limits=%.3f m / %.3f deg",
+        stats.status.c_str(),
+        stats.final_update_translation_norm,
+        radiansToDegrees(stats.final_update_rotation_norm),
+        max_pose_update_translation_,
+        max_pose_update_rotation_deg_);
+    } else {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        2000,
+        "Scan-to-map optimization rejected: %s",
+        stats.status.c_str());
+    }
   }
 
   if (stats.success) {
