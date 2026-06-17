@@ -299,9 +299,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     publishLocalMap(msg->header);
     RCLCPP_INFO(get_logger(), "Initial local map published");
 
-    if (publish_diagnostics_) {
-      publishDiagnostics(msg->header, diagnostics);
-    }
+    RCLCPP_INFO(get_logger(), "Skipping initial diagnostics publish during first-frame startup");
 
     RCLCPP_INFO(
       get_logger(),
