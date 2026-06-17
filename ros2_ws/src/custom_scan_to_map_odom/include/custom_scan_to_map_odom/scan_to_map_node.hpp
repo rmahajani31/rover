@@ -31,8 +31,6 @@ namespace custom_scan_to_map_odom
 class ScanToMapNode : public rclcpp::Node
 {
 public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   explicit ScanToMapNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
 
 private:

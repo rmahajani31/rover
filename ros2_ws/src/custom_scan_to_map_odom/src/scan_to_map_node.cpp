@@ -117,8 +117,6 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
       odom_frame_.c_str(),
       base_frame_.c_str());
 
-    ensureTfBroadcaster();
-
     if (tf_publish_rate_hz_ > 0.0) {
       const auto tf_period =
         std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -301,7 +299,9 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
     publishLocalMap(msg->header);
     RCLCPP_INFO(get_logger(), "Initial local map published");
 
-    RCLCPP_INFO(get_logger(), "Skipping initial diagnostics publish during first-frame startup");
+    if (publish_diagnostics_) {
+      publishDiagnostics(msg->header, diagnostics);
+    }
 
     RCLCPP_INFO(
       get_logger(),
@@ -605,7 +605,7 @@ void ScanToMapNode::ensureTfBroadcaster()
   if (!tf_broadcaster_) {
     RCLCPP_INFO(get_logger(), "Creating TF broadcaster");
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(
-      *this);
+      shared_from_this());
   }
 }
 
