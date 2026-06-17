@@ -26,7 +26,7 @@ custom_scan_to_map_odom:
     min_valid_correspondences: 100
     convergence_translation_epsilon: 0.001
     convergence_rotation_epsilon: 0.001
-    max_pose_update_translation: 0.30
+    max_pose_update_translation: 0.40
     max_pose_update_rotation_deg: 20.0
 
     # Nearest neighbor and plane fitting
