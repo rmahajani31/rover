@@ -117,6 +117,8 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
       odom_frame_.c_str(),
       base_frame_.c_str());
 
+    ensureTfBroadcaster();
+
     if (tf_publish_rate_hz_ > 0.0) {
       const auto tf_period =
         std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -603,7 +605,7 @@ void ScanToMapNode::ensureTfBroadcaster()
   if (!tf_broadcaster_) {
     RCLCPP_INFO(get_logger(), "Creating TF broadcaster");
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(
-      shared_from_this());
+      *this);
   }
 }
 
