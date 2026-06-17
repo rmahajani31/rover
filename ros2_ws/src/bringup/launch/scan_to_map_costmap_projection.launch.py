@@ -89,6 +89,7 @@ def generate_launch_description():
             parameters=[
                 livox_cloud_to_scan_config,
                 {
+                    # AMCL keeps using the 2D projection while Nav2 costmaps use Livox obstacles.
                     "input_topic": "/custom/points_for_nav2",
                     "output_topic": "/scan_from_livox",
                     "target_frame": "base_link",
@@ -103,6 +104,7 @@ def generate_launch_description():
             parameters=[
                 scan_to_map_config,
                 {
+                    # On the Jetson, scan-to-map owns odom -> base_link for the Pi/Nav2 stack.
                     "publish_tf": True,
                     "odom_topic": "/nav2_odom",
                     "tf_publish_rate_hz": 20.0,

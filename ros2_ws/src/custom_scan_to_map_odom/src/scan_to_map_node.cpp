@@ -264,6 +264,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
       "First scan callback: filtered_points=%zu",
       filtered_scan->size());
 
+    // Bootstrap scan-to-map at identity; subsequent frames optimize against this seed map.
     current_pose_ = Eigen::Isometry3d::Identity();
 
     CloudTPtr first_scan_map = transformCloud(filtered_scan, current_pose_);
@@ -768,6 +769,7 @@ void ScanToMapNode::publishLocalMap(const std_msgs::msg::Header& header)
 
   local_map_pub_->publish(toRosCloud(*local_map_manager_.cloud(), map_header));
 
+  // Use incoming LiDAR time for throttling so bag playback and live runs behave alike.
   last_local_map_publish_stamp_ = rclcpp::Time(header.stamp);
   has_last_local_map_publish_stamp_ = true;
 }

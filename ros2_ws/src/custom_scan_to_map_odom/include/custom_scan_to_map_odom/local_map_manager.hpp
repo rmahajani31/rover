@@ -12,6 +12,7 @@
 namespace custom_scan_to_map_odom
 {
 
+// Owns local-map policy while LocalMap remains the point-cloud/K-D-tree backend.
 class LocalMapManager
 {
 public:
@@ -29,6 +30,7 @@ public:
     const CloudTConstPtr& scan_map_frame,
     const Eigen::Vector3d& robot_position);
 
+  // Expose a read-only backend view for scan-to-map registration.
   const LocalMap& localMap() const;
 
   CloudTConstPtr cloud() const;

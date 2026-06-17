@@ -7,6 +7,7 @@ namespace custom_scan_to_map_odom
 
 struct LocalMapDiagnostics
 {
+  // Per-update counters for the crop -> insert -> downsample -> rebuild sequence.
   std::size_t map_size_before_update = 0;
   std::size_t map_size_after_crop = 0;
   std::size_t map_size_after_insert = 0;

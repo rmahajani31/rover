@@ -49,6 +49,7 @@ void LocalMapManager::initialize(
   diagnostics_ = LocalMapDiagnostics{};
   cube_center_ = robot_position;
 
+  // The first accepted scan seeds both the backend map and the first active cube.
   diagnostics_.map_size_before_update =
     first_scan_map_frame ? first_scan_map_frame->size() : 0;
   diagnostics_.inserted_points =
@@ -118,6 +119,7 @@ void LocalMapManager::updateCubeIfNeeded(const Eigen::Vector3d& robot_position)
     dy > config_.movement_threshold_xy ||
     dz > config_.movement_threshold_z;
 
+  // Keep the cube stable between threshold crossings to avoid constant crop churn.
   diagnostics_.cube_shifted = shift_needed;
 
   if (shift_needed) {
@@ -175,6 +177,7 @@ void LocalMapManager::insertScanInsideCube(const CloudTConstPtr& scan_map_frame)
   CloudTPtr filtered_scan(new CloudT());
   filtered_scan->points.reserve(scan_map_frame->points.size());
 
+  // Never insert points outside the active cube; crop then remains a bounded cleanup step.
   for (const auto& point : scan_map_frame->points) {
     if (isInsideCube(point)) {
       filtered_scan->points.push_back(point);
@@ -207,6 +210,7 @@ void LocalMapManager::rebuildKdTree()
 {
   const auto start = std::chrono::steady_clock::now();
 
+  // Rebuild even for tiny maps so the backend cannot retain stale nearest-neighbor state.
   local_map_.rebuildKdTree();
 
   const auto end = std::chrono::steady_clock::now();
