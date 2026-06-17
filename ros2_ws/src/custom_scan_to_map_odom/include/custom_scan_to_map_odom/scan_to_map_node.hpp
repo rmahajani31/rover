@@ -18,7 +18,8 @@
 #include <tf2_ros/transform_listener.h>
 
 #include "custom_scan_to_map_odom/diagnostics.hpp"
-#include "custom_scan_to_map_odom/local_map.hpp"
+#include "custom_scan_to_map_odom/local_map_config.hpp"
+#include "custom_scan_to_map_odom/local_map_manager.hpp"
 #include "custom_scan_to_map_odom/ros_conversions.hpp"
 #include "custom_scan_to_map_odom/scan_to_map_optimizer.hpp"
 
@@ -63,6 +64,8 @@ private:
 
   void publishLocalMap(const std_msgs::msg::Header& header);
 
+  bool shouldPublishLocalMap(const std_msgs::msg::Header& header) const;
+
   void publishDiagnostics(
     const std_msgs::msg::Header& header,
     const ScanToMapDiagnostics& diagnostics);
@@ -74,6 +77,7 @@ private:
 
   ScanToMapOptimizerOptions optimizerOptionsFromParameters() const;
   PlaneFitterOptions planeFitterOptionsFromParameters() const;
+  LocalMapConfig localMapConfigFromParameters() const;
 
   std::string input_topic_;
   std::string odom_topic_;
@@ -99,13 +103,7 @@ private:
   double max_range_ = 30.0;
   int max_points_per_scan_ = 3000;
 
-  double map_voxel_leaf_size_ = 0.20;
-  double local_map_half_size_x_ = 20.0;
-  double local_map_half_size_y_ = 20.0;
-  double local_map_half_size_z_ = 4.0;
-  int max_map_points_ = 300000;
-  bool rebuild_kdtree_every_frame_ = true;
-  int publish_local_map_every_n_frames_ = 5;
+  LocalMapConfig local_map_config_;
 
   int max_iterations_ = 5;
   int min_valid_correspondences_ = 100;
@@ -133,10 +131,12 @@ private:
   std::string previous_odom_child_frame_;
   bool has_latest_tf_ = false;
   bool has_previous_odom_ = false;
+  bool has_last_local_map_publish_stamp_ = false;
   rclcpp::Time previous_odom_stamp_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time last_local_map_publish_stamp_{0, 0, RCL_ROS_TIME};
   std::mutex latest_tf_mutex_;
 
-  LocalMap local_map_;
+  LocalMapManager local_map_manager_;
   std::unique_ptr<ScanToMapOptimizer> optimizer_;
 
   nav_msgs::msg::Path path_msg_;

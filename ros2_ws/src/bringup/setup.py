@@ -21,6 +21,7 @@ setup(
             'launch/pi_fast_lio2_costmap_projection_nav2.launch.py',
             'launch/pi_fast_lio2_nav2.launch.py',
             'launch/pi_nav2_livox.launch.py',
+            'launch/scan_to_map_costmap_projection.launch.py',
             'launch/scan_to_map_primary_odom.launch.py',
         ]),
         ('share/' + package_name + '/config', [

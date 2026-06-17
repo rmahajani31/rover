@@ -44,6 +44,10 @@ add_library(local_map
   src/local_map.cpp
 )
 
+add_library(local_map_manager
+  src/local_map_manager.cpp
+)
+
 add_library(scan_to_map_optimizer
   src/scan_to_map_optimizer.cpp
 )
@@ -79,6 +83,12 @@ target_include_directories(local_map PUBLIC
   $<INSTALL_INTERFACE:include>
   ${EIGEN3_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
+)
+
+target_include_directories(local_map_manager PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 target_include_directories(scan_to_map_optimizer PUBLIC
@@ -119,6 +129,10 @@ target_link_libraries(local_map
   ${PCL_LIBRARIES}
 )
 
+target_link_libraries(local_map_manager
+  local_map
+)
+
 target_link_libraries(scan_to_map_optimizer
   local_map
   plane_fitter
@@ -151,6 +165,7 @@ ament_target_dependencies(custom_scan_to_map_odom_node
 target_link_libraries(custom_scan_to_map_odom_node
   diagnostics
   local_map
+  local_map_manager
   ros_conversions
   scan_to_map_optimizer
   se3_utils
@@ -163,6 +178,7 @@ install(
     ros_conversions
     plane_fitter
     local_map
+    local_map_manager
     scan_to_map_optimizer
     diagnostics
   ARCHIVE DESTINATION lib
@@ -193,6 +209,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_plane_fitter test/test_plane_fitter.cpp)
   target_link_libraries(test_plane_fitter plane_fitter)
+
+  ament_add_gtest(test_local_map_manager test/test_local_map_manager.cpp)
+  target_link_libraries(test_local_map_manager local_map_manager)
 endif()
 
 ament_package()

@@ -136,6 +136,64 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
     diagnostics.map_update_time_ms));
 
   array.status.push_back(status);
+
+  diagnostic_msgs::msg::DiagnosticStatus local_map_status;
+  local_map_status.name = name + "/local_map_manager";
+  local_map_status.hardware_id = "local_map";
+  local_map_status.level = diagnostics.map_initialized ?
+    diagnostic_msgs::msg::DiagnosticStatus::OK :
+    diagnostic_msgs::msg::DiagnosticStatus::WARN;
+  local_map_status.message = diagnostics.map_initialized ?
+    "local_map_manager_running" : "map_not_initialized";
+
+  const auto& local_map = diagnostics.local_map;
+  local_map_status.values.push_back(makeKeyValue(
+    "map_size_before_update",
+    local_map.map_size_before_update));
+  local_map_status.values.push_back(makeKeyValue(
+    "map_size_after_crop",
+    local_map.map_size_after_crop));
+  local_map_status.values.push_back(makeKeyValue(
+    "map_size_after_insert",
+    local_map.map_size_after_insert));
+  local_map_status.values.push_back(makeKeyValue(
+    "map_size_after_downsample",
+    local_map.map_size_after_downsample));
+  local_map_status.values.push_back(makeKeyValue(
+    "inserted_points",
+    local_map.inserted_points));
+  local_map_status.values.push_back(makeKeyValue(
+    "removed_points_outside_cube",
+    local_map.removed_points_outside_cube));
+  local_map_status.values.push_back(makeKeyValue(
+    "cube_shifted",
+    local_map.cube_shifted));
+  local_map_status.values.push_back(makeKeyValue(
+    "cube_center_x",
+    local_map.cube_center_x));
+  local_map_status.values.push_back(makeKeyValue(
+    "cube_center_y",
+    local_map.cube_center_y));
+  local_map_status.values.push_back(makeKeyValue(
+    "cube_center_z",
+    local_map.cube_center_z));
+  local_map_status.values.push_back(makeKeyValue(
+    "crop_time_ms",
+    local_map.crop_time_ms));
+  local_map_status.values.push_back(makeKeyValue(
+    "insert_time_ms",
+    local_map.insert_time_ms));
+  local_map_status.values.push_back(makeKeyValue(
+    "downsample_time_ms",
+    local_map.downsample_time_ms));
+  local_map_status.values.push_back(makeKeyValue(
+    "kdtree_rebuild_time_ms",
+    local_map.kdtree_rebuild_time_ms));
+  local_map_status.values.push_back(makeKeyValue(
+    "total_update_time_ms",
+    local_map.total_update_time_ms));
+
+  array.status.push_back(local_map_status);
   return array;
 }
 

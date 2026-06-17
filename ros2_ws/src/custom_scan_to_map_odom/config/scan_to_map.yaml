@@ -26,8 +26,8 @@ custom_scan_to_map_odom:
     min_valid_correspondences: 100
     convergence_translation_epsilon: 0.001
     convergence_rotation_epsilon: 0.001
-    max_pose_update_translation: 0.15
-    max_pose_update_rotation_deg: 7.0
+    max_pose_update_translation: 0.40
+    max_pose_update_rotation_deg: 20.0
 
     # Nearest neighbor and plane fitting
     k_neighbors: 5
@@ -37,15 +37,18 @@ custom_scan_to_map_odom:
     min_plane_eigen_ratio: 5.0
 
     # Local map
-    map_voxel_leaf_size: 0.20
-    local_map_half_size_x: 20.0
-    local_map_half_size_y: 20.0
-    local_map_half_size_z: 4.0
-    max_map_points: 300000
-    rebuild_kdtree_every_frame: true
+    local_map:
+      cube_size_x: 40.0
+      cube_size_y: 40.0
+      cube_size_z: 8.0
+      movement_threshold_xy: 5.0
+      movement_threshold_z: 2.0
+      voxel_leaf_size: 0.20
+      publish_local_map: true
+      local_map_publish_period_sec: 1.0
 
     # Publishing
-    publish_local_map_every_n_frames: 5
     max_path_poses: 2000
     publish_path: true
+    # Disabled until the scan-to-map diagnostics crash is fixed; odometry/local map still run.
     publish_diagnostics: false

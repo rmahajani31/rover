@@ -237,7 +237,7 @@ local_costmap:
           topic: /custom/obstacle_cloud
           min_obstacle_height: 0.05
           max_obstacle_height: 1.20
-          clearing: false
+          clearing: true
           marking: true
           data_type: "PointCloud2"
           raytrace_max_range: 4.0
@@ -269,7 +269,7 @@ global_costmap:
           topic: /custom/obstacle_cloud
           min_obstacle_height: 0.05
           max_obstacle_height: 1.20
-          clearing: false
+          clearing: true
           marking: true
           data_type: "PointCloud2"
           raytrace_max_range: 4.0
