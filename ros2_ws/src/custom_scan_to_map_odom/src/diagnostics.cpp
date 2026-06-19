@@ -4,44 +4,12 @@
 #include <string>
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
-#include <diagnostic_msgs/msg/key_value.hpp>
 
 namespace custom_scan_to_map_odom
 {
 
 namespace
 {
-
-diagnostic_msgs::msg::KeyValue makeKeyValue(
-  const std::string& key,
-  const std::string& value)
-{
-  diagnostic_msgs::msg::KeyValue key_value;
-  key_value.key = key;
-  key_value.value = value;
-  return key_value;
-}
-
-diagnostic_msgs::msg::KeyValue makeKeyValue(
-  const std::string& key,
-  std::size_t value)
-{
-  return makeKeyValue(key, std::to_string(value));
-}
-
-diagnostic_msgs::msg::KeyValue makeKeyValue(
-  const std::string& key,
-  double value)
-{
-  return makeKeyValue(key, std::to_string(value));
-}
-
-diagnostic_msgs::msg::KeyValue makeKeyValue(
-  const std::string& key,
-  bool value)
-{
-  return makeKeyValue(key, value ? "true" : "false");
-}
 
 std::uint8_t diagnosticLevel(const ScanToMapDiagnostics& diagnostics)
 {
@@ -86,47 +54,6 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.hardware_id = "custom_scan_to_map_odom";
   status.level = diagnosticLevel(diagnostics);
   status.message = diagnosticMessage(diagnostics);
-
-  // Keep this first diagnostic pass intentionally small. The Jetson crash was
-  // happening on publish, so start with the same single-status, compact shape
-  // used by the other stable diagnostics publishers.
-  status.values.push_back(makeKeyValue("map_initialized", diagnostics.map_initialized));
-  status.values.push_back(makeKeyValue("input_points", diagnostics.input_points));
-  status.values.push_back(makeKeyValue("downsampled_points", diagnostics.downsampled_points));
-  status.values.push_back(makeKeyValue("map_points", diagnostics.map_points));
-  status.values.push_back(makeKeyValue(
-    "optimization_success",
-    diagnostics.optimization.success));
-  status.values.push_back(makeKeyValue(
-    "optimization_status",
-    diagnostics.optimization.status));
-  status.values.push_back(makeKeyValue(
-    "valid_correspondences",
-    diagnostics.optimization.valid_correspondences));
-  status.values.push_back(makeKeyValue(
-    "mean_residual",
-    diagnostics.optimization.mean_residual));
-
-  status.values.push_back(makeKeyValue(
-    "imu_status",
-    diagnostics.imu_prediction_status));
-  status.values.push_back(makeKeyValue(
-    "imu_delta_yaw_deg",
-    diagnostics.imu_delta_yaw_deg));
-  status.values.push_back(makeKeyValue(
-    "optimization_time_ms",
-    diagnostics.optimization_time_ms));
-  status.values.push_back(makeKeyValue(
-    "map_update_time_ms",
-    diagnostics.map_update_time_ms));
-
-  const auto& local_map = diagnostics.local_map;
-  status.values.push_back(makeKeyValue(
-    "local_map_points",
-    local_map.map_size_after_downsample));
-  status.values.push_back(makeKeyValue(
-    "local_map_inserted_points",
-    local_map.inserted_points));
 
   array.status.push_back(status);
   return array;
