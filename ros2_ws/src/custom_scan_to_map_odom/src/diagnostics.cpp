@@ -132,6 +132,59 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.values.push_back(makeKeyValue(
     "imu_delta_yaw_deg",
     std::to_string(diagnostics.imu_delta_yaw_deg)));
+  status.values.push_back(makeKeyValue(
+    "optimization_time_ms",
+    std::to_string(diagnostics.optimization_time_ms)));
+  status.values.push_back(makeKeyValue(
+    "map_update_time_ms",
+    std::to_string(diagnostics.map_update_time_ms)));
+
+  const auto& local_map = diagnostics.local_map;
+  status.values.push_back(makeKeyValue(
+    "local_map_size_before_update",
+    std::to_string(local_map.map_size_before_update)));
+  status.values.push_back(makeKeyValue(
+    "local_map_size_after_crop",
+    std::to_string(local_map.map_size_after_crop)));
+  status.values.push_back(makeKeyValue(
+    "local_map_size_after_insert",
+    std::to_string(local_map.map_size_after_insert)));
+  status.values.push_back(makeKeyValue(
+    "local_map_size_after_downsample",
+    std::to_string(local_map.map_size_after_downsample)));
+  status.values.push_back(makeKeyValue(
+    "local_map_inserted_points",
+    std::to_string(local_map.inserted_points)));
+  status.values.push_back(makeKeyValue(
+    "local_map_removed_points_outside_cube",
+    std::to_string(local_map.removed_points_outside_cube)));
+  status.values.push_back(makeKeyValue(
+    "local_map_cube_shifted",
+    local_map.cube_shifted ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "local_map_cube_center_x",
+    std::to_string(local_map.cube_center_x)));
+  status.values.push_back(makeKeyValue(
+    "local_map_cube_center_y",
+    std::to_string(local_map.cube_center_y)));
+  status.values.push_back(makeKeyValue(
+    "local_map_cube_center_z",
+    std::to_string(local_map.cube_center_z)));
+  status.values.push_back(makeKeyValue(
+    "local_map_crop_time_ms",
+    std::to_string(local_map.crop_time_ms)));
+  status.values.push_back(makeKeyValue(
+    "local_map_insert_time_ms",
+    std::to_string(local_map.insert_time_ms)));
+  status.values.push_back(makeKeyValue(
+    "local_map_downsample_time_ms",
+    std::to_string(local_map.downsample_time_ms)));
+  status.values.push_back(makeKeyValue(
+    "local_map_kdtree_rebuild_time_ms",
+    std::to_string(local_map.kdtree_rebuild_time_ms)));
+  status.values.push_back(makeKeyValue(
+    "local_map_total_update_time_ms",
+    std::to_string(local_map.total_update_time_ms)));
 
   array.status.push_back(status);
   return array;
