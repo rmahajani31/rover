@@ -4,12 +4,23 @@
 #include <string>
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
+#include <diagnostic_msgs/msg/key_value.hpp>
 
 namespace custom_scan_to_map_odom
 {
 
 namespace
 {
+
+diagnostic_msgs::msg::KeyValue makeKeyValue(
+  const std::string& key,
+  const std::string& value)
+{
+  diagnostic_msgs::msg::KeyValue key_value;
+  key_value.key = key;
+  key_value.value = value;
+  return key_value;
+}
 
 std::uint8_t diagnosticLevel(const ScanToMapDiagnostics& diagnostics)
 {
@@ -54,6 +65,22 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.hardware_id = "custom_scan_to_map_odom";
   status.level = diagnosticLevel(diagnostics);
   status.message = diagnosticMessage(diagnostics);
+
+  status.values.push_back(makeKeyValue(
+    "map_initialized",
+    diagnostics.map_initialized ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "input_points",
+    std::to_string(diagnostics.input_points)));
+  status.values.push_back(makeKeyValue(
+    "downsampled_points",
+    std::to_string(diagnostics.downsampled_points)));
+  status.values.push_back(makeKeyValue(
+    "map_points",
+    std::to_string(diagnostics.map_points)));
+  status.values.push_back(makeKeyValue(
+    "optimization_status",
+    diagnostics.optimization.status));
 
   array.status.push_back(status);
   return array;
