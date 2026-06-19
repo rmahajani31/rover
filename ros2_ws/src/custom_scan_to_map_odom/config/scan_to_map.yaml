@@ -2,6 +2,7 @@ custom_scan_to_map_odom:
   ros__parameters:
     input_topic: "/custom/points_preprocessed"
     odom_topic: "/custom/scan_to_map_odom"
+    imu_predicted_odom_topic: "/custom/imu_predicted_odom"
     path_topic: "/custom/scan_to_map_path"
     local_map_topic: "/custom/local_map"
     diagnostics_topic: "/custom/scan_to_map_diagnostics"
@@ -59,6 +60,7 @@ custom_scan_to_map_odom:
     use_imu_rotation: true
     use_imu_translation: false
     publish_imu_prediction_debug: true
+    publish_imu_predicted_odom: true
     imu_topic: "/livox/imu"
     max_imu_buffer_seconds: 5.0
     max_allowed_imu_gap: 0.02

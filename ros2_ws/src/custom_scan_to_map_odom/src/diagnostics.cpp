@@ -129,6 +129,34 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
     diagnostics.optimization.iterations));
 
   status.values.push_back(makeKeyValue(
+    "imu_initial_guess_enabled",
+    diagnostics.imu_initial_guess_enabled));
+  status.values.push_back(makeKeyValue(
+    "used_imu_guess",
+    diagnostics.used_imu_guess));
+  status.values.push_back(makeKeyValue(
+    "imu_prediction_success",
+    diagnostics.imu_prediction_success));
+  status.values.push_back(makeKeyValue(
+    "imu_prediction_status",
+    diagnostics.imu_prediction_status));
+  status.values.push_back(makeKeyValue(
+    "imu_samples_used",
+    diagnostics.imu_samples_used));
+  status.values.push_back(makeKeyValue(
+    "imu_dt_total",
+    diagnostics.imu_dt_total));
+  status.values.push_back(makeKeyValue(
+    "imu_delta_roll_deg",
+    diagnostics.imu_delta_roll_deg));
+  status.values.push_back(makeKeyValue(
+    "imu_delta_pitch_deg",
+    diagnostics.imu_delta_pitch_deg));
+  status.values.push_back(makeKeyValue(
+    "imu_delta_yaw_deg",
+    diagnostics.imu_delta_yaw_deg));
+
+  status.values.push_back(makeKeyValue(
     "optimization_time_ms",
     diagnostics.optimization_time_ms));
   status.values.push_back(makeKeyValue(

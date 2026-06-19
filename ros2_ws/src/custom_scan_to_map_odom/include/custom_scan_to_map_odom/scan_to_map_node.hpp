@@ -50,8 +50,9 @@ private:
     const Eigen::Isometry3d& transform) const;
 
   Eigen::Isometry3d initialGuessForScan(
-    const rclcpp::Time& current_scan_stamp,
-    const Eigen::Isometry3d& fallback_guess);
+    const std_msgs::msg::Header& header,
+    const Eigen::Isometry3d& fallback_guess,
+    ScanToMapDiagnostics& diagnostics);
 
   void updateLastAcceptedScanStamp(const rclcpp::Time& stamp);
 
@@ -67,6 +68,10 @@ private:
     const std_msgs::msg::Header& header,
     const Eigen::Isometry3d& T_odom_lidar,
     const OptimizationStats& stats);
+
+  void publishImuPredictedOdometry(
+    const std_msgs::msg::Header& header,
+    const Eigen::Isometry3d& T_odom_lidar);
 
   void publishPath(
     const std_msgs::msg::Header& header,
@@ -95,6 +100,7 @@ private:
   std::string input_topic_;
   std::string imu_topic_;
   std::string odom_topic_;
+  std::string imu_predicted_odom_topic_;
   std::string path_topic_;
   std::string local_map_topic_;
   std::string diagnostics_topic_;
@@ -108,6 +114,7 @@ private:
   bool publish_diagnostics_ = true;
   bool use_imu_initial_guess_ = true;
   bool publish_imu_prediction_debug_ = true;
+  bool publish_imu_predicted_odom_ = true;
   bool constrain_to_planar_ = true;
   bool stop_tf_on_tracking_degraded_ = true;
   double tf_publish_rate_hz_ = 20.0;
@@ -177,6 +184,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
 
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr imu_predicted_odom_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr local_map_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_pub_;
