@@ -1022,22 +1022,14 @@ void ScanToMapNode::publishDiagnostics(
     return;
   }
 
-  RCLCPP_INFO_ONCE(
+  RCLCPP_DEBUG(
     get_logger(),
-    "Building bare scan-to-map diagnostics message: status=%s",
+    "Publishing scan-to-map diagnostics: status=%s",
     diagnostics.optimization.status.c_str());
   const auto diagnostic_msg =
     makeDiagnosticArray(diagnostics, header.stamp, "custom_scan_to_map_odom");
-
-  RCLCPP_INFO_ONCE(
-    get_logger(),
-    "Built bare scan-to-map diagnostics message: statuses=%zu subscribers=%zu",
-    diagnostic_msg.status.size(),
-    diagnostics_pub_->get_subscription_count());
-
-  RCLCPP_INFO_ONCE(get_logger(), "Publishing bare scan-to-map diagnostics message");
   diagnostics_pub_->publish(diagnostic_msg);
-  RCLCPP_INFO_ONCE(get_logger(), "Bare scan-to-map diagnostics message published");
+  RCLCPP_DEBUG(get_logger(), "Scan-to-map diagnostics published");
 }
 
 void ScanToMapNode::publishTransform(
