@@ -23,7 +23,34 @@ find_package(tf2 REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-# C++ library and node targets will be added with the IMU propagation implementation.
+add_library(imu_propagator
+  src/imu_propagator.cpp
+)
+
+target_include_directories(imu_propagator PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(imu_propagator
+  rclcpp
+)
+
+target_link_libraries(imu_propagator
+  Eigen3::Eigen
+)
+
+install(
+  TARGETS imu_propagator
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
 
 install(
   DIRECTORY config launch
