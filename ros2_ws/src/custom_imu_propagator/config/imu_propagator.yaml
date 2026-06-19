@@ -1,0 +1,25 @@
+custom_imu_propagator:
+  ros__parameters:
+    imu_topic: "/livox/imu"
+    predicted_odom_topic: "/custom/imu_predicted_odom"
+    diagnostics_topic: "/custom/imu_propagator_diagnostics"
+
+    odom_frame: "odom"
+    base_frame: "base_link"
+    imu_frame: "livox_frame"
+
+    use_imu_initial_guess: true
+    use_imu_rotation: true
+    use_imu_translation: false
+
+    max_imu_buffer_seconds: 5.0
+    max_allowed_imu_gap: 0.02
+    max_expected_yaw_change_deg_per_scan: 30.0
+
+    gravity: [0.0, 0.0, -9.81]
+    gyro_bias: [0.0, 0.0, 0.0]
+    accel_bias: [0.0, 0.0, 0.0]
+
+    publish_imu_predicted_odom: true
+    publish_imu_diagnostics: true
+    log_throttle_ms: 1000
