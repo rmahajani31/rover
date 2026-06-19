@@ -18,6 +18,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_eigen REQUIRED)
@@ -46,6 +47,7 @@ ament_target_dependencies(imu_propagator
 )
 
 ament_target_dependencies(custom_imu_propagator_node
+  builtin_interfaces
   diagnostic_msgs
   rclcpp
   sensor_msgs
@@ -62,6 +64,7 @@ target_link_libraries(custom_imu_propagator_node
 
 install(
   TARGETS imu_propagator
+  EXPORT export_imu_propagator
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -81,5 +84,9 @@ install(
   DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )
+
+ament_export_include_directories(include)
+ament_export_targets(export_imu_propagator HAS_LIBRARY_TARGET)
+ament_export_dependencies(rclcpp Eigen3)
 
 ament_package()

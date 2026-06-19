@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include <builtin_interfaces/msg/time.hpp>
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <diagnostic_msgs/msg/key_value.hpp>
@@ -91,9 +92,9 @@ private:
     declare_parameter<double>("max_allowed_imu_gap", 0.02);
     declare_parameter<double>("max_expected_yaw_change_deg_per_scan", 30.0);
 
-    declare_parameter<std::vector<double>>("gravity", {0.0, 0.0, -9.81});
-    declare_parameter<std::vector<double>>("gyro_bias", {0.0, 0.0, 0.0});
-    declare_parameter<std::vector<double>>("accel_bias", {0.0, 0.0, 0.0});
+    declare_parameter<std::vector<double>>("gravity", std::vector<double>{0.0, 0.0, -9.81});
+    declare_parameter<std::vector<double>>("gyro_bias", std::vector<double>{0.0, 0.0, 0.0});
+    declare_parameter<std::vector<double>>("accel_bias", std::vector<double>{0.0, 0.0, 0.0});
 
     declare_parameter<bool>("publish_imu_predicted_odom", true);
     declare_parameter<bool>("publish_imu_diagnostics", true);
