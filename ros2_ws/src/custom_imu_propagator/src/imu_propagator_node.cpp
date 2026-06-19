@@ -95,9 +95,11 @@ private:
     declare_parameter<std::vector<double>>("gravity", std::vector<double>{0.0, 0.0, -9.81});
     declare_parameter<std::vector<double>>("gyro_bias", std::vector<double>{0.0, 0.0, 0.0});
     declare_parameter<std::vector<double>>("accel_bias", std::vector<double>{0.0, 0.0, 0.0});
+    declare_parameter<double>("accel_scale", 9.80665);
 
     declare_parameter<bool>("publish_imu_predicted_odom", true);
     declare_parameter<bool>("publish_imu_diagnostics", true);
+    declare_parameter<double>("diagnostics_publish_rate_hz", 5.0);
     declare_parameter<int>("log_throttle_ms", 1000);
   }
 
@@ -128,9 +130,11 @@ private:
       readVector3Parameter("gyro_bias", Eigen::Vector3d::Zero());
     propagator_options_.accel_bias =
       readVector3Parameter("accel_bias", Eigen::Vector3d::Zero());
+    accel_scale_ = get_parameter("accel_scale").as_double();
 
     publish_imu_predicted_odom_ = get_parameter("publish_imu_predicted_odom").as_bool();
     publish_imu_diagnostics_ = get_parameter("publish_imu_diagnostics").as_bool();
+    diagnostics_publish_rate_hz_ = get_parameter("diagnostics_publish_rate_hz").as_double();
     log_throttle_ms_ = get_parameter("log_throttle_ms").as_int();
   }
 
@@ -162,7 +166,7 @@ private:
       msg->angular_velocity.x,
       msg->angular_velocity.y,
       msg->angular_velocity.z);
-    sample.accel = Eigen::Vector3d(
+    sample.accel = accel_scale_ * Eigen::Vector3d(
       msg->linear_acceleration.x,
       msg->linear_acceleration.y,
       msg->linear_acceleration.z);
@@ -185,9 +189,32 @@ private:
       latest_gyro_norm_,
       latest_accel_norm_);
 
-    if (publish_imu_diagnostics_) {
+    if (publish_imu_diagnostics_ && shouldPublishDiagnostics()) {
       publishDiagnostics(msg->header.stamp);
     }
+  }
+
+  bool shouldPublishDiagnostics()
+  {
+    if (diagnostics_publish_rate_hz_ <= 0.0) {
+      return true;
+    }
+
+    const rclcpp::Time now = get_clock()->now();
+
+    if (!has_last_diagnostics_publish_stamp_ || now < last_diagnostics_publish_stamp_) {
+      last_diagnostics_publish_stamp_ = now;
+      has_last_diagnostics_publish_stamp_ = true;
+      return true;
+    }
+
+    const double period_sec = 1.0 / diagnostics_publish_rate_hz_;
+    if ((now - last_diagnostics_publish_stamp_).seconds() >= period_sec) {
+      last_diagnostics_publish_stamp_ = now;
+      return true;
+    }
+
+    return false;
   }
 
   void publishDiagnostics(const builtin_interfaces::msg::Time& stamp)
@@ -212,6 +239,9 @@ private:
     status.values.push_back(makeKeyValue("frame_id", latest_frame_id_));
     status.values.push_back(makeKeyValue("gyro_norm_rad_s", doubleToString(latest_gyro_norm_)));
     status.values.push_back(makeKeyValue("accel_norm_m_s2", doubleToString(latest_accel_norm_)));
+    status.values.push_back(makeKeyValue("accel_scale", doubleToString(accel_scale_)));
+    status.values.push_back(
+      makeKeyValue("diagnostics_publish_rate_hz", doubleToString(diagnostics_publish_rate_hz_)));
     status.values.push_back(
       makeKeyValue("use_imu_initial_guess", use_imu_initial_guess_ ? "true" : "false"));
     status.values.push_back(
@@ -240,10 +270,14 @@ private:
   bool use_imu_initial_guess_ = true;
   bool publish_imu_predicted_odom_ = true;
   bool publish_imu_diagnostics_ = true;
+  double accel_scale_ = 9.80665;
+  double diagnostics_publish_rate_hz_ = 5.0;
   int log_throttle_ms_ = 1000;
 
   std::size_t imu_samples_received_ = 0;
   rclcpp::Time latest_stamp_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time last_diagnostics_publish_stamp_{0, 0, RCL_ROS_TIME};
+  bool has_last_diagnostics_publish_stamp_ = false;
   double latest_gyro_norm_ = 0.0;
   double latest_accel_norm_ = 0.0;
 

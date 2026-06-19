@@ -19,7 +19,9 @@ custom_imu_propagator:
     gravity: [0.0, 0.0, -9.81]
     gyro_bias: [0.0, 0.0, 0.0]
     accel_bias: [0.0, 0.0, 0.0]
+    accel_scale: 9.80665
 
     publish_imu_predicted_odom: true
     publish_imu_diagnostics: true
+    diagnostics_publish_rate_hz: 5.0
     log_throttle_ms: 1000
