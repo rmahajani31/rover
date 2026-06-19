@@ -27,7 +27,16 @@ add_library(imu_propagator
   src/imu_propagator.cpp
 )
 
+add_executable(custom_imu_propagator_node
+  src/imu_propagator_node.cpp
+)
+
 target_include_directories(imu_propagator PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_include_directories(custom_imu_propagator_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
@@ -36,7 +45,18 @@ ament_target_dependencies(imu_propagator
   rclcpp
 )
 
+ament_target_dependencies(custom_imu_propagator_node
+  diagnostic_msgs
+  rclcpp
+  sensor_msgs
+)
+
 target_link_libraries(imu_propagator
+  Eigen3::Eigen
+)
+
+target_link_libraries(custom_imu_propagator_node
+  imu_propagator
   Eigen3::Eigen
 )
 
@@ -45,6 +65,11 @@ install(
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+)
+
+install(
+  TARGETS custom_imu_propagator_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 install(
