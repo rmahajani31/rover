@@ -27,6 +27,7 @@ find_package(Eigen3 REQUIRED)
 add_library(imu_propagator
   src/imu_propagator.cpp
 )
+add_library(custom_imu_propagator::imu_propagator ALIAS imu_propagator)
 
 add_executable(custom_imu_propagator_node
   src/imu_propagator_node.cpp
@@ -103,6 +104,7 @@ endif()
 
 ament_export_include_directories(include)
 ament_export_targets(export_imu_propagator HAS_LIBRARY_TARGET)
+ament_export_libraries(imu_propagator)
 ament_export_dependencies(rclcpp Eigen3)
 
 ament_package()

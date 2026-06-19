@@ -171,7 +171,6 @@ target_link_libraries(custom_scan_to_map_odom_node
   ros_conversions
   scan_to_map_optimizer
   se3_utils
-  imu_propagator
   ${PCL_LIBRARIES}
 )
 
