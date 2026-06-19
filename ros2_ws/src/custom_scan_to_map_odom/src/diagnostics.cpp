@@ -94,12 +94,13 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.level = diagnosticLevel(diagnostics);
   status.message = diagnosticMessage(diagnostics);
 
-  // Keep diagnostics flat so ros2 topic echo and rqt_robot_monitor remain easy to scan.
+  // Keep this first diagnostic pass intentionally small. The Jetson crash was
+  // happening on publish, so start with the same single-status, compact shape
+  // used by the other stable diagnostics publishers.
   status.values.push_back(makeKeyValue("map_initialized", diagnostics.map_initialized));
   status.values.push_back(makeKeyValue("input_points", diagnostics.input_points));
   status.values.push_back(makeKeyValue("downsampled_points", diagnostics.downsampled_points));
   status.values.push_back(makeKeyValue("map_points", diagnostics.map_points));
-
   status.values.push_back(makeKeyValue(
     "optimization_success",
     diagnostics.optimization.success));
@@ -110,52 +111,15 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
     "valid_correspondences",
     diagnostics.optimization.valid_correspondences));
   status.values.push_back(makeKeyValue(
-    "valid_planes",
-    diagnostics.optimization.valid_planes));
-  status.values.push_back(makeKeyValue(
     "mean_residual",
     diagnostics.optimization.mean_residual));
-  status.values.push_back(makeKeyValue(
-    "max_residual",
-    diagnostics.optimization.max_residual));
-  status.values.push_back(makeKeyValue(
-    "final_update_translation_norm",
-    diagnostics.optimization.final_update_translation_norm));
-  status.values.push_back(makeKeyValue(
-    "final_update_rotation_norm",
-    diagnostics.optimization.final_update_rotation_norm));
-  status.values.push_back(makeKeyValue(
-    "iterations",
-    diagnostics.optimization.iterations));
 
   status.values.push_back(makeKeyValue(
-    "imu_initial_guess_enabled",
-    diagnostics.imu_initial_guess_enabled));
-  status.values.push_back(makeKeyValue(
-    "used_imu_guess",
-    diagnostics.used_imu_guess));
-  status.values.push_back(makeKeyValue(
-    "imu_prediction_success",
-    diagnostics.imu_prediction_success));
-  status.values.push_back(makeKeyValue(
-    "imu_prediction_status",
+    "imu_status",
     diagnostics.imu_prediction_status));
-  status.values.push_back(makeKeyValue(
-    "imu_samples_used",
-    diagnostics.imu_samples_used));
-  status.values.push_back(makeKeyValue(
-    "imu_dt_total",
-    diagnostics.imu_dt_total));
-  status.values.push_back(makeKeyValue(
-    "imu_delta_roll_deg",
-    diagnostics.imu_delta_roll_deg));
-  status.values.push_back(makeKeyValue(
-    "imu_delta_pitch_deg",
-    diagnostics.imu_delta_pitch_deg));
   status.values.push_back(makeKeyValue(
     "imu_delta_yaw_deg",
     diagnostics.imu_delta_yaw_deg));
-
   status.values.push_back(makeKeyValue(
     "optimization_time_ms",
     diagnostics.optimization_time_ms));
@@ -165,50 +129,11 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
 
   const auto& local_map = diagnostics.local_map;
   status.values.push_back(makeKeyValue(
-    "local_map_size_before_update",
-    local_map.map_size_before_update));
-  status.values.push_back(makeKeyValue(
-    "local_map_size_after_crop",
-    local_map.map_size_after_crop));
-  status.values.push_back(makeKeyValue(
-    "local_map_size_after_insert",
-    local_map.map_size_after_insert));
-  status.values.push_back(makeKeyValue(
-    "local_map_size_after_downsample",
+    "local_map_points",
     local_map.map_size_after_downsample));
   status.values.push_back(makeKeyValue(
     "local_map_inserted_points",
     local_map.inserted_points));
-  status.values.push_back(makeKeyValue(
-    "local_map_removed_points_outside_cube",
-    local_map.removed_points_outside_cube));
-  status.values.push_back(makeKeyValue(
-    "local_map_cube_shifted",
-    local_map.cube_shifted));
-  status.values.push_back(makeKeyValue(
-    "local_map_cube_center_x",
-    local_map.cube_center_x));
-  status.values.push_back(makeKeyValue(
-    "local_map_cube_center_y",
-    local_map.cube_center_y));
-  status.values.push_back(makeKeyValue(
-    "local_map_cube_center_z",
-    local_map.cube_center_z));
-  status.values.push_back(makeKeyValue(
-    "local_map_crop_time_ms",
-    local_map.crop_time_ms));
-  status.values.push_back(makeKeyValue(
-    "local_map_insert_time_ms",
-    local_map.insert_time_ms));
-  status.values.push_back(makeKeyValue(
-    "local_map_downsample_time_ms",
-    local_map.downsample_time_ms));
-  status.values.push_back(makeKeyValue(
-    "local_map_kdtree_rebuild_time_ms",
-    local_map.kdtree_rebuild_time_ms));
-  status.values.push_back(makeKeyValue(
-    "local_map_total_update_time_ms",
-    local_map.total_update_time_ms));
 
   array.status.push_back(status);
   return array;
