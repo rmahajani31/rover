@@ -389,8 +389,8 @@ Eigen::Isometry3d ScanToMapNode::initialGuessForScan(
     return fallback_guess;
   }
 
-  // Phase 8 composes the IMU delta onto the previous accepted LiDAR pose. The
-  // optimizer still owns the final odometry correction.
+  // The IMU integration path composes the delta onto the previous accepted
+  // LiDAR pose; the optimizer still owns the final odometry correction.
   const Eigen::Isometry3d imu_guess = fallback_guess * imu_result.delta_T;
   diagnostics.used_imu_guess = true;
   publishImuPredictedOdometry(header, imu_guess);
@@ -1024,12 +1024,12 @@ void ScanToMapNode::publishDiagnostics(
 
   RCLCPP_DEBUG(
     get_logger(),
-    "Publishing diagnostics: status=%s",
+    "Publishing scan-to-map diagnostics: status=%s",
     diagnostics.optimization.status.c_str());
   const auto diagnostic_msg =
     makeDiagnosticArray(diagnostics, header.stamp, "custom_scan_to_map_odom");
   diagnostics_pub_->publish(diagnostic_msg);
-  RCLCPP_DEBUG(get_logger(), "Diagnostics published");
+  RCLCPP_DEBUG(get_logger(), "Scan-to-map diagnostics published");
 }
 
 void ScanToMapNode::publishTransform(

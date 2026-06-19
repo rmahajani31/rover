@@ -191,10 +191,10 @@ Mid-360 and project it into 2D scan data for the rest of the navigation stack.
 The Jetson is intended to host more compute-heavy lidar point cloud processing
 and camera-based visual processing as the rover stack grows.
 
-In normal Jetson mode, `/livox/lidar` is expected to be a `PointCloud2` topic.
-In FAST-LIO2 shadow mode, `/livox/lidar` is kept as a Livox `CustomMsg` for
-FAST-LIO2, and a small converter publishes `/livox/points` as `PointCloud2` so
-the existing scan projection path can still publish `/scan_from_livox`.
+For the current Jetson workflow, `/livox/lidar` is a Livox `CustomMsg` topic.
+Derived `PointCloud2` topics such as `/custom/points_preprocessed`,
+`/custom/points_for_nav2`, and `/livox/points` are the safe inputs for
+visualization, scan projection, and scan-to-map registration.
 
 The package can also build without `livox_ros_driver2`; in that case the
 Livox CustomMsg converter is skipped. This is useful on the Pi, where the
@@ -317,10 +317,9 @@ from the latest accepted scan-to-map pose. If tracking is degraded for several
 consecutive scans, odometry covariance is increased and TF refreshing is stopped
 so Nav2 does not keep consuming a stale pose as if it were healthy.
 
-Scan-to-map diagnostics are currently disabled in the default config because
-the diagnostic publisher path can crash the node on the Jetson. Odometry,
-`/custom/local_map`, and the costmap projection path still run with diagnostics
-off.
+Scan-to-map diagnostics are published on `/custom/scan_to_map_diagnostics`.
+They include scan-matching status, IMU initial-guess status, timing, and local
+map counters.
 
 ### `custom_imu_propagator`
 
@@ -1044,6 +1043,7 @@ an existing saved map YAML file.
    ros2 launch livox_ros_driver2 msg_MID360_launch.py
    ros2 launch bringup pointcloud_preprocess_fast_lio2_nav2.launch.py
    ```
+
 6. For upgraded costmap mode:
 
    ```bash
@@ -1055,6 +1055,7 @@ an existing saved map YAML file.
    ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py \
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
+
 7. For IMU-integrated local map management mode:
 
    ```bash
@@ -1066,6 +1067,7 @@ an existing saved map YAML file.
    ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py \
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
+
 8. For custom scan-to-scan ICP shadow mode, start this on the Jetson:
 
    ```bash
