@@ -24,4 +24,6 @@ custom_imu_propagator:
     publish_imu_predicted_odom: true
     publish_imu_diagnostics: true
     diagnostics_publish_rate_hz: 5.0
+    publish_live_propagation_diagnostics: true
+    propagation_window_seconds: 0.1
     log_throttle_ms: 1000

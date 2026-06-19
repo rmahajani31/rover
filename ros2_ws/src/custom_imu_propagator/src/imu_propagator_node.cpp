@@ -100,6 +100,8 @@ private:
     declare_parameter<bool>("publish_imu_predicted_odom", true);
     declare_parameter<bool>("publish_imu_diagnostics", true);
     declare_parameter<double>("diagnostics_publish_rate_hz", 5.0);
+    declare_parameter<bool>("publish_live_propagation_diagnostics", true);
+    declare_parameter<double>("propagation_window_seconds", 0.1);
     declare_parameter<int>("log_throttle_ms", 1000);
   }
 
@@ -135,6 +137,9 @@ private:
     publish_imu_predicted_odom_ = get_parameter("publish_imu_predicted_odom").as_bool();
     publish_imu_diagnostics_ = get_parameter("publish_imu_diagnostics").as_bool();
     diagnostics_publish_rate_hz_ = get_parameter("diagnostics_publish_rate_hz").as_double();
+    publish_live_propagation_diagnostics_ =
+      get_parameter("publish_live_propagation_diagnostics").as_bool();
+    propagation_window_seconds_ = get_parameter("propagation_window_seconds").as_double();
     log_throttle_ms_ = get_parameter("log_throttle_ms").as_int();
   }
 
@@ -176,6 +181,7 @@ private:
 
     latest_frame_id_ = msg->header.frame_id;
     latest_stamp_ = sample.stamp;
+    has_latest_sample_ = true;
     latest_gyro_norm_ = sample.gyro.norm();
     latest_accel_norm_ = sample.accel.norm();
 
@@ -243,6 +249,12 @@ private:
     status.values.push_back(
       makeKeyValue("diagnostics_publish_rate_hz", doubleToString(diagnostics_publish_rate_hz_)));
     status.values.push_back(
+      makeKeyValue(
+        "publish_live_propagation_diagnostics",
+        publish_live_propagation_diagnostics_ ? "true" : "false"));
+    status.values.push_back(
+      makeKeyValue("propagation_window_seconds", doubleToString(propagation_window_seconds_)));
+    status.values.push_back(
       makeKeyValue("use_imu_initial_guess", use_imu_initial_guess_ ? "true" : "false"));
     status.values.push_back(
       makeKeyValue("use_imu_rotation", propagator_options_.use_imu_rotation ? "true" : "false"));
@@ -251,11 +263,48 @@ private:
         "use_imu_translation",
         propagator_options_.use_imu_translation ? "true" : "false"));
 
+    appendLivePropagationDiagnostics(status);
+
     diagnostic_msgs::msg::DiagnosticArray array;
     array.header.stamp = stamp;
     array.status.push_back(status);
 
     diagnostics_pub_->publish(array);
+  }
+
+  void appendLivePropagationDiagnostics(diagnostic_msgs::msg::DiagnosticStatus& status) const
+  {
+    if (!publish_live_propagation_diagnostics_) {
+      return;
+    }
+
+    if (!has_latest_sample_) {
+      status.values.push_back(makeKeyValue("propagation_success", "false"));
+      status.values.push_back(makeKeyValue("propagation_status", "no_imu_samples_yet"));
+      return;
+    }
+
+    if (propagation_window_seconds_ <= 0.0) {
+      status.values.push_back(makeKeyValue("propagation_success", "false"));
+      status.values.push_back(makeKeyValue("propagation_status", "invalid_propagation_window"));
+      return;
+    }
+
+    const rclcpp::Time start =
+      latest_stamp_ - rclcpp::Duration::from_seconds(propagation_window_seconds_);
+    const ImuPropagationResult result = propagator_.propagateBetween(start, latest_stamp_);
+
+    status.values.push_back(
+      makeKeyValue("propagation_success", result.success ? "true" : "false"));
+    status.values.push_back(makeKeyValue("propagation_status", result.status));
+    status.values.push_back(makeKeyValue("propagation_samples_used", std::to_string(result.samples_used)));
+    status.values.push_back(makeKeyValue("propagation_dt_total", doubleToString(result.dt_total)));
+    status.values.push_back(
+      makeKeyValue("propagation_delta_roll_deg", doubleToString(result.delta_roll_deg)));
+    status.values.push_back(
+      makeKeyValue("propagation_delta_pitch_deg", doubleToString(result.delta_pitch_deg)));
+    status.values.push_back(
+      makeKeyValue("propagation_delta_yaw_deg", doubleToString(result.delta_yaw_deg)));
   }
 
   std::string imu_topic_;
@@ -270,14 +319,17 @@ private:
   bool use_imu_initial_guess_ = true;
   bool publish_imu_predicted_odom_ = true;
   bool publish_imu_diagnostics_ = true;
+  bool publish_live_propagation_diagnostics_ = true;
   double accel_scale_ = 9.80665;
   double diagnostics_publish_rate_hz_ = 5.0;
+  double propagation_window_seconds_ = 0.1;
   int log_throttle_ms_ = 1000;
 
   std::size_t imu_samples_received_ = 0;
   rclcpp::Time latest_stamp_{0, 0, RCL_ROS_TIME};
   rclcpp::Time last_diagnostics_publish_stamp_{0, 0, RCL_ROS_TIME};
   bool has_last_diagnostics_publish_stamp_ = false;
+  bool has_latest_sample_ = false;
   double latest_gyro_norm_ = 0.0;
   double latest_accel_norm_ = 0.0;
 
