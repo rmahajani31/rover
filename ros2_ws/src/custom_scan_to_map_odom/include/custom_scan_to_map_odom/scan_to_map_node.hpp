@@ -11,12 +11,15 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
+#include "custom_imu_propagator/imu_propagator.hpp"
+#include "custom_imu_propagator/imu_sample.hpp"
 #include "custom_scan_to_map_odom/diagnostics.hpp"
 #include "custom_scan_to_map_odom/local_map_config.hpp"
 #include "custom_scan_to_map_odom/local_map_manager.hpp"
@@ -38,6 +41,7 @@ private:
   void readParameters();
 
   void cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
   CloudTPtr filterScan(const CloudTConstPtr& cloud) const;
 
@@ -78,8 +82,12 @@ private:
   ScanToMapOptimizerOptions optimizerOptionsFromParameters() const;
   PlaneFitterOptions planeFitterOptionsFromParameters() const;
   LocalMapConfig localMapConfigFromParameters() const;
+  Eigen::Vector3d readVector3Parameter(
+    const std::string& name,
+    const Eigen::Vector3d& fallback) const;
 
   std::string input_topic_;
+  std::string imu_topic_;
   std::string odom_topic_;
   std::string path_topic_;
   std::string local_map_topic_;
@@ -92,6 +100,7 @@ private:
   bool publish_tf_ = false;
   bool publish_path_ = true;
   bool publish_diagnostics_ = true;
+  bool use_imu_initial_guess_ = true;
   bool constrain_to_planar_ = true;
   bool stop_tf_on_tracking_degraded_ = true;
   double tf_publish_rate_hz_ = 20.0;
@@ -119,6 +128,10 @@ private:
   double max_point_to_plane_residual_ = 0.50;
   double min_plane_eigen_ratio_ = 5.0;
 
+  double imu_accel_scale_ = 9.80665;
+  std::size_t imu_samples_received_ = 0;
+  custom_imu_propagator::ImuPropagatorOptions imu_options_;
+
   std::size_t frame_count_ = 0;
   // Consecutive rejected frames mark odometry as degraded instead of pretending it is healthy.
   int consecutive_tracking_failures_ = 0;
@@ -138,10 +151,12 @@ private:
 
   LocalMapManager local_map_manager_;
   std::unique_ptr<ScanToMapOptimizer> optimizer_;
+  custom_imu_propagator::ImuPropagator imu_propagator_;
 
   nav_msgs::msg::Path path_msg_;
 
   rclcpp::CallbackGroup::SharedPtr cloud_callback_group_;
+  rclcpp::CallbackGroup::SharedPtr imu_callback_group_;
   rclcpp::CallbackGroup::SharedPtr tf_callback_group_;
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -150,11 +165,14 @@ private:
   rclcpp::TimerBase::SharedPtr tf_timer_;
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
 
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr local_map_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_pub_;
+
+  std::mutex imu_mutex_;
 };
 
 }  // namespace custom_scan_to_map_odom

@@ -52,3 +52,17 @@ custom_scan_to_map_odom:
     publish_path: true
     # Disabled until the scan-to-map diagnostics crash is fixed; odometry/local map still run.
     publish_diagnostics: false
+
+    # IMU propagation for Phase 8 initial-guess support.
+    # This pass only buffers IMU inside the scan-to-map node; optimizer initial guess is unchanged.
+    use_imu_initial_guess: true
+    use_imu_rotation: true
+    use_imu_translation: false
+    imu_topic: "/livox/imu"
+    max_imu_buffer_seconds: 5.0
+    max_allowed_imu_gap: 0.02
+    max_expected_yaw_change_deg_per_scan: 30.0
+    gravity: [0.0, 0.0, -9.81]
+    gyro_bias: [0.0, 0.0, 0.0]
+    accel_bias: [0.0, 0.0, 0.0]
+    imu_accel_scale: 9.80665
