@@ -51,11 +51,9 @@ custom_scan_to_map_odom:
     # Publishing
     max_path_poses: 2000
     publish_path: true
-    # Disabled until the scan-to-map diagnostics crash is fixed; odometry/local map still run.
-    publish_diagnostics: false
+    publish_diagnostics: true
 
-    # IMU propagation for Phase 8 initial-guess support.
-    # This pass only buffers IMU inside the scan-to-map node; optimizer initial guess is unchanged.
+    # IMU propagation for scan-to-map initial-guess support.
     use_imu_initial_guess: true
     use_imu_rotation: true
     use_imu_translation: false

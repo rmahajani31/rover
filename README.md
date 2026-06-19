@@ -317,10 +317,9 @@ from the latest accepted scan-to-map pose. If tracking is degraded for several
 consecutive scans, odometry covariance is increased and TF refreshing is stopped
 so Nav2 does not keep consuming a stale pose as if it were healthy.
 
-Scan-to-map diagnostics are currently disabled in the default config because
-the diagnostic publisher path can crash the node on the Jetson. Odometry,
-`/custom/local_map`, and the costmap projection path still run with diagnostics
-off.
+Scan-to-map diagnostics are published on `/custom/scan_to_map_diagnostics`.
+They include scan-matching status, IMU initial-guess status, timing, and local
+map counters.
 
 ### `custom_imu_propagator`
 
