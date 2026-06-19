@@ -79,6 +79,8 @@ bool ImuPropagator::getSamplesInInterval(
     return false;
   }
 
+  // Phase 8 keeps extraction simple: no boundary interpolation, so the buffer
+  // must fully cover the requested LiDAR-to-LiDAR interval.
   if (imu_buffer_.front().stamp > start || imu_buffer_.back().stamp < end) {
     return false;
   }
@@ -104,6 +106,7 @@ ImuPropagationResult ImuPropagator::propagateBetween(
     return result;
   }
 
+  // Translation is deliberately gated off until gravity/bias handling is ready.
   if (options_.use_imu_translation) {
     result.status = "imu_translation_not_implemented";
     return result;
@@ -126,6 +129,8 @@ Eigen::Quaterniond ImuPropagator::deltaQuaternion(
   const double angle = theta.norm();
 
   if (angle < 1.0e-8) {
+    // First-order quaternion approximation avoids a poorly conditioned axis for
+    // near-zero angular increments.
     Eigen::Quaterniond dq(
       1.0,
       0.5 * theta.x(),
@@ -183,6 +188,8 @@ ImuPropagationResult ImuPropagator::propagateRotationOnly(
     const Eigen::Vector3d omega = samples[i].gyro - options_.gyro_bias;
     const Eigen::Quaterniond dq = deltaQuaternion(omega, dt);
 
+    // Right-multiply body-frame increments so the delta maps from the previous
+    // LiDAR pose into the current scan's predicted orientation.
     delta_q = delta_q * dq;
     delta_q.normalize();
 

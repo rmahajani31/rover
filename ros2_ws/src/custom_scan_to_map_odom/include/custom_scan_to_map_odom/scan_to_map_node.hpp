@@ -41,6 +41,7 @@ private:
   void readParameters();
 
   void cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  // Buffers IMU samples only; optimized odometry is still produced by scan matching.
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
   CloudTPtr filterScan(const CloudTConstPtr& cloud) const;
@@ -54,6 +55,7 @@ private:
     const Eigen::Isometry3d& fallback_guess,
     ScanToMapDiagnostics& diagnostics);
 
+  // Tracks the last scan that actually contributed to the accepted odometry state.
   void updateLastAcceptedScanStamp(const rclcpp::Time& stamp);
 
   bool lookupLidarToBaseTransform(
@@ -189,6 +191,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr local_map_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_pub_;
 
+  // Protects the IMU buffer because scan and IMU callbacks can run on separate executor threads.
   std::mutex imu_mutex_;
 };
 

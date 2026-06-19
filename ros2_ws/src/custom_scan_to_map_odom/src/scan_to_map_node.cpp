@@ -303,6 +303,8 @@ void ScanToMapNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
     msg->linear_acceleration.y,
     msg->linear_acceleration.z);
 
+  // The propagator owns ordering and buffer trimming; the node only guards
+  // concurrent access from the IMU and scan callbacks.
   std::size_t samples_received = 0;
   {
     std::lock_guard<std::mutex> lock(imu_mutex_);
@@ -387,6 +389,8 @@ Eigen::Isometry3d ScanToMapNode::initialGuessForScan(
     return fallback_guess;
   }
 
+  // Phase 8 composes the IMU delta onto the previous accepted LiDAR pose. The
+  // optimizer still owns the final odometry correction.
   const Eigen::Isometry3d imu_guess = fallback_guess * imu_result.delta_T;
   diagnostics.used_imu_guess = true;
   publishImuPredictedOdometry(header, imu_guess);
@@ -395,6 +399,8 @@ Eigen::Isometry3d ScanToMapNode::initialGuessForScan(
 
 void ScanToMapNode::updateLastAcceptedScanStamp(const rclcpp::Time& stamp)
 {
+  // Rejected scans are intentionally excluded so the next IMU interval starts
+  // from the last pose that actually updated the map/odometry state.
   last_accepted_scan_stamp_ = stamp;
   has_last_accepted_scan_stamp_ = true;
 }
@@ -921,6 +927,8 @@ void ScanToMapNode::publishImuPredictedOdometry(
   const Eigen::Isometry3d T_odom_child = T_odom_lidar * T_lidar_base;
   const Eigen::Isometry3d T_nav_odom_child = makePlanarTransform(T_odom_child);
 
+  // Debug-only prediction: publish for inspection without updating TF, path, or
+  // the previous odometry state consumed by Nav2.
   nav_msgs::msg::Odometry odom;
   odom.header.stamp = header.stamp;
   odom.header.frame_id = odom_frame_;
