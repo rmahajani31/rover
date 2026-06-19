@@ -175,6 +175,7 @@ void ScanToMapNode::declareParameters()
   declare_parameter<bool>("use_imu_initial_guess", true);
   declare_parameter<bool>("use_imu_rotation", true);
   declare_parameter<bool>("use_imu_translation", false);
+  declare_parameter<bool>("publish_imu_prediction_debug", true);
   declare_parameter<bool>("constrain_to_planar", true);
   declare_parameter<bool>("stop_tf_on_tracking_degraded", true);
   declare_parameter<double>("tf_publish_rate_hz", 20.0);
@@ -236,6 +237,7 @@ void ScanToMapNode::readParameters()
   use_imu_initial_guess_ = get_parameter("use_imu_initial_guess").as_bool();
   imu_options_.use_imu_rotation = get_parameter("use_imu_rotation").as_bool();
   imu_options_.use_imu_translation = get_parameter("use_imu_translation").as_bool();
+  publish_imu_prediction_debug_ = get_parameter("publish_imu_prediction_debug").as_bool();
   constrain_to_planar_ = get_parameter("constrain_to_planar").as_bool();
   stop_tf_on_tracking_degraded_ = get_parameter("stop_tf_on_tracking_degraded").as_bool();
   tf_publish_rate_hz_ = get_parameter("tf_publish_rate_hz").as_double();
@@ -331,6 +333,47 @@ Eigen::Vector3d ScanToMapNode::readVector3Parameter(
   return Eigen::Vector3d(values[0], values[1], values[2]);
 }
 
+Eigen::Isometry3d ScanToMapNode::initialGuessForScan(
+  const rclcpp::Time& current_scan_stamp,
+  const Eigen::Isometry3d& fallback_guess)
+{
+  if (!use_imu_initial_guess_ || !has_last_accepted_scan_stamp_) {
+    return fallback_guess;
+  }
+
+  custom_imu_propagator::ImuPropagationResult imu_result;
+  {
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    imu_result =
+      imu_propagator_.propagateBetween(last_accepted_scan_stamp_, current_scan_stamp);
+  }
+
+  if (publish_imu_prediction_debug_) {
+    RCLCPP_INFO_THROTTLE(
+      get_logger(),
+      *get_clock(),
+      1000,
+      "IMU initial guess: success=%s status=%s samples=%zu dt=%.4f yaw=%.3f deg",
+      imu_result.success ? "true" : "false",
+      imu_result.status.c_str(),
+      imu_result.samples_used,
+      imu_result.dt_total,
+      imu_result.delta_yaw_deg);
+  }
+
+  if (!imu_result.success) {
+    return fallback_guess;
+  }
+
+  return fallback_guess * imu_result.delta_T;
+}
+
+void ScanToMapNode::updateLastAcceptedScanStamp(const rclcpp::Time& stamp)
+{
+  last_accepted_scan_stamp_ = stamp;
+  has_last_accepted_scan_stamp_ = true;
+}
+
 void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
   const auto callback_start = std::chrono::steady_clock::now();
@@ -407,19 +450,24 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
       "Initialized local map with %zu points",
       local_map_manager_.size());
 
+    updateLastAcceptedScanStamp(rclcpp::Time(msg->header.stamp));
+
     ++frame_count_;
     return;
   }
 
   // After the first frame, each scan is registered against the current local map.
   OptimizationStats stats;
-  Eigen::Isometry3d optimized_pose = current_pose_;
+  const rclcpp::Time current_scan_stamp(msg->header.stamp);
+  const Eigen::Isometry3d initial_guess =
+    initialGuessForScan(current_scan_stamp, current_pose_);
+  Eigen::Isometry3d optimized_pose = initial_guess;
 
   const auto optimization_start = std::chrono::steady_clock::now();
   const bool optimization_ok = optimizer_->optimize(
     filtered_scan,
     local_map_manager_.localMap(),
-    current_pose_,
+    initial_guess,
     optimized_pose,
     stats);
   const auto optimization_end = std::chrono::steady_clock::now();
@@ -453,6 +501,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
         delta_rotation * 180.0 / 3.14159265358979323846);
     } else {
       current_pose_ = optimized_pose;
+      updateLastAcceptedScanStamp(rclcpp::Time(msg->header.stamp));
 
       const auto map_update_start = std::chrono::steady_clock::now();
 

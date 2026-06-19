@@ -58,6 +58,7 @@ custom_scan_to_map_odom:
     use_imu_initial_guess: true
     use_imu_rotation: true
     use_imu_translation: false
+    publish_imu_prediction_debug: true
     imu_topic: "/livox/imu"
     max_imu_buffer_seconds: 5.0
     max_allowed_imu_gap: 0.02

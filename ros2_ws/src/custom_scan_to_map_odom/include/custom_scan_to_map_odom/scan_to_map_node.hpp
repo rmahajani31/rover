@@ -49,6 +49,12 @@ private:
     const CloudTConstPtr& cloud,
     const Eigen::Isometry3d& transform) const;
 
+  Eigen::Isometry3d initialGuessForScan(
+    const rclcpp::Time& current_scan_stamp,
+    const Eigen::Isometry3d& fallback_guess);
+
+  void updateLastAcceptedScanStamp(const rclcpp::Time& stamp);
+
   bool lookupLidarToBaseTransform(
     const rclcpp::Time& stamp,
     Eigen::Isometry3d& T_lidar_base);
@@ -101,6 +107,7 @@ private:
   bool publish_path_ = true;
   bool publish_diagnostics_ = true;
   bool use_imu_initial_guess_ = true;
+  bool publish_imu_prediction_debug_ = true;
   bool constrain_to_planar_ = true;
   bool stop_tf_on_tracking_degraded_ = true;
   double tf_publish_rate_hz_ = 20.0;
@@ -145,8 +152,10 @@ private:
   bool has_latest_tf_ = false;
   bool has_previous_odom_ = false;
   bool has_last_local_map_publish_stamp_ = false;
+  bool has_last_accepted_scan_stamp_ = false;
   rclcpp::Time previous_odom_stamp_{0, 0, RCL_ROS_TIME};
   rclcpp::Time last_local_map_publish_stamp_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time last_accepted_scan_stamp_{0, 0, RCL_ROS_TIME};
   std::mutex latest_tf_mutex_;
 
   LocalMapManager local_map_manager_;
