@@ -24,6 +24,16 @@ struct ScanToMapDiagnostics
   double optimization_time_ms = 0.0;
   double map_update_time_ms = 0.0;
 
+  bool imu_initial_guess_enabled = false;
+  bool used_imu_guess = false;
+  bool imu_prediction_success = false;
+  std::string imu_prediction_status;
+  std::size_t imu_samples_used = 0;
+  double imu_dt_total = 0.0;
+  double imu_delta_roll_deg = 0.0;
+  double imu_delta_pitch_deg = 0.0;
+  double imu_delta_yaw_deg = 0.0;
+
   OptimizationStats optimization;
   LocalMapDiagnostics local_map;
 };

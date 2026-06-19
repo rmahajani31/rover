@@ -27,6 +27,7 @@ find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common filters kdtree)
 find_package(Eigen3 REQUIRED)
+find_package(custom_imu_propagator REQUIRED)
 
 add_library(se3_utils
   src/se3_utils.cpp
@@ -157,6 +158,7 @@ ament_target_dependencies(custom_scan_to_map_odom_node
   geometry_msgs
   std_msgs
   diagnostic_msgs
+  custom_imu_propagator
   tf2
   tf2_ros
   tf2_eigen

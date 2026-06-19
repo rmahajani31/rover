@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -85,6 +86,7 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
   optimizer_ = std::make_unique<ScanToMapOptimizer>(optimizerOptionsFromParameters());
 
   cloud_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  imu_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   tf_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   rclcpp::SubscriptionOptions cloud_subscription_options;
@@ -96,7 +98,27 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
     std::bind(&ScanToMapNode::cloudCallback, this, _1),
     cloud_subscription_options);
 
+  if (use_imu_initial_guess_) {
+    rclcpp::SubscriptionOptions imu_subscription_options;
+    imu_subscription_options.callback_group = imu_callback_group_;
+
+    imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
+      imu_topic_,
+      rclcpp::SensorDataQoS(),
+      std::bind(&ScanToMapNode::imuCallback, this, _1),
+      imu_subscription_options);
+
+    RCLCPP_INFO(
+      get_logger(),
+      "IMU buffering enabled for scan-to-map initial guess: imu_topic=%s",
+      imu_topic_.c_str());
+  }
+
   odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(odom_topic_, 10);
+  if (publish_imu_predicted_odom_) {
+    imu_predicted_odom_pub_ =
+      create_publisher<nav_msgs::msg::Odometry>(imu_predicted_odom_topic_, 10);
+  }
   local_map_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(local_map_topic_, 10);
 
   if (publish_path_) {
@@ -144,7 +166,9 @@ ScanToMapNode::ScanToMapNode(const rclcpp::NodeOptions& options)
 void ScanToMapNode::declareParameters()
 {
   declare_parameter<std::string>("input_topic", "/custom/points_preprocessed");
+  declare_parameter<std::string>("imu_topic", "/livox/imu");
   declare_parameter<std::string>("odom_topic", "/custom/scan_to_map_odom");
+  declare_parameter<std::string>("imu_predicted_odom_topic", "/custom/imu_predicted_odom");
   declare_parameter<std::string>("path_topic", "/custom/scan_to_map_path");
   declare_parameter<std::string>("local_map_topic", "/custom/local_map");
   declare_parameter<std::string>("diagnostics_topic", "/custom/scan_to_map_diagnostics");
@@ -153,6 +177,11 @@ void ScanToMapNode::declareParameters()
   declare_parameter<std::string>("base_frame", "base_link");
   declare_parameter<std::string>("lidar_frame", "livox_frame");
   declare_parameter<bool>("publish_tf", false);
+  declare_parameter<bool>("use_imu_initial_guess", true);
+  declare_parameter<bool>("use_imu_rotation", true);
+  declare_parameter<bool>("use_imu_translation", false);
+  declare_parameter<bool>("publish_imu_prediction_debug", true);
+  declare_parameter<bool>("publish_imu_predicted_odom", true);
   declare_parameter<bool>("constrain_to_planar", true);
   declare_parameter<bool>("stop_tf_on_tracking_degraded", true);
   declare_parameter<double>("tf_publish_rate_hz", 20.0);
@@ -176,6 +205,14 @@ void ScanToMapNode::declareParameters()
   declare_parameter<double>("max_point_to_plane_residual", 0.50);
   declare_parameter<double>("min_plane_eigen_ratio", 5.0);
 
+  declare_parameter<double>("max_imu_buffer_seconds", 5.0);
+  declare_parameter<double>("max_allowed_imu_gap", 0.02);
+  declare_parameter<double>("max_expected_yaw_change_deg_per_scan", 30.0);
+  declare_parameter<std::vector<double>>("gravity", std::vector<double>{0.0, 0.0, -9.81});
+  declare_parameter<std::vector<double>>("gyro_bias", std::vector<double>{0.0, 0.0, 0.0});
+  declare_parameter<std::vector<double>>("accel_bias", std::vector<double>{0.0, 0.0, 0.0});
+  declare_parameter<double>("imu_accel_scale", 9.80665);
+
   declare_parameter<double>("local_map.cube_size_x", 30.0);
   declare_parameter<double>("local_map.cube_size_y", 30.0);
   declare_parameter<double>("local_map.cube_size_z", 6.0);
@@ -193,7 +230,9 @@ void ScanToMapNode::declareParameters()
 void ScanToMapNode::readParameters()
 {
   input_topic_ = get_parameter("input_topic").as_string();
+  imu_topic_ = get_parameter("imu_topic").as_string();
   odom_topic_ = get_parameter("odom_topic").as_string();
+  imu_predicted_odom_topic_ = get_parameter("imu_predicted_odom_topic").as_string();
   path_topic_ = get_parameter("path_topic").as_string();
   local_map_topic_ = get_parameter("local_map_topic").as_string();
   diagnostics_topic_ = get_parameter("diagnostics_topic").as_string();
@@ -202,6 +241,11 @@ void ScanToMapNode::readParameters()
   base_frame_ = get_parameter("base_frame").as_string();
   lidar_frame_ = get_parameter("lidar_frame").as_string();
   publish_tf_ = get_parameter("publish_tf").as_bool();
+  use_imu_initial_guess_ = get_parameter("use_imu_initial_guess").as_bool();
+  imu_options_.use_imu_rotation = get_parameter("use_imu_rotation").as_bool();
+  imu_options_.use_imu_translation = get_parameter("use_imu_translation").as_bool();
+  publish_imu_prediction_debug_ = get_parameter("publish_imu_prediction_debug").as_bool();
+  publish_imu_predicted_odom_ = get_parameter("publish_imu_predicted_odom").as_bool();
   constrain_to_planar_ = get_parameter("constrain_to_planar").as_bool();
   stop_tf_on_tracking_degraded_ = get_parameter("stop_tf_on_tracking_degraded").as_bool();
   tf_publish_rate_hz_ = get_parameter("tf_publish_rate_hz").as_double();
@@ -228,9 +272,137 @@ void ScanToMapNode::readParameters()
   max_point_to_plane_residual_ = get_parameter("max_point_to_plane_residual").as_double();
   min_plane_eigen_ratio_ = get_parameter("min_plane_eigen_ratio").as_double();
 
+  imu_options_.max_imu_buffer_seconds = get_parameter("max_imu_buffer_seconds").as_double();
+  imu_options_.max_allowed_imu_gap = get_parameter("max_allowed_imu_gap").as_double();
+  imu_options_.max_expected_yaw_change_deg_per_scan =
+    get_parameter("max_expected_yaw_change_deg_per_scan").as_double();
+  imu_options_.gravity =
+    readVector3Parameter("gravity", Eigen::Vector3d(0.0, 0.0, -9.81));
+  imu_options_.gyro_bias =
+    readVector3Parameter("gyro_bias", Eigen::Vector3d::Zero());
+  imu_options_.accel_bias =
+    readVector3Parameter("accel_bias", Eigen::Vector3d::Zero());
+  imu_accel_scale_ = get_parameter("imu_accel_scale").as_double();
+  imu_propagator_.configure(imu_options_);
+
   max_path_poses_ = get_parameter("max_path_poses").as_int();
   publish_path_ = get_parameter("publish_path").as_bool();
   publish_diagnostics_ = get_parameter("publish_diagnostics").as_bool();
+}
+
+void ScanToMapNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
+{
+  custom_imu_propagator::ImuSample sample;
+  sample.stamp = msg->header.stamp;
+  sample.gyro = Eigen::Vector3d(
+    msg->angular_velocity.x,
+    msg->angular_velocity.y,
+    msg->angular_velocity.z);
+  sample.accel = imu_accel_scale_ * Eigen::Vector3d(
+    msg->linear_acceleration.x,
+    msg->linear_acceleration.y,
+    msg->linear_acceleration.z);
+
+  // The propagator owns ordering and buffer trimming; the node only guards
+  // concurrent access from the IMU and scan callbacks.
+  std::size_t samples_received = 0;
+  {
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    imu_propagator_.addSample(sample);
+    ++imu_samples_received_;
+    samples_received = imu_samples_received_;
+  }
+
+  RCLCPP_DEBUG_THROTTLE(
+    get_logger(),
+    *get_clock(),
+    2000,
+    "Buffered IMU samples for scan-to-map: received=%zu gyro_norm=%.5f accel_norm=%.5f",
+    samples_received,
+    sample.gyro.norm(),
+    sample.accel.norm());
+}
+
+Eigen::Vector3d ScanToMapNode::readVector3Parameter(
+  const std::string& name,
+  const Eigen::Vector3d& fallback) const
+{
+  const auto values = get_parameter(name).as_double_array();
+
+  if (values.size() != 3) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Parameter %s must have exactly 3 values; using fallback [%.3f, %.3f, %.3f]",
+      name.c_str(),
+      fallback.x(),
+      fallback.y(),
+      fallback.z());
+    return fallback;
+  }
+
+  return Eigen::Vector3d(values[0], values[1], values[2]);
+}
+
+Eigen::Isometry3d ScanToMapNode::initialGuessForScan(
+  const std_msgs::msg::Header& header,
+  const Eigen::Isometry3d& fallback_guess,
+  ScanToMapDiagnostics& diagnostics)
+{
+  diagnostics.imu_initial_guess_enabled = use_imu_initial_guess_;
+
+  if (!use_imu_initial_guess_ || !has_last_accepted_scan_stamp_) {
+    diagnostics.imu_prediction_status = use_imu_initial_guess_ ?
+      "no_last_accepted_scan_stamp" : "imu_initial_guess_disabled";
+    return fallback_guess;
+  }
+
+  const rclcpp::Time current_scan_stamp(header.stamp);
+  custom_imu_propagator::ImuPropagationResult imu_result;
+  {
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    imu_result =
+      imu_propagator_.propagateBetween(last_accepted_scan_stamp_, current_scan_stamp);
+  }
+
+  if (publish_imu_prediction_debug_) {
+    RCLCPP_INFO_THROTTLE(
+      get_logger(),
+      *get_clock(),
+      1000,
+      "IMU initial guess: success=%s status=%s samples=%zu dt=%.4f yaw=%.3f deg",
+      imu_result.success ? "true" : "false",
+      imu_result.status.c_str(),
+      imu_result.samples_used,
+      imu_result.dt_total,
+      imu_result.delta_yaw_deg);
+  }
+
+  diagnostics.imu_prediction_success = imu_result.success;
+  diagnostics.imu_prediction_status = imu_result.status;
+  diagnostics.imu_samples_used = imu_result.samples_used;
+  diagnostics.imu_dt_total = imu_result.dt_total;
+  diagnostics.imu_delta_roll_deg = imu_result.delta_roll_deg;
+  diagnostics.imu_delta_pitch_deg = imu_result.delta_pitch_deg;
+  diagnostics.imu_delta_yaw_deg = imu_result.delta_yaw_deg;
+
+  if (!imu_result.success) {
+    return fallback_guess;
+  }
+
+  // Phase 8 composes the IMU delta onto the previous accepted LiDAR pose. The
+  // optimizer still owns the final odometry correction.
+  const Eigen::Isometry3d imu_guess = fallback_guess * imu_result.delta_T;
+  diagnostics.used_imu_guess = true;
+  publishImuPredictedOdometry(header, imu_guess);
+  return imu_guess;
+}
+
+void ScanToMapNode::updateLastAcceptedScanStamp(const rclcpp::Time& stamp)
+{
+  // Rejected scans are intentionally excluded so the next IMU interval starts
+  // from the last pose that actually updated the map/odometry state.
+  last_accepted_scan_stamp_ = stamp;
+  has_last_accepted_scan_stamp_ = true;
 }
 
 void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -239,6 +411,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
 
   ScanToMapDiagnostics diagnostics;
   diagnostics.map_initialized = local_map_manager_.isInitialized();
+  diagnostics.imu_initial_guess_enabled = use_imu_initial_guess_;
 
   CloudTPtr raw_cloud = fromRosCloud(*msg);
   diagnostics.input_points = raw_cloud->size();
@@ -309,19 +482,23 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
       "Initialized local map with %zu points",
       local_map_manager_.size());
 
+    updateLastAcceptedScanStamp(rclcpp::Time(msg->header.stamp));
+
     ++frame_count_;
     return;
   }
 
   // After the first frame, each scan is registered against the current local map.
   OptimizationStats stats;
-  Eigen::Isometry3d optimized_pose = current_pose_;
+  const Eigen::Isometry3d initial_guess =
+    initialGuessForScan(msg->header, current_pose_, diagnostics);
+  Eigen::Isometry3d optimized_pose = initial_guess;
 
   const auto optimization_start = std::chrono::steady_clock::now();
   const bool optimization_ok = optimizer_->optimize(
     filtered_scan,
     local_map_manager_.localMap(),
-    current_pose_,
+    initial_guess,
     optimized_pose,
     stats);
   const auto optimization_end = std::chrono::steady_clock::now();
@@ -355,6 +532,7 @@ void ScanToMapNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
         delta_rotation * 180.0 / 3.14159265358979323846);
     } else {
       current_pose_ = optimized_pose;
+      updateLastAcceptedScanStamp(rclcpp::Time(msg->header.stamp));
 
       const auto map_update_start = std::chrono::steady_clock::now();
 
@@ -724,6 +902,47 @@ bool ScanToMapNode::publishOdometry(
   }
 
   return true;
+}
+
+void ScanToMapNode::publishImuPredictedOdometry(
+  const std_msgs::msg::Header& header,
+  const Eigen::Isometry3d& T_odom_lidar)
+{
+  if (!imu_predicted_odom_pub_) {
+    return;
+  }
+
+  Eigen::Isometry3d T_lidar_base = Eigen::Isometry3d::Identity();
+  if (!lookupLidarToBaseTransform(rclcpp::Time(header.stamp), T_lidar_base)) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(),
+      *get_clock(),
+      2000,
+      "Skipping IMU predicted odometry publish until %s -> %s transform is available",
+      lidar_frame_.c_str(),
+      base_frame_.c_str());
+    return;
+  }
+
+  const Eigen::Isometry3d T_odom_child = T_odom_lidar * T_lidar_base;
+  const Eigen::Isometry3d T_nav_odom_child = makePlanarTransform(T_odom_child);
+
+  // Debug-only prediction: publish for inspection without updating TF, path, or
+  // the previous odometry state consumed by Nav2.
+  nav_msgs::msg::Odometry odom;
+  odom.header.stamp = header.stamp;
+  odom.header.frame_id = odom_frame_;
+  odom.child_frame_id = base_frame_;
+  odom.pose.pose = toRosPose(T_nav_odom_child);
+
+  odom.pose.covariance[0] = 0.25;
+  odom.pose.covariance[7] = 0.25;
+  odom.pose.covariance[14] = 0.25;
+  odom.pose.covariance[21] = 0.50;
+  odom.pose.covariance[28] = 0.50;
+  odom.pose.covariance[35] = 0.50;
+
+  imu_predicted_odom_pub_->publish(odom);
 }
 
 void ScanToMapNode::publishPath(
