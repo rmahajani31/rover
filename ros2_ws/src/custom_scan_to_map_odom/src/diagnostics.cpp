@@ -105,6 +105,33 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.values.push_back(makeKeyValue(
     "iterations",
     std::to_string(diagnostics.optimization.iterations)));
+  status.values.push_back(makeKeyValue(
+    "imu_initial_guess_enabled",
+    diagnostics.imu_initial_guess_enabled ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "used_imu_guess",
+    diagnostics.used_imu_guess ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "imu_prediction_success",
+    diagnostics.imu_prediction_success ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "imu_prediction_status",
+    diagnostics.imu_prediction_status));
+  status.values.push_back(makeKeyValue(
+    "imu_samples_used",
+    std::to_string(diagnostics.imu_samples_used)));
+  status.values.push_back(makeKeyValue(
+    "imu_dt_total",
+    std::to_string(diagnostics.imu_dt_total)));
+  status.values.push_back(makeKeyValue(
+    "imu_delta_roll_deg",
+    std::to_string(diagnostics.imu_delta_roll_deg)));
+  status.values.push_back(makeKeyValue(
+    "imu_delta_pitch_deg",
+    std::to_string(diagnostics.imu_delta_pitch_deg)));
+  status.values.push_back(makeKeyValue(
+    "imu_delta_yaw_deg",
+    std::to_string(diagnostics.imu_delta_yaw_deg)));
 
   array.status.push_back(status);
   return array;
