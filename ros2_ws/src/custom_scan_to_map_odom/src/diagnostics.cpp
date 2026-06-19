@@ -31,13 +31,6 @@ diagnostic_msgs::msg::KeyValue makeKeyValue(
 
 diagnostic_msgs::msg::KeyValue makeKeyValue(
   const std::string& key,
-  int value)
-{
-  return makeKeyValue(key, std::to_string(value));
-}
-
-diagnostic_msgs::msg::KeyValue makeKeyValue(
-  const std::string& key,
   double value)
 {
   return makeKeyValue(key, std::to_string(value));
