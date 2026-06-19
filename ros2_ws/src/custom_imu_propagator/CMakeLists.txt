@@ -85,6 +85,22 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_delta_quaternion test/test_delta_quaternion.cpp)
+  target_link_libraries(test_delta_quaternion imu_propagator)
+  ament_target_dependencies(test_delta_quaternion rclcpp)
+
+  ament_add_gtest(test_imu_interval_extraction test/test_imu_interval_extraction.cpp)
+  target_link_libraries(test_imu_interval_extraction imu_propagator)
+  ament_target_dependencies(test_imu_interval_extraction rclcpp)
+
+  ament_add_gtest(test_rotation_integration test/test_rotation_integration.cpp)
+  target_link_libraries(test_rotation_integration imu_propagator)
+  ament_target_dependencies(test_rotation_integration rclcpp)
+endif()
+
 ament_export_include_directories(include)
 ament_export_targets(export_imu_propagator HAS_LIBRARY_TARGET)
 ament_export_dependencies(rclcpp Eigen3)
