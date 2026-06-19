@@ -1035,9 +1035,9 @@ void ScanToMapNode::publishDiagnostics(
     diagnostic_msg.status.size(),
     diagnostics_pub_->get_subscription_count());
 
-  RCLCPP_INFO_ONCE(
-    get_logger(),
-    "Skipping scan-to-map diagnostics publish while isolating the builder crash");
+  RCLCPP_INFO_ONCE(get_logger(), "Publishing bare scan-to-map diagnostics message");
+  diagnostics_pub_->publish(diagnostic_msg);
+  RCLCPP_INFO_ONCE(get_logger(), "Bare scan-to-map diagnostics message published");
 }
 
 void ScanToMapNode::publishTransform(
