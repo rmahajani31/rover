@@ -81,6 +81,30 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.values.push_back(makeKeyValue(
     "optimization_status",
     diagnostics.optimization.status));
+  status.values.push_back(makeKeyValue(
+    "optimization_success",
+    diagnostics.optimization.success ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "valid_correspondences",
+    std::to_string(diagnostics.optimization.valid_correspondences)));
+  status.values.push_back(makeKeyValue(
+    "valid_planes",
+    std::to_string(diagnostics.optimization.valid_planes)));
+  status.values.push_back(makeKeyValue(
+    "mean_residual",
+    std::to_string(diagnostics.optimization.mean_residual)));
+  status.values.push_back(makeKeyValue(
+    "max_residual",
+    std::to_string(diagnostics.optimization.max_residual)));
+  status.values.push_back(makeKeyValue(
+    "final_update_translation_norm",
+    std::to_string(diagnostics.optimization.final_update_translation_norm)));
+  status.values.push_back(makeKeyValue(
+    "final_update_rotation_norm",
+    std::to_string(diagnostics.optimization.final_update_rotation_norm)));
+  status.values.push_back(makeKeyValue(
+    "iterations",
+    std::to_string(diagnostics.optimization.iterations)));
 
   array.status.push_back(status);
   return array;
