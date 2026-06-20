@@ -26,6 +26,7 @@ Eigen::Quaterniond expQuaternion(const Eigen::Vector3d& theta)
   const double angle = theta.norm();
 
   if (angle < 1e-8) {
+    // Small-angle approximation keeps the quaternion well behaved near zero rotation.
     return Eigen::Quaterniond(
       1.0,
       0.5 * theta.x(),
@@ -78,6 +79,7 @@ std::vector<RotationSample> integrateRotation(
       continue;
     }
 
+    // Integrate the gyro as a piecewise-constant angular velocity over this segment.
     const Eigen::Quaterniond dq = expQuaternion(omega * dt);
     q = q * dq;
     q.normalize();
@@ -140,6 +142,7 @@ Eigen::Quaterniond interpolateRotation(
   }
 
   const double alpha = clamp((t - lower->t) / interval, 0.0, 1.0);
+  // Slerp preserves constant angular-rate interpolation between adjacent IMU samples.
   return lower->q.slerp(alpha, upper->q).normalized();
 }
 

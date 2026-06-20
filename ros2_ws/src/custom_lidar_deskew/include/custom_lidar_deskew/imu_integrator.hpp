@@ -19,6 +19,7 @@ std::vector<RotationSample> integrateRotation(
   double scan_end,
   const Eigen::Vector3d& gyro_bias);
 
+// Returns the scan-relative rotation at time t using spherical interpolation.
 Eigen::Quaterniond interpolateRotation(
   const std::vector<RotationSample>& samples,
   double t);

@@ -248,6 +248,7 @@ void LidarDeskewNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
   const auto point_time_summary =
     summarizePointTimes(*msg, point_time_field_name_, point_time_unit_);
 
+  // The point-time range defines the actual scan duration used for IMU integration.
   stats.has_point_time = point_time_summary.has_point_time;
   stats.min_point_rel_time_sec = point_time_summary.min_relative_time_sec;
   stats.max_point_rel_time_sec = point_time_summary.max_relative_time_sec;
@@ -365,6 +366,7 @@ std::vector<ImuSample> LidarDeskewNode::getImuSamples(
 
   std::lock_guard<std::mutex> lock(imu_mutex_);
 
+  // Copy out of the shared buffer so deskew work can proceed without holding the mutex.
   for (const auto& sample : imu_buffer_) {
     if (sample.t >= t0 && sample.t <= t1) {
       result.push_back(sample);
@@ -419,6 +421,7 @@ sensor_msgs::msg::PointCloud2 LidarDeskewNode::deskewCloudRotationOnly(
     return output;
   }
 
+  // All points are expressed as if they were captured at the end of the scan.
   const Eigen::Quaterniond q_end = interpolateRotation(rotations, scan_end);
 
   sensor_msgs::PointCloud2Iterator<float> x_it(output, "x");
@@ -446,6 +449,7 @@ sensor_msgs::msg::PointCloud2 LidarDeskewNode::deskewCloudRotationOnly(
       continue;
     }
 
+    // Rotate from the point's acquisition time into the scan-end LiDAR orientation.
     const Eigen::Vector3d p_new = q_end.inverse() * (q_point * p_raw);
 
     *x_it = static_cast<float>(p_new.x());

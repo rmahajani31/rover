@@ -32,6 +32,7 @@ private:
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
   void cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
+  // Copies only the IMU samples needed for the current scan, including a small time margin.
   std::vector<ImuSample> getImuSamples(double scan_start, double scan_end) const;
 
   bool hasImuCoverage(
@@ -39,6 +40,7 @@ private:
     double scan_start,
     double scan_end) const;
 
+  // Current implementation corrects rotational LiDAR motion only; translation support is reserved.
   sensor_msgs::msg::PointCloud2 deskewCloudRotationOnly(
     const sensor_msgs::msg::PointCloud2& cloud,
     const std::vector<ImuSample>& imu_samples,

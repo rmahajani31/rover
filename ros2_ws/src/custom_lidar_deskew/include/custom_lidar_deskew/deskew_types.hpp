@@ -8,6 +8,7 @@ namespace custom_lidar_deskew
 
 struct ImuSample
 {
+  // Timestamp is expressed in ROS time seconds to match point-cloud stamp arithmetic.
   double t = 0.0;
   Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
   Eigen::Vector3d accel = Eigen::Vector3d::Zero();
@@ -15,6 +16,7 @@ struct ImuSample
 
 struct RotationSample
 {
+  // Rotation from the scan start to time t.
   double t = 0.0;
   Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
 };
@@ -29,6 +31,7 @@ struct PoseSample
 
 struct DeskewStats
 {
+  // Published as diagnostics so launch logs can show whether deskewing was actually active.
   int raw_point_count = 0;
   int deskewed_point_count = 0;
   int imu_samples_used = 0;

@@ -57,6 +57,7 @@ std::optional<double> readScalarAsDouble(
   }
 
   T value{};
+  // PointCloud2 stores fields in a byte buffer; memcpy avoids alignment assumptions.
   std::memcpy(&value, cloud.data.data() + byte_offset, sizeof(T));
   return static_cast<double>(value);
 }
@@ -125,6 +126,7 @@ std::optional<std::size_t> pointFieldByteOffset(
   const std::size_t width = static_cast<std::size_t>(cloud.width);
   const std::size_t row = point_index / width;
   const std::size_t col = point_index % width;
+  // Organized and unorganized clouds both use row_step/point_step for byte addressing.
   const std::size_t byte_offset =
     row * static_cast<std::size_t>(cloud.row_step) +
     col * static_cast<std::size_t>(cloud.point_step) +
@@ -221,6 +223,7 @@ PointTimeSummary summarizePointTimes(
   double min_time = std::numeric_limits<double>::infinity();
   double max_time = -std::numeric_limits<double>::infinity();
 
+  // Invalid point-time entries are skipped so one bad point does not reject the scan.
   for (std::size_t i = 0; i < summary.total_point_count; ++i) {
     const auto relative_time = readPointRelativeTimeSec(cloud, i, *field, unit);
     if (!relative_time.has_value()) {

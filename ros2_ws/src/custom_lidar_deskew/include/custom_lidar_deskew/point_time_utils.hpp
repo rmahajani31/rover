@@ -19,6 +19,7 @@ enum class PointTimeUnit
 
 struct PointTimeSummary
 {
+  // All time values are normalized to seconds, regardless of the cloud field unit.
   bool has_point_time = false;
   std::size_t total_point_count = 0;
   std::size_t valid_point_count = 0;
@@ -28,6 +29,7 @@ struct PointTimeSummary
 
 std::optional<PointTimeUnit> parsePointTimeUnit(const std::string& unit);
 
+// Returns a pointer into cloud.fields; the caller must not outlive the cloud.
 const sensor_msgs::msg::PointField* findPointField(
   const sensor_msgs::msg::PointCloud2& cloud,
   const std::string& field_name);
@@ -42,6 +44,7 @@ std::optional<double> readPointRelativeTimeSec(
   const sensor_msgs::msg::PointField& field,
   PointTimeUnit unit);
 
+// Scans the whole cloud once to find the usable per-point time range.
 PointTimeSummary summarizePointTimes(
   const sensor_msgs::msg::PointCloud2& cloud,
   const std::string& field_name,
