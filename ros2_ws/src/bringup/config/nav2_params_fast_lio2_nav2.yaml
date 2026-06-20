@@ -256,21 +256,9 @@ global_costmap:
       footprint: "[ [0.25, 0.25], [0.25, -0.25], [-0.25, -0.25], [-0.25, 0.25] ]"
       resolution: 0.05
       track_unknown_space: true
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
-      obstacle_layer:
-        plugin: "nav2_costmap_2d::ObstacleLayer"
-        enabled: true
-        observation_sources: scan
-        scan:
-          topic: /scan_from_livox
-          max_obstacle_height: 2.0
-          clearing: true
-          marking: true
-          data_type: "LaserScan"
-          raytrace_max_range: 8.0
-          raytrace_min_range: 0.3
-          obstacle_max_range: 8.0
-          obstacle_min_range: 0.3
+      # Keep global planning anchored to the static map. The projected Livox scan
+      # remains active in the local costmap and collision monitor only.
+      plugins: ["static_layer", "inflation_layer"]
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
