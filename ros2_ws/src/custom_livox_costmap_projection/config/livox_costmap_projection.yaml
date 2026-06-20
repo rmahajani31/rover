@@ -19,7 +19,7 @@ livox_costmap_projection_node:
 
     floor_threshold: 0.03
     ceiling_threshold: 1.20
-    obstacle_min_z: 0.10
+    obstacle_min_z: 0.05
     obstacle_max_z: 1.20
 
     remove_self_points: true
