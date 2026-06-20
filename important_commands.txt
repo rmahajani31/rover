@@ -92,6 +92,8 @@ ros2 launch bringup costmap_projection.launch.py | tee out/output.txt
 
 ros2 launch bringup scan_to_map_costmap_projection.launch.py | tee out/output.txt
 
+ros2 launch bringup scan_to_map_deskew_costmap_projection.launch.py | tee out/output.txt
+
 ros2 launch bringup pi_fast_lio2_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/nav.txt
 
 ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/nav.txt
