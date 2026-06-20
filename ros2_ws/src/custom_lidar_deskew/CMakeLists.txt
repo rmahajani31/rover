@@ -21,6 +21,39 @@ find_package(pcl_ros REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common)
 find_package(Eigen3 REQUIRED)
 
+add_executable(lidar_deskew_node
+  src/lidar_deskew_node.cpp
+  src/imu_integrator.cpp
+  src/point_time_utils.cpp
+)
+
+target_include_directories(lidar_deskew_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(lidar_deskew_node
+  rclcpp
+  sensor_msgs
+  diagnostic_msgs
+  pcl_conversions
+  pcl_ros
+)
+
+target_link_libraries(lidar_deskew_node
+  Eigen3::Eigen
+)
+
+install(
+  TARGETS lidar_deskew_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
 install(
   DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
