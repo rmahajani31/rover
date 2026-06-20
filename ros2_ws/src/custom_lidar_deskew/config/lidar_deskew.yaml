@@ -1,0 +1,39 @@
+custom_lidar_deskew:
+  ros__parameters:
+    lidar_topic: "/livox/lidar"
+    imu_topic: "/livox/imu"
+    output_topic: "/custom/deskewed_points"
+
+    deskew_to_scan_end: true
+    use_rotation_deskew: true
+    use_translation_deskew: false
+
+    gyro_bias_x: 0.0
+    gyro_bias_y: 0.0
+    gyro_bias_z: 0.0
+
+    accel_bias_x: 0.0
+    accel_bias_y: 0.0
+    accel_bias_z: 0.0
+
+    gravity_x: 0.0
+    gravity_y: 0.0
+    gravity_z: -9.81
+
+    max_imu_buffer_size: 5000
+    imu_time_margin_sec: 0.02
+    max_allowed_scan_duration_sec: 0.2
+    min_required_imu_samples: 2
+
+    point_time_field: "offset_time"
+    point_time_unit: "nanoseconds"
+    fallback_scan_duration_sec: 0.1
+    allow_fallback_without_point_time: false
+
+    publish_raw_if_deskew_fails: true
+    preserve_input_header_stamp: true
+    output_frame_id: ""
+
+    publish_diagnostics: true
+    diagnostics_topic: "/custom/deskew/diagnostics"
+    print_timing_debug: false
