@@ -37,6 +37,7 @@ def generate_launch_description():
 
     deskew_input_topic = LaunchConfiguration("deskew_input_topic")
     deskew_output_topic = LaunchConfiguration("deskew_output_topic")
+    costmap_projection_input_topic = LaunchConfiguration("costmap_projection_input_topic")
     scan_to_map_input_topic = LaunchConfiguration("scan_to_map_input_topic")
 
     return LaunchDescription([
@@ -80,6 +81,11 @@ def generate_launch_description():
             default_value="/custom/deskewed_points",
             description="PointCloud2 input topic consumed by custom_scan_to_map_odom.",
         ),
+        DeclareLaunchArgument(
+            "costmap_projection_input_topic",
+            default_value="/custom/deskewed_points",
+            description="PointCloud2 input topic consumed by custom_livox_costmap_projection.",
+        ),
         Node(
             package="tf2_ros",
             executable="static_transform_publisher",
@@ -119,7 +125,12 @@ def generate_launch_description():
             name="livox_costmap_projection_node",
             output="screen",
             condition=IfCondition(start_costmap_projection),
-            parameters=[costmap_projection_config],
+            parameters=[
+                costmap_projection_config,
+                {
+                    "input_cloud_topic": costmap_projection_input_topic,
+                },
+            ],
         ),
         Node(
             package="livox_cloud_to_scan",
