@@ -2,15 +2,49 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <string>
+#include <vector>
 
 #include <pcl/filters/voxel_grid.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <sensor_msgs/msg/point_field.hpp>
 
 namespace custom_fastlio_preprocess
 {
+
+namespace
+{
+
+template <typename T>
+void writeField(
+  sensor_msgs::msg::PointCloud2 & cloud,
+  std::size_t point_index,
+  std::size_t field_offset,
+  const T & value)
+{
+  const std::size_t byte_offset =
+    point_index * static_cast<std::size_t>(cloud.point_step) + field_offset;
+  std::memcpy(cloud.data.data() + byte_offset, &value, sizeof(T));
+}
+
+sensor_msgs::msg::PointField makePointField(
+  const std::string & name,
+  std::uint32_t offset,
+  std::uint8_t datatype)
+{
+  sensor_msgs::msg::PointField field;
+  field.name = name;
+  field.offset = offset;
+  field.datatype = datatype;
+  field.count = 1;
+  return field;
+}
+
+}  // namespace
 
 PreprocessNode::PreprocessNode()
 : Node("custom_fastlio_preprocess"), frame_count_(0)
@@ -30,6 +64,9 @@ PreprocessNode::PreprocessNode()
   nav2_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
     nav2_output_topic_, rclcpp::SensorDataQoS());
 
+  deskew_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
+    deskew_output_topic_, rclcpp::SensorDataQoS());
+
   diag_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
     diagnostics_topic_, 10);
 
@@ -44,6 +81,7 @@ PreprocessNode::PreprocessNode()
   RCLCPP_INFO(get_logger(), "Input CustomMsg topic: %s", input_topic_.c_str());
   RCLCPP_INFO(get_logger(), "Odom cloud output: %s", odom_output_topic_.c_str());
   RCLCPP_INFO(get_logger(), "Nav2 cloud output: %s", nav2_output_topic_.c_str());
+  RCLCPP_INFO(get_logger(), "Deskew timed cloud output: %s", deskew_output_topic_.c_str());
 }
 
 void PreprocessNode::declareParameters()
@@ -51,6 +89,7 @@ void PreprocessNode::declareParameters()
   declare_parameter<std::string>("input_topic", "/livox/lidar");
   declare_parameter<std::string>("odom_output_topic", "/custom/points_preprocessed");
   declare_parameter<std::string>("nav2_output_topic", "/custom/points_for_nav2");
+  declare_parameter<std::string>("deskew_output_topic", "/custom/points_for_deskew");
   declare_parameter<std::string>("diagnostics_topic", "/custom/preprocess_diagnostics");
   declare_parameter<std::string>("target_frame", "base_link");
   declare_parameter<std::string>("fallback_frame_id", "livox_frame");
@@ -82,6 +121,7 @@ void PreprocessNode::loadParameters()
   input_topic_ = get_parameter("input_topic").as_string();
   odom_output_topic_ = get_parameter("odom_output_topic").as_string();
   nav2_output_topic_ = get_parameter("nav2_output_topic").as_string();
+  deskew_output_topic_ = get_parameter("deskew_output_topic").as_string();
   diagnostics_topic_ = get_parameter("diagnostics_topic").as_string();
   target_frame_ = get_parameter("target_frame").as_string();
   fallback_frame_id_ = get_parameter("fallback_frame_id").as_string();
@@ -269,6 +309,87 @@ void PreprocessNode::makeNav2Cloud(
   voxelDownsample(height_filtered, nav2_cloud, nav2_voxel_leaf_size_);
 }
 
+void PreprocessNode::makeDeskewCloud(
+  const livox_ros_driver2::msg::CustomMsg & msg,
+  const std_msgs::msg::Header & header,
+  sensor_msgs::msg::PointCloud2 & output) const
+{
+  struct TimedPoint
+  {
+    float x = 0.0F;
+    float y = 0.0F;
+    float z = 0.0F;
+    float intensity = 0.0F;
+    std::uint8_t tag = 0U;
+    std::uint8_t line = 0U;
+    std::uint32_t offset_time = 0U;
+  };
+
+  std::vector<TimedPoint> points;
+  points.reserve(msg.points.size());
+
+  for (const auto & livox_point : msg.points) {
+    if (filter_livox_line_ && livox_point.line >= scan_line_count_) {
+      continue;
+    }
+
+    const auto return_tag = livox_point.tag & 0x30;
+    if (filter_livox_tag_ && return_tag != 0x10 && return_tag != 0x00) {
+      continue;
+    }
+
+    PointT point;
+    point.x = livox_point.x;
+    point.y = livox_point.y;
+    point.z = livox_point.z;
+    point.intensity = static_cast<float>(livox_point.reflectivity);
+
+    if (remove_nan_ && !isFinitePoint(point)) {
+      continue;
+    }
+
+    TimedPoint timed_point;
+    timed_point.x = livox_point.x;
+    timed_point.y = livox_point.y;
+    timed_point.z = livox_point.z;
+    timed_point.intensity = static_cast<float>(livox_point.reflectivity);
+    timed_point.tag = livox_point.tag;
+    timed_point.line = livox_point.line;
+    timed_point.offset_time = livox_point.offset_time;
+    points.push_back(timed_point);
+  }
+
+  output = sensor_msgs::msg::PointCloud2();
+  output.header = header;
+  output.height = 1;
+  output.width = static_cast<std::uint32_t>(points.size());
+  output.is_bigendian = false;
+  output.is_dense = false;
+  output.point_step = 24;
+  output.row_step = output.point_step * output.width;
+
+  output.fields.push_back(makePointField("x", 0, sensor_msgs::msg::PointField::FLOAT32));
+  output.fields.push_back(makePointField("y", 4, sensor_msgs::msg::PointField::FLOAT32));
+  output.fields.push_back(makePointField("z", 8, sensor_msgs::msg::PointField::FLOAT32));
+  output.fields.push_back(makePointField("intensity", 12, sensor_msgs::msg::PointField::FLOAT32));
+  output.fields.push_back(makePointField("tag", 16, sensor_msgs::msg::PointField::UINT8));
+  output.fields.push_back(makePointField("line", 17, sensor_msgs::msg::PointField::UINT8));
+  output.fields.push_back(makePointField("offset_time", 20, sensor_msgs::msg::PointField::UINT32));
+
+  output.data.resize(static_cast<std::size_t>(output.row_step));
+
+  for (std::size_t i = 0; i < points.size(); ++i) {
+    const auto & point = points[i];
+    writeField(output, i, 0, point.x);
+    writeField(output, i, 4, point.y);
+    writeField(output, i, 8, point.z);
+    writeField(output, i, 12, point.intensity);
+    writeField(output, i, 16, point.tag);
+    writeField(output, i, 17, point.line);
+    writeField(output, i, 20, point.offset_time);
+  }
+}
+
 void PreprocessNode::publishDiagnostics(
   const std_msgs::msg::Header & header,
   std::size_t raw_count,
@@ -345,6 +466,9 @@ void PreprocessNode::customCloudCallback(
     output_header.frame_id = fallback_frame_id_;
   }
 
+  sensor_msgs::msg::PointCloud2 deskew_msg;
+  makeDeskewCloud(*msg, output_header, deskew_msg);
+
   sensor_msgs::msg::PointCloud2 odom_msg;
   pcl::toROSMsg(*odom_cloud, odom_msg);
   odom_msg.header = output_header;
@@ -355,6 +479,7 @@ void PreprocessNode::customCloudCallback(
 
   odom_pub_->publish(odom_msg);
   nav2_pub_->publish(nav2_msg);
+  deskew_pub_->publish(deskew_msg);
 
   const auto end_time = std::chrono::steady_clock::now();
   const double processing_time_ms =

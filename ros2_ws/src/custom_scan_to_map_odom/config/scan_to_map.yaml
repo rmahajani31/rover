@@ -17,13 +17,13 @@ custom_scan_to_map_odom:
     max_consecutive_tracking_failures: 3
 
     # Current scan filtering
-    scan_voxel_leaf_size: 0.20
+    scan_voxel_leaf_size: 0.25
     min_range: 0.30
-    max_range: 30.0
-    max_points_per_scan: 3000
+    max_range: 15.0
+    max_points_per_scan: 900
 
     # Optimization
-    max_iterations: 5
+    max_iterations: 2
     min_valid_correspondences: 100
     convergence_translation_epsilon: 0.001
     convergence_rotation_epsilon: 0.001
@@ -39,13 +39,13 @@ custom_scan_to_map_odom:
 
     # Local map
     local_map:
-      cube_size_x: 40.0
-      cube_size_y: 40.0
-      cube_size_z: 8.0
+      cube_size_x: 20.0
+      cube_size_y: 20.0
+      cube_size_z: 6.0
       movement_threshold_xy: 5.0
       movement_threshold_z: 2.0
-      voxel_leaf_size: 0.20
-      publish_local_map: true
+      voxel_leaf_size: 0.25
+      publish_local_map: false
       local_map_publish_period_sec: 1.0
 
     # Publishing
