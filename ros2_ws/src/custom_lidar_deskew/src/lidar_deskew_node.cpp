@@ -44,15 +44,26 @@ LidarDeskewNode::LidarDeskewNode()
   declareParameters();
   loadParameters();
 
+  imu_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cloud_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+  rclcpp::SubscriptionOptions imu_subscription_options;
+  imu_subscription_options.callback_group = imu_callback_group_;
+
+  rclcpp::SubscriptionOptions cloud_subscription_options;
+  cloud_subscription_options.callback_group = cloud_callback_group_;
+
   imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
     imu_topic_,
     rclcpp::SensorDataQoS(),
-    std::bind(&LidarDeskewNode::imuCallback, this, std::placeholders::_1));
+    std::bind(&LidarDeskewNode::imuCallback, this, std::placeholders::_1),
+    imu_subscription_options);
 
   cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
     lidar_topic_,
     rclcpp::SensorDataQoS(),
-    std::bind(&LidarDeskewNode::cloudCallback, this, std::placeholders::_1));
+    std::bind(&LidarDeskewNode::cloudCallback, this, std::placeholders::_1),
+    cloud_subscription_options);
 
   cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
     output_topic_,
@@ -535,7 +546,12 @@ double LidarDeskewNode::stampToSec(const builtin_interfaces::msg::Time& stamp)
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<custom_lidar_deskew::LidarDeskewNode>());
+
+  auto node = std::make_shared<custom_lidar_deskew::LidarDeskewNode>();
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 2);
+  executor.add_node(node);
+  executor.spin();
+
   rclcpp::shutdown();
   return 0;
 }
