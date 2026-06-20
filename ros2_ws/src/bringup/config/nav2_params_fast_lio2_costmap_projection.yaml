@@ -236,7 +236,7 @@ local_costmap:
         observation_sources: livox_obstacles
         livox_obstacles:
           topic: /custom/obstacle_cloud
-          min_obstacle_height: 0.05
+          min_obstacle_height: 0.10
           max_obstacle_height: 1.20
           clearing: true
           marking: true
@@ -446,7 +446,7 @@ collision_monitor:
     livox_obstacles:
       type: "pointcloud"
       topic: "/custom/obstacle_cloud"
-      min_height: 0.05
+      min_height: 0.10
       max_height: 1.20
       enabled: true
 
