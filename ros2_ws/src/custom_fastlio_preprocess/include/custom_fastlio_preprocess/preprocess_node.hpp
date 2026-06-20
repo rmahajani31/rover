@@ -18,9 +18,8 @@
 namespace custom_fastlio_preprocess
 {
 
-// Converts Livox MID-360 CustomMsg input into two PointCloud2 streams:
-// one lightly filtered stream for future odometry work and one obstacle-focused
-// stream that feeds the existing Nav2 scan projection pipeline.
+// Converts Livox MID-360 CustomMsg input into separate PointCloud2 streams for
+// odometry, Nav2 obstacle perception, and timestamp-preserving deskew input.
 class PreprocessNode : public rclcpp::Node
 {
 public:
@@ -63,6 +62,11 @@ private:
     CloudT::Ptr & nav2_cloud,
     std::size_t & rejected_height) const;
 
+  void makeDeskewCloud(
+    const livox_ros_driver2::msg::CustomMsg & msg,
+    const std_msgs::msg::Header & header,
+    sensor_msgs::msg::PointCloud2 & output) const;
+
   void voxelDownsample(
     const CloudT::Ptr & input,
     CloudT::Ptr & output,
@@ -86,6 +90,7 @@ private:
   rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr custom_cloud_sub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr odom_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr nav2_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr deskew_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub_;
 
   // Topic and frame names are parameters so Phase 3 can be tested without
@@ -93,6 +98,7 @@ private:
   std::string input_topic_;
   std::string odom_output_topic_;
   std::string nav2_output_topic_;
+  std::string deskew_output_topic_;
   std::string diagnostics_topic_;
   std::string target_frame_;
   std::string fallback_frame_id_;

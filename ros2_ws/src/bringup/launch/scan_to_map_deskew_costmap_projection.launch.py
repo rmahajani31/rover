@@ -67,8 +67,8 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "deskew_input_topic",
-            default_value="/custom/points_preprocessed",
-            description="PointCloud2 input topic for custom_lidar_deskew.",
+            default_value="/custom/points_for_deskew",
+            description="Timestamp-preserving PointCloud2 input topic for custom_lidar_deskew.",
         ),
         DeclareLaunchArgument(
             "deskew_output_topic",

@@ -4,6 +4,7 @@ custom_fastlio_preprocess:
 
     odom_output_topic: "/custom/points_preprocessed"
     nav2_output_topic: "/custom/points_for_nav2"
+    deskew_output_topic: "/custom/points_for_deskew"
     diagnostics_topic: "/custom/preprocess_diagnostics"
 
     # First version keeps points in the incoming cloud frame.

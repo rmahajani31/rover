@@ -1,6 +1,6 @@
 custom_lidar_deskew:
   ros__parameters:
-    lidar_topic: "/livox/lidar"
+    lidar_topic: "/custom/points_for_deskew"
     imu_topic: "/livox/imu"
     output_topic: "/custom/deskewed_points"
 
