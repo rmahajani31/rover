@@ -83,8 +83,14 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "costmap_projection_input_topic",
-            default_value="/custom/deskewed_points",
-            description="PointCloud2 input topic consumed by custom_livox_costmap_projection.",
+            default_value="/custom/points_preprocessed",
+            description=(
+                "PointCloud2 input topic consumed by custom_livox_costmap_projection. "
+                "Kept on the non-deskewed preprocessed cloud: deskew helps odometry but "
+                "is negligible for the 2D obstacle costmap, and routing the costmap through "
+                "the deskew node adds latency that trips the Nav2 collision_monitor "
+                "source_timeout (causing jerky stop/go motion)."
+            ),
         ),
         Node(
             package="tf2_ros",
