@@ -11,13 +11,12 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory("bringup")
     nav2_bringup_dir = get_package_share_directory("nav2_bringup")
 
-    # Pi-side bringup: FAST-LIO2 odometry, AMCL scan, and custom obstacle cloud
-    # arrive from Jetson. AMCL uses /scan_from_livox; costmaps use
-    # /custom/obstacle_cloud.
+    # Pi-side bringup: FAST-LIO2 odometry and /scan_from_livox arrive from Jetson.
+    # This default params file uses the scan for AMCL, costmaps, and collision monitor.
     default_params = os.path.join(
         bringup_dir,
         "config",
-        "nav2_params_fast_lio2_costmap_projection.yaml",
+        "nav2_params_fast_lio2_nav2.yaml",
     )
     localization_launch = os.path.join(nav2_bringup_dir, "launch", "localization_launch.py")
     navigation_launch = os.path.join(nav2_bringup_dir, "launch", "navigation_launch.py")
@@ -35,7 +34,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "params_file",
             default_value=default_params,
-            description="Absolute path to the Nav2 parameters file for custom costmap projection.",
+            description="Absolute path to the Nav2 parameters file.",
         ),
         DeclareLaunchArgument(
             "use_sim_time",
