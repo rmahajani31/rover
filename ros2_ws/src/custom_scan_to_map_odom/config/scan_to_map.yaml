@@ -20,10 +20,10 @@ custom_scan_to_map_odom:
     scan_voxel_leaf_size: 0.25
     min_range: 0.30
     max_range: 15.0
-    max_points_per_scan: 1800
+    max_points_per_scan: 1200
 
     # Optimization
-    max_iterations: 3
+    max_iterations: 2
     min_valid_correspondences: 100
     convergence_translation_epsilon: 0.001
     convergence_rotation_epsilon: 0.001
