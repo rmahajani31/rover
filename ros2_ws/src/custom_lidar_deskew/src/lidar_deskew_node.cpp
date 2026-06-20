@@ -286,14 +286,26 @@ void LidarDeskewNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
   if (!stats.imu_coverage_ok) {
     stats.missing_imu_count =
       std::max(0, min_required_imu_samples_ - static_cast<int>(imu_samples.size()));
-    RCLCPP_WARN_THROTTLE(
-      get_logger(),
-      *get_clock(),
-      2000,
-      "Insufficient IMU coverage for scan [%.6f, %.6f]; samples=%zu.",
-      scan_start,
-      scan_end,
-      imu_samples.size());
+    if (imu_samples.empty()) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        2000,
+        "Insufficient IMU coverage for scan [%.6f, %.6f]; samples=0.",
+        scan_start,
+        scan_end);
+    } else {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        2000,
+        "Insufficient IMU coverage for scan [%.6f, %.6f]; imu=[%.6f, %.6f] samples=%zu.",
+        scan_start,
+        scan_end,
+        imu_samples.front().t,
+        imu_samples.back().t,
+        imu_samples.size());
+    }
     publish_raw_and_diagnostics();
     return;
   }
@@ -360,7 +372,8 @@ bool LidarDeskewNode::hasImuCoverage(
     return false;
   }
 
-  return imu_samples.front().t <= scan_start && imu_samples.back().t >= scan_end;
+  return imu_samples.front().t <= scan_start + imu_time_margin_sec_ &&
+         imu_samples.back().t >= scan_end - imu_time_margin_sec_;
 }
 
 sensor_msgs::msg::PointCloud2 LidarDeskewNode::deskewCloudRotationOnly(
