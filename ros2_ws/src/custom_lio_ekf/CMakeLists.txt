@@ -14,6 +14,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(custom_imu_propagator REQUIRED)
 
 add_library(ekf_state
   src/ekf_state.cpp
@@ -23,12 +24,21 @@ add_library(ekf_parameters
   src/ekf_parameters.cpp
 )
 
+add_library(imu_prediction
+  src/imu_prediction.cpp
+)
+
 target_include_directories(ekf_state PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 
 target_include_directories(ekf_parameters PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_include_directories(imu_prediction PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
@@ -42,10 +52,20 @@ target_link_libraries(ekf_parameters
   Eigen3::Eigen
 )
 
+ament_target_dependencies(imu_prediction
+  custom_imu_propagator
+)
+
+target_link_libraries(imu_prediction
+  ekf_state
+  Eigen3::Eigen
+)
+
 install(
   TARGETS
     ekf_state
     ekf_parameters
+    imu_prediction
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -62,7 +82,7 @@ install(
 )
 
 ament_export_include_directories(include)
-ament_export_libraries(ekf_state ekf_parameters)
-ament_export_dependencies(Eigen3)
+ament_export_libraries(ekf_state ekf_parameters imu_prediction)
+ament_export_dependencies(Eigen3 custom_imu_propagator)
 
 ament_package()
