@@ -15,6 +15,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(custom_imu_propagator REQUIRED)
+find_package(custom_scan_to_map_odom REQUIRED)
 
 add_library(ekf_state
   src/ekf_state.cpp
@@ -30,6 +31,10 @@ add_library(imu_prediction
 
 add_library(covariance_propagation
   src/covariance_propagation.cpp
+)
+
+add_library(lidar_residual
+  src/lidar_residual.cpp
 )
 
 target_include_directories(ekf_state PUBLIC
@@ -48,6 +53,11 @@ target_include_directories(imu_prediction PUBLIC
 )
 
 target_include_directories(covariance_propagation PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_include_directories(lidar_residual PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
@@ -81,12 +91,23 @@ target_link_libraries(covariance_propagation
   Eigen3::Eigen
 )
 
+ament_target_dependencies(lidar_residual
+  custom_scan_to_map_odom
+)
+
+target_link_libraries(lidar_residual
+  ekf_parameters
+  ekf_state
+  Eigen3::Eigen
+)
+
 install(
   TARGETS
     ekf_state
     ekf_parameters
     imu_prediction
     covariance_propagation
+    lidar_residual
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -103,7 +124,13 @@ install(
 )
 
 ament_export_include_directories(include)
-ament_export_libraries(ekf_state ekf_parameters imu_prediction covariance_propagation)
-ament_export_dependencies(Eigen3 custom_imu_propagator)
+ament_export_libraries(
+  ekf_state
+  ekf_parameters
+  imu_prediction
+  covariance_propagation
+  lidar_residual
+)
+ament_export_dependencies(Eigen3 custom_imu_propagator custom_scan_to_map_odom)
 
 ament_package()
