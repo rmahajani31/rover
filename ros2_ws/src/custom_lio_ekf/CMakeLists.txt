@@ -19,7 +19,16 @@ add_library(ekf_state
   src/ekf_state.cpp
 )
 
+add_library(ekf_parameters
+  src/ekf_parameters.cpp
+)
+
 target_include_directories(ekf_state PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_include_directories(ekf_parameters PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
@@ -28,8 +37,15 @@ target_link_libraries(ekf_state
   Eigen3::Eigen
 )
 
+target_link_libraries(ekf_parameters
+  ekf_state
+  Eigen3::Eigen
+)
+
 install(
-  TARGETS ekf_state
+  TARGETS
+    ekf_state
+    ekf_parameters
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -46,7 +62,7 @@ install(
 )
 
 ament_export_include_directories(include)
-ament_export_libraries(ekf_state)
+ament_export_libraries(ekf_state ekf_parameters)
 ament_export_dependencies(Eigen3)
 
 ament_package()
