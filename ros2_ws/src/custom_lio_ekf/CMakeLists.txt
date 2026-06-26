@@ -28,6 +28,10 @@ add_library(imu_prediction
   src/imu_prediction.cpp
 )
 
+add_library(covariance_propagation
+  src/covariance_propagation.cpp
+)
+
 target_include_directories(ekf_state PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -39,6 +43,11 @@ target_include_directories(ekf_parameters PUBLIC
 )
 
 target_include_directories(imu_prediction PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_include_directories(covariance_propagation PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
@@ -61,11 +70,23 @@ target_link_libraries(imu_prediction
   Eigen3::Eigen
 )
 
+ament_target_dependencies(covariance_propagation
+  custom_imu_propagator
+)
+
+target_link_libraries(covariance_propagation
+  ekf_parameters
+  ekf_state
+  imu_prediction
+  Eigen3::Eigen
+)
+
 install(
   TARGETS
     ekf_state
     ekf_parameters
     imu_prediction
+    covariance_propagation
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -82,7 +103,7 @@ install(
 )
 
 ament_export_include_directories(include)
-ament_export_libraries(ekf_state ekf_parameters imu_prediction)
+ament_export_libraries(ekf_state ekf_parameters imu_prediction covariance_propagation)
 ament_export_dependencies(Eigen3 custom_imu_propagator)
 
 ament_package()
