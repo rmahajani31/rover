@@ -13,10 +13,40 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(Eigen3 REQUIRED)
+
+add_library(ekf_state
+  src/ekf_state.cpp
+)
+
+target_include_directories(ekf_state PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(ekf_state
+  Eigen3::Eigen
+)
+
+install(
+  TARGETS ekf_state
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
 
 install(
   DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
+
+ament_export_include_directories(include)
+ament_export_libraries(ekf_state)
+ament_export_dependencies(Eigen3)
 
 ament_package()
