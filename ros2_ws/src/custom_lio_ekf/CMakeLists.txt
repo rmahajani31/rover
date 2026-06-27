@@ -139,8 +139,6 @@ ament_target_dependencies(lidar_residual
 target_link_libraries(lidar_residual
   ekf_parameters
   ekf_state
-  local_map
-  plane_fitter
   Eigen3::Eigen
 )
 
@@ -152,9 +150,6 @@ target_link_libraries(iterated_lidar_update
   ekf_parameters
   ekf_state
   lidar_residual
-  local_map
-  plane_fitter
-  ros_conversions
   Eigen3::Eigen
 )
 
@@ -193,9 +188,6 @@ target_link_libraries(custom_lio_ekf_node
   ekf_state
   iterated_lidar_update
   lidar_residual
-  local_map_manager
-  ros_conversions
-  se3_utils
   ${PCL_LIBRARIES}
   Eigen3::Eigen
 )
