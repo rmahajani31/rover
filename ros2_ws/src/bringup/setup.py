@@ -14,6 +14,7 @@ setup(
             'launch/fast_lio2_nav2.launch.py',
             'launch/fastlio_shadow.launch.py',
             'launch/jetson.launch.py',
+            'launch/lio_ekf_deskew_costmap_projection.launch.py',
             'launch/scan_to_scan_icp.launch.py',
             'launch/mapping.launch.py',
             'launch/costmap_projection.launch.py',
