@@ -1,0 +1,84 @@
+custom_lio_ekf:
+  ros__parameters:
+    input_topic: /custom/deskewed_points
+    imu_topic: /livox/imu
+    odom_topic: /custom/lio_ekf_odom
+    path_topic: /custom/lio_ekf_path
+    local_map_topic: /custom/lio_ekf_local_map
+    diagnostics_topic: /custom/lio_ekf_diagnostics
+
+    odom_frame: odom
+    base_frame: base_link
+    imu_frame: livox_frame
+    lidar_frame: livox_frame
+
+    publish_tf: false
+    publish_path: true
+    publish_diagnostics: false
+    stop_tf_on_tracking_degraded: true
+    # TF is republished from the latest LiDAR-corrected pose; no IMU-only odom is emitted.
+    tf_publish_rate_hz: 20.0
+    max_consecutive_tracking_failures: 3
+    max_path_poses: 2000
+
+    scan_voxel_leaf_size: 0.35
+    min_range: 0.30
+    max_range: 15.0
+    max_points_per_scan: 1200
+
+    max_imu_buffer_seconds: 5.0
+    # Livox MID-360 IMU linear acceleration is observed in g on this setup.
+    imu_accel_scale: 9.80665
+
+    initial_gyro_bias: [0.0, 0.0, 0.0]
+    initial_accel_bias: [0.0, 0.0, 0.0]
+    initial_gravity: [0.0, 0.0, -9.81]
+
+    lidar_imu_translation: [0.0, 0.0, 0.0]
+    lidar_imu_rpy: [0.0, 0.0, 0.0]
+
+    initial_covariance:
+      theta: 0.05
+      position: 0.10
+      velocity: 0.10
+      gyro_bias: 0.01
+      accel_bias: 0.10
+      gravity: 0.10
+
+    imu_noise:
+      gyro_noise: 0.015
+      accel_noise: 0.20
+      gyro_bias_random_walk: 0.0001
+      accel_bias_random_walk: 0.001
+
+    imu_prediction:
+      use_accel_translation: true
+      calibrate_initial_imu: true
+      initial_calibration_min_samples: 20
+      initial_calibration_window_sec: 1.0
+
+    lidar_update:
+      max_iterations: 3
+      k_neighbors: 5
+      min_valid_residuals: 80
+      lidar_residual_stddev: 0.05
+      max_neighbor_distance: 1.0
+      max_plane_error: 0.10
+      max_point_to_plane_residual: 0.50
+      min_plane_eigen_ratio: 5.0
+      convergence_theta_norm: 0.001
+      convergence_position_norm: 0.001
+      max_correction_theta_norm: 0.10
+      max_correction_position_norm: 0.30
+      use_huber_weight: true
+      huber_delta: 0.10
+
+    local_map:
+      cube_size_x: 20.0
+      cube_size_y: 20.0
+      cube_size_z: 4.0
+      movement_threshold_xy: 3.0
+      movement_threshold_z: 2.0
+      voxel_leaf_size: 0.25
+      publish_local_map: false
+      local_map_publish_period_sec: 5.0

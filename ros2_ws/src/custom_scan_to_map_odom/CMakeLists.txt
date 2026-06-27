@@ -183,6 +183,7 @@ install(
     local_map_manager
     scan_to_map_optimizer
     diagnostics
+  EXPORT export_custom_scan_to_map_odom
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -215,5 +216,27 @@ if(BUILD_TESTING)
   ament_add_gtest(test_local_map_manager test/test_local_map_manager.cpp)
   target_link_libraries(test_local_map_manager local_map_manager)
 endif()
+
+ament_export_include_directories(include)
+ament_export_targets(export_custom_scan_to_map_odom HAS_LIBRARY_TARGET)
+ament_export_libraries(
+  se3_utils
+  ros_conversions
+  plane_fitter
+  local_map
+  local_map_manager
+  scan_to_map_optimizer
+  diagnostics
+)
+ament_export_dependencies(
+  geometry_msgs
+  sensor_msgs
+  std_msgs
+  builtin_interfaces
+  diagnostic_msgs
+  pcl_conversions
+  PCL
+  Eigen3
+)
 
 ament_package()
