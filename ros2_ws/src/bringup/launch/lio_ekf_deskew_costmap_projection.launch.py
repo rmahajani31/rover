@@ -168,7 +168,6 @@ def generate_launch_description():
                     "odom_topic": "/nav2_odom",
                     "publish_tf": True,
                     "tf_publish_rate_hz": 20.0,
-                    "publish_predicted_odom": False,
                     "stop_tf_on_tracking_degraded": False,
                     "imu_prediction.use_accel_translation": True,
                     "imu_prediction.calibrate_initial_imu": True,

@@ -85,20 +85,10 @@ private:
   void ensureTfListener();
   void ensureTfBroadcaster();
   void publishLatestTransform();
-  void publishPredictedOdometry();
-  void logPredictedOdometryStats();
-  void updatePredictionBaseState(const rclcpp::Time& stamp);
-  bool getPredictionBaseState(EkfState& state, rclcpp::Time& stamp);
 
   bool publishOdometry(
     const std_msgs::msg::Header& header,
     const LidarUpdateStats& update_stats);
-
-  bool publishOdometryForState(
-    const std_msgs::msg::Header& header,
-    const LidarUpdateStats& update_stats,
-    const EkfState& state,
-    bool publish_path);
 
   void publishPath(
     const std_msgs::msg::Header& header,
@@ -139,12 +129,8 @@ private:
   bool publish_path_ = true;
   bool publish_diagnostics_ = true;
   bool stop_tf_on_tracking_degraded_ = true;
-  bool publish_predicted_odom_ = false;
-  bool predicted_odom_use_accel_translation_ = false;
 
   double tf_publish_rate_hz_ = 20.0;
-  double predicted_odom_rate_hz_ = 10.0;
-  double max_predicted_odom_interval_sec_ = 2.0;
   int max_consecutive_tracking_failures_ = 3;
   int max_path_poses_ = 2000;
 
@@ -165,7 +151,6 @@ private:
   custom_scan_to_map_odom::LocalMapConfig local_map_config_;
 
   EkfState state_;
-  EkfState prediction_base_state_;
   custom_scan_to_map_odom::LocalMapManager local_map_manager_;
 
   std::deque<custom_imu_propagator::ImuSample> imu_buffer_;
@@ -176,24 +161,7 @@ private:
 
   std::size_t frame_count_ = 0;
   std::size_t imu_samples_received_ = 0;
-  std::size_t predicted_odom_success_count_ = 0;
-  std::size_t predicted_odom_no_base_count_ = 0;
-  std::size_t predicted_odom_not_enough_imu_count_ = 0;
-  std::size_t predicted_odom_stale_interval_count_ = 0;
-  std::size_t predicted_odom_prediction_failed_count_ = 0;
-  std::size_t predicted_odom_publish_rejected_count_ = 0;
-  std::size_t prediction_base_update_count_ = 0;
   int consecutive_tracking_failures_ = 0;
-
-  double last_predicted_interval_sec_ = 0.0;
-  double last_predicted_base_stamp_sec_ = 0.0;
-  double last_predicted_imu_stamp_sec_ = 0.0;
-  double last_predicted_now_sec_ = 0.0;
-  double last_predicted_now_minus_base_sec_ = 0.0;
-  double last_predicted_now_minus_imu_sec_ = 0.0;
-  double last_base_update_stamp_sec_ = 0.0;
-  double last_base_update_now_sec_ = 0.0;
-  double last_base_update_now_minus_stamp_sec_ = 0.0;
 
   nav_msgs::msg::Path path_msg_;
 
@@ -204,27 +172,22 @@ private:
 
   bool has_previous_odom_ = false;
   bool has_latest_tf_ = false;
-  bool has_prediction_base_state_ = false;
   bool has_last_local_map_publish_stamp_ = false;
 
   rclcpp::Time previous_odom_stamp_{0, 0, RCL_ROS_TIME};
-  rclcpp::Time prediction_base_stamp_{0, 0, RCL_ROS_TIME};
   rclcpp::Time last_local_map_publish_stamp_{0, 0, RCL_ROS_TIME};
 
   std::mutex odom_publish_mutex_;
-  std::mutex prediction_base_mutex_;
   std::mutex latest_tf_mutex_;
 
   rclcpp::CallbackGroup::SharedPtr cloud_callback_group_;
   rclcpp::CallbackGroup::SharedPtr imu_callback_group_;
   rclcpp::CallbackGroup::SharedPtr tf_callback_group_;
-  rclcpp::CallbackGroup::SharedPtr predicted_odom_callback_group_;
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
   rclcpp::TimerBase::SharedPtr tf_timer_;
-  rclcpp::TimerBase::SharedPtr predicted_odom_timer_;
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;

@@ -73,8 +73,6 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
   cloud_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   imu_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   tf_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  predicted_odom_callback_group_ =
-    create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   rclcpp::SubscriptionOptions cloud_subscription_options;
   cloud_subscription_options.callback_group = cloud_callback_group_;
@@ -113,7 +111,7 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
   path_msg_.header.frame_id = odom_frame_;
 
   if (publish_tf_) {
-    RCLCPP_WARN(
+    RCLCPP_INFO(
       get_logger(),
       "publish_tf is true. Verify no other node is publishing %s -> %s before using Nav2.",
       odom_frame_.c_str(),
@@ -143,25 +141,14 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
     }
   }
 
-  if (publish_predicted_odom_ && predicted_odom_rate_hz_ > 0.0) {
-    const auto predicted_odom_period =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(
-      std::chrono::duration<double>(1.0 / predicted_odom_rate_hz_));
-
-    predicted_odom_timer_ = create_wall_timer(
-      predicted_odom_period,
-      std::bind(&LioEkfNode::publishPredictedOdometry, this),
-      predicted_odom_callback_group_);
-  }
-
   RCLCPP_INFO(
     get_logger(),
-    "custom_lio_ekf initialized | accel_translation_prediction=%s | "
-    "predicted_odom=%s %.2f Hz | predicted_odom_accel_translation=%s",
-    ekf_parameters_.use_accel_translation_prediction ? "true" : "false",
-    publish_predicted_odom_ ? "true" : "false",
-    predicted_odom_rate_hz_,
-    predicted_odom_use_accel_translation_ ? "true" : "false");
+    "custom_lio_ekf initialized | input=%s | odom=%s | publish_tf=%s | "
+    "accel_translation_prediction=%s",
+    input_topic_.c_str(),
+    odom_topic_.c_str(),
+    publish_tf_ ? "true" : "false",
+    ekf_parameters_.use_accel_translation_prediction ? "true" : "false");
 }
 
 void LioEkfNode::declareParameters()
@@ -182,12 +169,8 @@ void LioEkfNode::declareParameters()
   declare_parameter<bool>("publish_path", true);
   declare_parameter<bool>("publish_diagnostics", true);
   declare_parameter<bool>("stop_tf_on_tracking_degraded", true);
-  declare_parameter<bool>("publish_predicted_odom", false);
-  declare_parameter<bool>("predicted_odom_use_accel_translation", false);
 
   declare_parameter<double>("tf_publish_rate_hz", 20.0);
-  declare_parameter<double>("predicted_odom_rate_hz", 10.0);
-  declare_parameter<double>("max_predicted_odom_interval_sec", 2.0);
   declare_parameter<int>("max_consecutive_tracking_failures", 3);
   declare_parameter<int>("max_path_poses", 2000);
 
@@ -265,14 +248,8 @@ void LioEkfNode::readParameters()
   publish_path_ = get_parameter("publish_path").as_bool();
   publish_diagnostics_ = get_parameter("publish_diagnostics").as_bool();
   stop_tf_on_tracking_degraded_ = get_parameter("stop_tf_on_tracking_degraded").as_bool();
-  publish_predicted_odom_ = get_parameter("publish_predicted_odom").as_bool();
-  predicted_odom_use_accel_translation_ =
-    get_parameter("predicted_odom_use_accel_translation").as_bool();
 
   tf_publish_rate_hz_ = get_parameter("tf_publish_rate_hz").as_double();
-  predicted_odom_rate_hz_ = get_parameter("predicted_odom_rate_hz").as_double();
-  max_predicted_odom_interval_sec_ =
-    get_parameter("max_predicted_odom_interval_sec").as_double();
   max_consecutive_tracking_failures_ = get_parameter("max_consecutive_tracking_failures").as_int();
   max_path_poses_ = get_parameter("max_path_poses").as_int();
 
@@ -417,15 +394,10 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     }
   }
 
-  if (update_ok || prediction_ok) {
-    updatePredictionBaseState(scan_stamp);
-  }
-
   diagnostics.map_initialized = local_map_manager_.isInitialized();
   diagnostics.map_points = local_map_manager_.size();
 
   publishOdometry(msg->header, diagnostics.lidar_update);
-  publishPredictedOdometry();
 
   if (shouldPublishLocalMap(msg->header)) {
     publishLocalMap(msg->header);
@@ -435,7 +407,7 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   const auto callback_end = std::chrono::steady_clock::now();
 
-  RCLCPP_INFO_THROTTLE(
+  RCLCPP_DEBUG_THROTTLE(
     get_logger(),
     *get_clock(),
     1000,
@@ -626,8 +598,10 @@ bool LioEkfNode::calibrateInitialImuState(const rclcpp::Time& scan_stamp)
   }
 
   if (sample_count < initial_imu_calibration_min_samples_) {
-    RCLCPP_WARN(
+    RCLCPP_WARN_THROTTLE(
       get_logger(),
+      *get_clock(),
+      2000,
       "Skipping initial IMU calibration: only %d samples available, need %d",
       sample_count,
       initial_imu_calibration_min_samples_);
@@ -703,7 +677,6 @@ bool LioEkfNode::initializeMap(
 
   last_scan_stamp_ = scan_stamp;
   has_last_scan_stamp_ = true;
-  updatePredictionBaseState(scan_stamp);
 
   diagnostics.map_initialized = true;
   diagnostics.map_points = local_map_manager_.size();
@@ -847,161 +820,9 @@ void LioEkfNode::publishLatestTransform()
   publishTransform(get_clock()->now(), T_odom_child, child_frame);
 }
 
-void LioEkfNode::publishPredictedOdometry()
-{
-  if (!publish_predicted_odom_) {
-    return;
-  }
-
-  EkfState predicted_state;
-  rclcpp::Time base_stamp(0, 0, RCL_ROS_TIME);
-
-  if (!getPredictionBaseState(predicted_state, base_stamp)) {
-    ++predicted_odom_no_base_count_;
-    logPredictedOdometryStats();
-    return;
-  }
-
-  std::vector<custom_imu_propagator::ImuSample> samples;
-
-  {
-    std::lock_guard<std::mutex> imu_lock(imu_mutex_);
-
-    if (imu_buffer_.size() < 2) {
-      ++predicted_odom_not_enough_imu_count_;
-      logPredictedOdometryStats();
-      return;
-    }
-
-    for (const auto& sample : imu_buffer_) {
-      if (sample.stamp >= base_stamp) {
-        samples.push_back(sample);
-      }
-    }
-  }
-
-  if (samples.size() < 2) {
-    ++predicted_odom_not_enough_imu_count_;
-    logPredictedOdometryStats();
-    return;
-  }
-
-  const rclcpp::Time predicted_stamp = samples.back().stamp;
-  const double prediction_interval = (predicted_stamp - base_stamp).seconds();
-  const rclcpp::Time now = get_clock()->now();
-
-  last_predicted_interval_sec_ = prediction_interval;
-  last_predicted_base_stamp_sec_ = base_stamp.seconds();
-  last_predicted_imu_stamp_sec_ = predicted_stamp.seconds();
-  last_predicted_now_sec_ = now.seconds();
-  last_predicted_now_minus_base_sec_ = (now - base_stamp).seconds();
-  last_predicted_now_minus_imu_sec_ = (now - predicted_stamp).seconds();
-
-  if (prediction_interval <= 0.0 ||
-      (max_predicted_odom_interval_sec_ > 0.0 &&
-       prediction_interval > max_predicted_odom_interval_sec_)) {
-    ++predicted_odom_stale_interval_count_;
-    logPredictedOdometryStats();
-    return;
-  }
-
-  ImuPredictionStats prediction_stats;
-  if (!predictNominalState(
-      predicted_state,
-      samples,
-      prediction_stats,
-      predicted_odom_use_accel_translation_)) {
-    ++predicted_odom_prediction_failed_count_;
-    logPredictedOdometryStats();
-    return;
-  }
-
-  std_msgs::msg::Header header;
-  header.stamp = predicted_stamp;
-  header.frame_id = odom_frame_;
-
-  LidarUpdateStats update_stats;
-  update_stats.success = true;
-  update_stats.status = "imu_predicted";
-
-  if (publishOdometryForState(header, update_stats, predicted_state, false)) {
-    ++predicted_odom_success_count_;
-  } else {
-    ++predicted_odom_publish_rejected_count_;
-  }
-
-  logPredictedOdometryStats();
-}
-
-void LioEkfNode::logPredictedOdometryStats()
-{
-  RCLCPP_INFO_THROTTLE(
-    get_logger(),
-    *get_clock(),
-    2000,
-    "predicted_odom stats | success=%zu | no_base=%zu | not_enough_imu=%zu | "
-    "stale_interval=%zu | prediction_failed=%zu | publish_rejected=%zu | "
-    "base_updates=%zu | interval=%.3f | base_stamp=%.3f | imu_stamp=%.3f | "
-    "now=%.3f | now-base=%.3f | now-imu=%.3f | "
-    "last_base_update_stamp=%.3f | last_base_update_now=%.3f | "
-    "last_base_update_age=%.3f",
-    predicted_odom_success_count_,
-    predicted_odom_no_base_count_,
-    predicted_odom_not_enough_imu_count_,
-    predicted_odom_stale_interval_count_,
-    predicted_odom_prediction_failed_count_,
-    predicted_odom_publish_rejected_count_,
-    prediction_base_update_count_,
-    last_predicted_interval_sec_,
-    last_predicted_base_stamp_sec_,
-    last_predicted_imu_stamp_sec_,
-    last_predicted_now_sec_,
-    last_predicted_now_minus_base_sec_,
-    last_predicted_now_minus_imu_sec_,
-    last_base_update_stamp_sec_,
-    last_base_update_now_sec_,
-    last_base_update_now_minus_stamp_sec_);
-}
-
-void LioEkfNode::updatePredictionBaseState(const rclcpp::Time& stamp)
-{
-  std::lock_guard<std::mutex> lock(prediction_base_mutex_);
-  prediction_base_state_ = state_;
-  prediction_base_stamp_ = stamp;
-  has_prediction_base_state_ = true;
-  ++prediction_base_update_count_;
-
-  const rclcpp::Time now = get_clock()->now();
-  last_base_update_stamp_sec_ = stamp.seconds();
-  last_base_update_now_sec_ = now.seconds();
-  last_base_update_now_minus_stamp_sec_ = (now - stamp).seconds();
-}
-
-bool LioEkfNode::getPredictionBaseState(EkfState& state, rclcpp::Time& stamp)
-{
-  std::lock_guard<std::mutex> lock(prediction_base_mutex_);
-
-  if (!has_prediction_base_state_) {
-    return false;
-  }
-
-  state = prediction_base_state_;
-  stamp = prediction_base_stamp_;
-  return true;
-}
-
 bool LioEkfNode::publishOdometry(
   const std_msgs::msg::Header& header,
   const LidarUpdateStats& update_stats)
-{
-  return publishOdometryForState(header, update_stats, state_, publish_path_);
-}
-
-bool LioEkfNode::publishOdometryForState(
-  const std_msgs::msg::Header& header,
-  const LidarUpdateStats& update_stats,
-  const EkfState& state,
-  bool publish_path)
 {
   Eigen::Isometry3d T_imu_base = Eigen::Isometry3d::Identity();
 
@@ -1009,10 +830,9 @@ bool LioEkfNode::publishOdometryForState(
     return false;
   }
 
-  const Eigen::Isometry3d T_odom_imu = imuPoseInWorld(state);
+  const Eigen::Isometry3d T_odom_imu = imuPoseInWorld(state_);
   const Eigen::Isometry3d T_odom_base = makePlanarTransform(T_odom_imu * T_imu_base);
   const bool tracking_degraded = update_stats.status == "tracking_degraded";
-  const bool imu_predicted = update_stats.status == "imu_predicted";
 
   nav_msgs::msg::Odometry odom;
   odom.header.stamp = header.stamp;
@@ -1022,11 +842,6 @@ bool LioEkfNode::publishOdometryForState(
 
   double position_covariance = update_stats.success ? 0.05 : 0.25;
   double orientation_covariance = update_stats.success ? 0.10 : 0.50;
-
-  if (imu_predicted) {
-    position_covariance = 0.15;
-    orientation_covariance = 0.20;
-  }
 
   if (tracking_degraded) {
     position_covariance = 4.0;
@@ -1088,7 +903,7 @@ bool LioEkfNode::publishOdometryForState(
     }
   }
 
-  if (publish_path && update_stats.success && !imu_predicted) {
+  if (publish_path_ && update_stats.success) {
     publishPath(header, odom);
   }
 
@@ -1304,7 +1119,7 @@ int main(int argc, char** argv)
   rclcpp::init(argc, argv);
 
   auto node = std::make_shared<custom_lio_ekf::LioEkfNode>();
-  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 4);
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 3);
   executor.add_node(node);
   executor.spin();
 
