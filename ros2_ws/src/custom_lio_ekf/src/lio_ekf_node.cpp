@@ -79,9 +79,12 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
   rclcpp::SubscriptionOptions cloud_subscription_options;
   cloud_subscription_options.callback_group = cloud_callback_group_;
 
+  auto cloud_qos = rclcpp::SensorDataQoS();
+  cloud_qos.keep_last(1);
+
   cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
     input_topic_,
-    rclcpp::SensorDataQoS(),
+    cloud_qos,
     std::bind(&LioEkfNode::cloudCallback, this, _1),
     cloud_subscription_options);
 
