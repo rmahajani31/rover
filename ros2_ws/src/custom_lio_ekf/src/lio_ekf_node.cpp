@@ -895,9 +895,10 @@ EkfParameters LioEkfNode::parametersFromRosParameters() const
     get_parameter("lidar_update.max_iterations").as_int();
   parameters.lidar_update.k_neighbors =
     get_parameter("lidar_update.k_neighbors").as_int();
+  const int64_t min_valid_residuals =
+    get_parameter("lidar_update.min_valid_residuals").as_int();
   parameters.lidar_update.min_valid_residuals =
-    static_cast<std::size_t>(
-      std::max(0, get_parameter("lidar_update.min_valid_residuals").as_int()));
+    static_cast<std::size_t>(std::max<int64_t>(0, min_valid_residuals));
   parameters.lidar_update.lidar_residual_stddev =
     get_parameter("lidar_update.lidar_residual_stddev").as_double();
   parameters.lidar_update.max_neighbor_distance =
