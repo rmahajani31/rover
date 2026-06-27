@@ -14,7 +14,7 @@ custom_lio_ekf:
 
     publish_tf: false
     publish_path: true
-    publish_diagnostics: true
+    publish_diagnostics: false
     stop_tf_on_tracking_degraded: true
     tf_publish_rate_hz: 20.0
     max_consecutive_tracking_failures: 3
