@@ -352,67 +352,67 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   LidarUpdateStats update_stats;
   bool update_ok = false;
 
-  {
-    std::lock_guard<std::mutex> state_lock(state_mutex_);
+  prediction_ok = runPrediction(scan_stamp, prediction_stats);
+  const auto prediction_end = std::chrono::steady_clock::now();
 
-    prediction_ok = runPrediction(scan_stamp, prediction_stats);
-    const auto prediction_end = std::chrono::steady_clock::now();
+  diagnostics.prediction = prediction_stats;
+  diagnostics.prediction_time_ms =
+    elapsedMilliseconds(prediction_start, prediction_end);
 
-    diagnostics.prediction = prediction_stats;
-    diagnostics.prediction_time_ms =
-      elapsedMilliseconds(prediction_start, prediction_end);
+  if (prediction_ok) {
+    const auto update_start = std::chrono::steady_clock::now();
+    update_ok = runLidarUpdate(filtered_scan, update_stats);
+    const auto update_end = std::chrono::steady_clock::now();
 
+    diagnostics.lidar_update = update_stats;
+    diagnostics.lidar_update_time_ms =
+      elapsedMilliseconds(update_start, update_end);
+  } else {
+    update_stats.status = "prediction_failed";
+    diagnostics.lidar_update = update_stats;
+  }
+
+  if (update_ok) {
+    consecutive_tracking_failures_ = 0;
+    updateMap(filtered_scan, diagnostics);
+    last_scan_stamp_ = scan_stamp;
+    has_last_scan_stamp_ = true;
+  } else {
     if (prediction_ok) {
-      const auto update_start = std::chrono::steady_clock::now();
-      update_ok = runLidarUpdate(filtered_scan, update_stats);
-      const auto update_end = std::chrono::steady_clock::now();
-
-      diagnostics.lidar_update = update_stats;
-      diagnostics.lidar_update_time_ms =
-        elapsedMilliseconds(update_start, update_end);
-    } else {
-      update_stats.status = "prediction_failed";
-      diagnostics.lidar_update = update_stats;
-    }
-
-    if (update_ok) {
-      consecutive_tracking_failures_ = 0;
-      updateMap(filtered_scan, diagnostics);
+      // The state has already been predicted to this scan time. Advance the IMU
+      // interval even when LiDAR correction is rejected, otherwise the next scan
+      // re-integrates the same IMU samples and quickly pushes the state away.
       last_scan_stamp_ = scan_stamp;
       has_last_scan_stamp_ = true;
-    } else {
-      if (prediction_ok) {
-        // The state has already been predicted to this scan time. Advance the IMU
-        // interval even when LiDAR correction is rejected, otherwise the next scan
-        // re-integrates the same IMU samples and quickly pushes the state away.
-        last_scan_stamp_ = scan_stamp;
-        has_last_scan_stamp_ = true;
-      }
-
-      ++consecutive_tracking_failures_;
-
-      if (max_consecutive_tracking_failures_ > 0 &&
-          consecutive_tracking_failures_ >= max_consecutive_tracking_failures_) {
-        RCLCPP_WARN_THROTTLE(
-          get_logger(),
-          *get_clock(),
-          2000,
-          "LIO EKF tracking degraded after %d consecutive failures; last status=%s | "
-          "residuals=%zu | rms=%.4f | max=%.4f | dtheta=%.4f | dpos=%.4f",
-          consecutive_tracking_failures_,
-          diagnostics.lidar_update.status.c_str(),
-          diagnostics.lidar_update.valid_residuals,
-          diagnostics.lidar_update.rms_residual,
-          diagnostics.lidar_update.max_abs_residual,
-          diagnostics.lidar_update.final_delta_theta_norm,
-          diagnostics.lidar_update.final_delta_position_norm);
-        diagnostics.lidar_update.status = "tracking_degraded";
-      }
     }
 
-    diagnostics.map_initialized = local_map_manager_.isInitialized();
-    diagnostics.map_points = local_map_manager_.size();
+    ++consecutive_tracking_failures_;
+
+    if (max_consecutive_tracking_failures_ > 0 &&
+        consecutive_tracking_failures_ >= max_consecutive_tracking_failures_) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        2000,
+        "LIO EKF tracking degraded after %d consecutive failures; last status=%s | "
+        "residuals=%zu | rms=%.4f | max=%.4f | dtheta=%.4f | dpos=%.4f",
+        consecutive_tracking_failures_,
+        diagnostics.lidar_update.status.c_str(),
+        diagnostics.lidar_update.valid_residuals,
+        diagnostics.lidar_update.rms_residual,
+        diagnostics.lidar_update.max_abs_residual,
+        diagnostics.lidar_update.final_delta_theta_norm,
+        diagnostics.lidar_update.final_delta_position_norm);
+      diagnostics.lidar_update.status = "tracking_degraded";
+    }
   }
+
+  if (update_ok || prediction_ok) {
+    updatePredictionBaseState(scan_stamp);
+  }
+
+  diagnostics.map_initialized = local_map_manager_.isInitialized();
+  diagnostics.map_points = local_map_manager_.size();
 
   publishOdometry(msg->header, diagnostics.lidar_update);
   publishPredictedOdometry();
@@ -677,24 +677,23 @@ bool LioEkfNode::initializeMap(
   const custom_scan_to_map_odom::CloudTConstPtr& filtered_scan,
   LioEkfDiagnostics& diagnostics)
 {
-  {
-    std::lock_guard<std::mutex> state_lock(state_mutex_);
+  const rclcpp::Time scan_stamp(header.stamp);
 
-    if (!calibrateInitialImuState(rclcpp::Time(header.stamp))) {
-      diagnostics.lidar_update.success = false;
-      diagnostics.lidar_update.status = "waiting_for_initial_imu_calibration";
-      diagnostics.lidar_update.input_points = filtered_scan->size();
-      return false;
-    }
-
-    state_.P = makeInitialCovariance(ekf_parameters_.initial_covariance);
-
-    auto scan_world = transformCloudToWorld(filtered_scan, state_);
-    local_map_manager_.initialize(scan_world, state_.p_I_W);
-
-    last_scan_stamp_ = rclcpp::Time(header.stamp);
-    has_last_scan_stamp_ = true;
+  if (!calibrateInitialImuState(scan_stamp)) {
+    diagnostics.lidar_update.success = false;
+    diagnostics.lidar_update.status = "waiting_for_initial_imu_calibration";
+    diagnostics.lidar_update.input_points = filtered_scan->size();
+    return false;
   }
+
+  state_.P = makeInitialCovariance(ekf_parameters_.initial_covariance);
+
+  auto scan_world = transformCloudToWorld(filtered_scan, state_);
+  local_map_manager_.initialize(scan_world, state_.p_I_W);
+
+  last_scan_stamp_ = scan_stamp;
+  has_last_scan_stamp_ = true;
+  updatePredictionBaseState(scan_stamp);
 
   diagnostics.map_initialized = true;
   diagnostics.map_points = local_map_manager_.size();
@@ -847,17 +846,8 @@ void LioEkfNode::publishPredictedOdometry()
   EkfState predicted_state;
   rclcpp::Time base_stamp(0, 0, RCL_ROS_TIME);
 
-  {
-    std::unique_lock<std::mutex> state_lock(state_mutex_, std::try_to_lock);
-
-    if (!state_lock.owns_lock() ||
-        !local_map_manager_.isInitialized() ||
-        !has_last_scan_stamp_) {
-      return;
-    }
-
-    predicted_state = state_;
-    base_stamp = last_scan_stamp_;
+  if (!getPredictionBaseState(predicted_state, base_stamp)) {
+    return;
   }
 
   std::vector<custom_imu_propagator::ImuSample> samples;
@@ -909,18 +899,32 @@ void LioEkfNode::publishPredictedOdometry()
   publishOdometryForState(header, update_stats, predicted_state, false);
 }
 
+void LioEkfNode::updatePredictionBaseState(const rclcpp::Time& stamp)
+{
+  std::lock_guard<std::mutex> lock(prediction_base_mutex_);
+  prediction_base_state_ = state_;
+  prediction_base_stamp_ = stamp;
+  has_prediction_base_state_ = true;
+}
+
+bool LioEkfNode::getPredictionBaseState(EkfState& state, rclcpp::Time& stamp)
+{
+  std::lock_guard<std::mutex> lock(prediction_base_mutex_);
+
+  if (!has_prediction_base_state_) {
+    return false;
+  }
+
+  state = prediction_base_state_;
+  stamp = prediction_base_stamp_;
+  return true;
+}
+
 bool LioEkfNode::publishOdometry(
   const std_msgs::msg::Header& header,
   const LidarUpdateStats& update_stats)
 {
-  EkfState state_snapshot;
-
-  {
-    std::lock_guard<std::mutex> state_lock(state_mutex_);
-    state_snapshot = state_;
-  }
-
-  return publishOdometryForState(header, update_stats, state_snapshot, publish_path_);
+  return publishOdometryForState(header, update_stats, state_, publish_path_);
 }
 
 bool LioEkfNode::publishOdometryForState(

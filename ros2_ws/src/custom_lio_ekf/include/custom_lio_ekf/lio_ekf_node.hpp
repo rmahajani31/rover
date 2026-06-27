@@ -86,6 +86,8 @@ private:
   void ensureTfBroadcaster();
   void publishLatestTransform();
   void publishPredictedOdometry();
+  void updatePredictionBaseState(const rclcpp::Time& stamp);
+  bool getPredictionBaseState(EkfState& state, rclcpp::Time& stamp);
 
   bool publishOdometry(
     const std_msgs::msg::Header& header,
@@ -161,9 +163,9 @@ private:
   custom_scan_to_map_odom::LocalMapConfig local_map_config_;
 
   EkfState state_;
+  EkfState prediction_base_state_;
   custom_scan_to_map_odom::LocalMapManager local_map_manager_;
 
-  std::mutex state_mutex_;
   std::deque<custom_imu_propagator::ImuSample> imu_buffer_;
   std::mutex imu_mutex_;
 
@@ -183,12 +185,15 @@ private:
 
   bool has_previous_odom_ = false;
   bool has_latest_tf_ = false;
+  bool has_prediction_base_state_ = false;
   bool has_last_local_map_publish_stamp_ = false;
 
   rclcpp::Time previous_odom_stamp_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time prediction_base_stamp_{0, 0, RCL_ROS_TIME};
   rclcpp::Time last_local_map_publish_stamp_{0, 0, RCL_ROS_TIME};
 
   std::mutex odom_publish_mutex_;
+  std::mutex prediction_base_mutex_;
   std::mutex latest_tf_mutex_;
 
   rclcpp::CallbackGroup::SharedPtr cloud_callback_group_;
