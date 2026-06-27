@@ -138,7 +138,10 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
     }
   }
 
-  RCLCPP_INFO(get_logger(), "custom_lio_ekf initialized");
+  RCLCPP_INFO(
+    get_logger(),
+    "custom_lio_ekf initialized | accel_translation_prediction=%s",
+    ekf_parameters_.use_accel_translation_prediction ? "true" : "false");
 }
 
 void LioEkfNode::declareParameters()
@@ -190,6 +193,7 @@ void LioEkfNode::declareParameters()
   declare_parameter<double>("imu_noise.accel_noise", 0.20);
   declare_parameter<double>("imu_noise.gyro_bias_random_walk", 0.0001);
   declare_parameter<double>("imu_noise.accel_bias_random_walk", 0.001);
+  declare_parameter<bool>("imu_prediction.use_accel_translation", false);
 
   declare_parameter<int>("lidar_update.max_iterations", 5);
   declare_parameter<int>("lidar_update.k_neighbors", 5);
@@ -343,10 +347,31 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     last_scan_stamp_ = scan_stamp;
     has_last_scan_stamp_ = true;
   } else {
+    if (prediction_ok) {
+      // The state has already been predicted to this scan time. Advance the IMU
+      // interval even when LiDAR correction is rejected, otherwise the next scan
+      // re-integrates the same IMU samples and quickly pushes the state away.
+      last_scan_stamp_ = scan_stamp;
+      has_last_scan_stamp_ = true;
+    }
+
     ++consecutive_tracking_failures_;
 
     if (max_consecutive_tracking_failures_ > 0 &&
         consecutive_tracking_failures_ >= max_consecutive_tracking_failures_) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        2000,
+        "LIO EKF tracking degraded after %d consecutive failures; last status=%s | "
+        "residuals=%zu | rms=%.4f | max=%.4f | dtheta=%.4f | dpos=%.4f",
+        consecutive_tracking_failures_,
+        diagnostics.lidar_update.status.c_str(),
+        diagnostics.lidar_update.valid_residuals,
+        diagnostics.lidar_update.rms_residual,
+        diagnostics.lidar_update.max_abs_residual,
+        diagnostics.lidar_update.final_delta_theta_norm,
+        diagnostics.lidar_update.final_delta_position_norm);
       diagnostics.lidar_update.status = "tracking_degraded";
     }
   }
@@ -368,12 +393,15 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     get_logger(),
     *get_clock(),
     1000,
-    "lio_ekf %s | points=%zu | map=%zu | residuals=%zu | rms=%.4f | time=%.2f ms",
+    "lio_ekf %s | points=%zu | map=%zu | residuals=%zu | rms=%.4f | "
+    "dtheta=%.4f | dpos=%.4f | time=%.2f ms",
     diagnostics.lidar_update.status.c_str(),
     filtered_scan->size(),
     local_map_manager_.size(),
     diagnostics.lidar_update.valid_residuals,
     diagnostics.lidar_update.rms_residual,
+    diagnostics.lidar_update.final_delta_theta_norm,
+    diagnostics.lidar_update.final_delta_position_norm,
     elapsedMilliseconds(callback_start, callback_end));
 
   ++frame_count_;
@@ -902,6 +930,8 @@ EkfParameters LioEkfNode::parametersFromRosParameters() const
     get_parameter("imu_noise.gyro_bias_random_walk").as_double();
   parameters.imu_noise.accel_bias_random_walk =
     get_parameter("imu_noise.accel_bias_random_walk").as_double();
+  parameters.use_accel_translation_prediction =
+    get_parameter("imu_prediction.use_accel_translation").as_bool();
 
   parameters.lidar_update.max_iterations =
     get_parameter("lidar_update.max_iterations").as_int();

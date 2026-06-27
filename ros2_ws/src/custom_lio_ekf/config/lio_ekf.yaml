@@ -49,6 +49,9 @@ custom_lio_ekf:
       gyro_bias_random_walk: 0.0001
       accel_bias_random_walk: 0.001
 
+    imu_prediction:
+      use_accel_translation: false
+
     lidar_update:
       max_iterations: 5
       k_neighbors: 5

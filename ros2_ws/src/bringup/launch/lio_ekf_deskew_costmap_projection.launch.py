@@ -169,6 +169,7 @@ def generate_launch_description():
                     "publish_tf": True,
                     "tf_publish_rate_hz": 20.0,
                     "stop_tf_on_tracking_degraded": False,
+                    "imu_prediction.use_accel_translation": False,
                     "imu_frame": "livox_frame",
                     "lidar_frame": "livox_frame",
                 },

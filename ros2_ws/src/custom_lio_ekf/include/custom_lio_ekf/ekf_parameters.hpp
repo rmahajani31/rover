@@ -60,6 +60,11 @@ struct EkfParameters
   InitialCovarianceStdDevs initial_covariance;
   ImuNoiseStdDevs imu_noise;
   LidarUpdateOptions lidar_update;
+
+  // Early rover tests use rotation-only IMU prediction. Full accelerometer
+  // translation prediction needs calibrated accel bias, gravity alignment, and
+  // verified IMU units; otherwise a stationary rover can accumulate fake motion.
+  bool use_accel_translation_prediction = false;
 };
 
 Matrix18d makeInitialCovariance(const InitialCovarianceStdDevs& stddevs);

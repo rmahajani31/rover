@@ -40,15 +40,18 @@ void propagateNominalState(
   EkfState& state,
   const Eigen::Vector3d& gyro_unbiased,
   const Eigen::Vector3d& accel_unbiased,
-  double dt)
+  double dt,
+  bool use_accel_translation)
 {
-  const Eigen::Vector3d a_W = worldAcceleration(state, accel_unbiased);
+  if (use_accel_translation) {
+    const Eigen::Vector3d a_W = worldAcceleration(state, accel_unbiased);
 
-  state.p_I_W = state.p_I_W +
-    state.v_I_W * dt +
-    0.5 * a_W * dt * dt;
+    state.p_I_W = state.p_I_W +
+      state.v_I_W * dt +
+      0.5 * a_W * dt * dt;
 
-  state.v_I_W = state.v_I_W + a_W * dt;
+    state.v_I_W = state.v_I_W + a_W * dt;
+  }
 
   state.q_WI = state.q_WI * so3Exp(gyro_unbiased * dt);
   state.q_WI.normalize();
@@ -57,7 +60,8 @@ void propagateNominalState(
 bool predictNominalState(
   EkfState& state,
   const std::vector<custom_imu_propagator::ImuSample>& samples,
-  ImuPredictionStats& stats)
+  ImuPredictionStats& stats,
+  bool use_accel_translation)
 {
   stats = ImuPredictionStats{};
 
@@ -85,7 +89,7 @@ bool predictNominalState(
       return false;
     }
 
-    propagateNominalState(state, omega_hat, accel_hat, dt);
+    propagateNominalState(state, omega_hat, accel_hat, dt, use_accel_translation);
 
     ++stats.intervals_integrated;
     stats.dt_total += dt;

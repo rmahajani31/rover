@@ -37,11 +37,13 @@ void propagateNominalState(
   EkfState& state,
   const Eigen::Vector3d& gyro_unbiased,
   const Eigen::Vector3d& accel_unbiased,
-  double dt);
+  double dt,
+  bool use_accel_translation = false);
 
 bool predictNominalState(
   EkfState& state,
   const std::vector<custom_imu_propagator::ImuSample>& samples,
-  ImuPredictionStats& stats);
+  ImuPredictionStats& stats,
+  bool use_accel_translation = false);
 
 }  // namespace custom_lio_ekf

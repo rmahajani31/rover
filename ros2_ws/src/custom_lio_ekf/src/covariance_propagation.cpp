@@ -18,7 +18,8 @@ bool isValidDt(double dt)
 Matrix18d buildContinuousErrorDynamics(
   const EkfState& state,
   const Eigen::Vector3d& gyro_unbiased,
-  const Eigen::Vector3d& accel_unbiased)
+  const Eigen::Vector3d& accel_unbiased,
+  bool use_accel_translation)
 {
   Matrix18d F_c = Matrix18d::Zero();
 
@@ -29,6 +30,10 @@ Matrix18d buildContinuousErrorDynamics(
 
   F_c.block<3, 3>(kThetaOffset, kGyroBiasOffset) =
     -Eigen::Matrix3d::Identity();
+
+  if (!use_accel_translation) {
+    return F_c;
+  }
 
   F_c.block<3, 3>(kPositionOffset, kVelocityOffset) =
     Eigen::Matrix3d::Identity();
@@ -45,7 +50,9 @@ Matrix18d buildContinuousErrorDynamics(
   return F_c;
 }
 
-Matrix18x12d buildContinuousNoiseInputMatrix(const EkfState& state)
+Matrix18x12d buildContinuousNoiseInputMatrix(
+  const EkfState& state,
+  bool use_accel_translation)
 {
   Matrix18x12d G_c = Matrix18x12d::Zero();
 
@@ -54,8 +61,10 @@ Matrix18x12d buildContinuousNoiseInputMatrix(const EkfState& state)
   G_c.block<3, 3>(kThetaOffset, 0) =
     -Eigen::Matrix3d::Identity();
 
-  G_c.block<3, 3>(kVelocityOffset, 3) =
-    -R_WI;
+  if (use_accel_translation) {
+    G_c.block<3, 3>(kVelocityOffset, 3) =
+      -R_WI;
+  }
 
   G_c.block<3, 3>(kGyroBiasOffset, 6) =
     Eigen::Matrix3d::Identity();
@@ -86,12 +95,13 @@ void propagateCovariance(
   const ImuNoiseStdDevs& imu_noise,
   const Eigen::Vector3d& gyro_unbiased,
   const Eigen::Vector3d& accel_unbiased,
-  double dt)
+  double dt,
+  bool use_accel_translation)
 {
   const Matrix18d F_c =
-    buildContinuousErrorDynamics(state, gyro_unbiased, accel_unbiased);
+    buildContinuousErrorDynamics(state, gyro_unbiased, accel_unbiased, use_accel_translation);
   const Matrix18x12d G_c =
-    buildContinuousNoiseInputMatrix(state);
+    buildContinuousNoiseInputMatrix(state, use_accel_translation);
   const Matrix12d Q_c =
     makeContinuousImuNoiseCovariance(imu_noise);
 
@@ -106,15 +116,16 @@ void propagateStateAndCovariance(
   EkfState& state,
   const ImuNoiseStdDevs& imu_noise,
   const custom_imu_propagator::ImuSample& sample,
-  double dt)
+  double dt,
+  bool use_accel_translation)
 {
   const Eigen::Vector3d omega_hat = biasCorrectedGyro(sample, state);
   const Eigen::Vector3d accel_hat = biasCorrectedAccel(sample, state);
 
   // Linearize covariance propagation at the start of the IMU interval.
   // The nominal state is advanced afterward so F_c/G_c remain consistent with x_j.
-  propagateCovariance(state, imu_noise, omega_hat, accel_hat, dt);
-  propagateNominalState(state, omega_hat, accel_hat, dt);
+  propagateCovariance(state, imu_noise, omega_hat, accel_hat, dt, use_accel_translation);
+  propagateNominalState(state, omega_hat, accel_hat, dt, use_accel_translation);
 }
 
 bool predictStateAndCovariance(
@@ -150,7 +161,8 @@ bool predictStateAndCovariance(
       state,
       parameters.imu_noise,
       current,
-      dt);
+      dt,
+      parameters.use_accel_translation_prediction);
 
     if (!isFinite(state)) {
       stats.status = "nonfinite_predicted_state";

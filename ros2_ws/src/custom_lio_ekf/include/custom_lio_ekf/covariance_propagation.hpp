@@ -28,9 +28,12 @@ struct EkfPredictionStats
 Matrix18d buildContinuousErrorDynamics(
   const EkfState& state,
   const Eigen::Vector3d& gyro_unbiased,
-  const Eigen::Vector3d& accel_unbiased);
+  const Eigen::Vector3d& accel_unbiased,
+  bool use_accel_translation = false);
 
-Matrix18x12d buildContinuousNoiseInputMatrix(const EkfState& state);
+Matrix18x12d buildContinuousNoiseInputMatrix(
+  const EkfState& state,
+  bool use_accel_translation = false);
 
 Matrix18d discretizeErrorDynamics(
   const Matrix18d& F_c,
@@ -46,13 +49,15 @@ void propagateCovariance(
   const ImuNoiseStdDevs& imu_noise,
   const Eigen::Vector3d& gyro_unbiased,
   const Eigen::Vector3d& accel_unbiased,
-  double dt);
+  double dt,
+  bool use_accel_translation = false);
 
 void propagateStateAndCovariance(
   EkfState& state,
   const ImuNoiseStdDevs& imu_noise,
   const custom_imu_propagator::ImuSample& sample,
-  double dt);
+  double dt,
+  bool use_accel_translation = false);
 
 bool predictStateAndCovariance(
   EkfState& state,
