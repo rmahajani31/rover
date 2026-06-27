@@ -73,6 +73,8 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
   cloud_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   imu_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   tf_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  predicted_odom_callback_group_ =
+    create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   rclcpp::SubscriptionOptions cloud_subscription_options;
   cloud_subscription_options.callback_group = cloud_callback_group_;
@@ -146,7 +148,7 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
     predicted_odom_timer_ = create_wall_timer(
       predicted_odom_period,
       std::bind(&LioEkfNode::publishPredictedOdometry, this),
-      tf_callback_group_);
+      predicted_odom_callback_group_);
   }
 
   RCLCPP_INFO(
@@ -1234,7 +1236,7 @@ int main(int argc, char** argv)
   rclcpp::init(argc, argv);
 
   auto node = std::make_shared<custom_lio_ekf::LioEkfNode>();
-  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 2);
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 4);
   executor.add_node(node);
   executor.spin();
 

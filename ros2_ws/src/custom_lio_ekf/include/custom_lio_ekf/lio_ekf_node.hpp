@@ -199,6 +199,7 @@ private:
   rclcpp::CallbackGroup::SharedPtr cloud_callback_group_;
   rclcpp::CallbackGroup::SharedPtr imu_callback_group_;
   rclcpp::CallbackGroup::SharedPtr tf_callback_group_;
+  rclcpp::CallbackGroup::SharedPtr predicted_odom_callback_group_;
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
