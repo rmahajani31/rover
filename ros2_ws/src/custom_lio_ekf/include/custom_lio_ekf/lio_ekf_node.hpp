@@ -86,6 +86,7 @@ private:
   void ensureTfBroadcaster();
   void publishLatestTransform();
   void publishPredictedOdometry();
+  void logPredictedOdometryStats();
   void updatePredictionBaseState(const rclcpp::Time& stamp);
   bool getPredictionBaseState(EkfState& state, rclcpp::Time& stamp);
 
@@ -174,6 +175,12 @@ private:
 
   std::size_t frame_count_ = 0;
   std::size_t imu_samples_received_ = 0;
+  std::size_t predicted_odom_success_count_ = 0;
+  std::size_t predicted_odom_no_base_count_ = 0;
+  std::size_t predicted_odom_not_enough_imu_count_ = 0;
+  std::size_t predicted_odom_stale_interval_count_ = 0;
+  std::size_t predicted_odom_prediction_failed_count_ = 0;
+  std::size_t predicted_odom_publish_rejected_count_ = 0;
   int consecutive_tracking_failures_ = 0;
 
   nav_msgs::msg::Path path_msg_;

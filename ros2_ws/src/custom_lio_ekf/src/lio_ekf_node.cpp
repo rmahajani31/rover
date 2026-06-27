@@ -849,6 +849,8 @@ void LioEkfNode::publishPredictedOdometry()
   rclcpp::Time base_stamp(0, 0, RCL_ROS_TIME);
 
   if (!getPredictionBaseState(predicted_state, base_stamp)) {
+    ++predicted_odom_no_base_count_;
+    logPredictedOdometryStats();
     return;
   }
 
@@ -858,6 +860,8 @@ void LioEkfNode::publishPredictedOdometry()
     std::lock_guard<std::mutex> imu_lock(imu_mutex_);
 
     if (imu_buffer_.size() < 2) {
+      ++predicted_odom_not_enough_imu_count_;
+      logPredictedOdometryStats();
       return;
     }
 
@@ -869,6 +873,8 @@ void LioEkfNode::publishPredictedOdometry()
   }
 
   if (samples.size() < 2) {
+    ++predicted_odom_not_enough_imu_count_;
+    logPredictedOdometryStats();
     return;
   }
 
@@ -878,6 +884,8 @@ void LioEkfNode::publishPredictedOdometry()
   if (prediction_interval <= 0.0 ||
       (max_predicted_odom_interval_sec_ > 0.0 &&
        prediction_interval > max_predicted_odom_interval_sec_)) {
+    ++predicted_odom_stale_interval_count_;
+    logPredictedOdometryStats();
     return;
   }
 
@@ -887,6 +895,8 @@ void LioEkfNode::publishPredictedOdometry()
       samples,
       prediction_stats,
       ekf_parameters_.use_accel_translation_prediction)) {
+    ++predicted_odom_prediction_failed_count_;
+    logPredictedOdometryStats();
     return;
   }
 
@@ -898,7 +908,29 @@ void LioEkfNode::publishPredictedOdometry()
   update_stats.success = true;
   update_stats.status = "imu_predicted";
 
-  publishOdometryForState(header, update_stats, predicted_state, false);
+  if (publishOdometryForState(header, update_stats, predicted_state, false)) {
+    ++predicted_odom_success_count_;
+  } else {
+    ++predicted_odom_publish_rejected_count_;
+  }
+
+  logPredictedOdometryStats();
+}
+
+void LioEkfNode::logPredictedOdometryStats()
+{
+  RCLCPP_INFO_THROTTLE(
+    get_logger(),
+    *get_clock(),
+    2000,
+    "predicted_odom stats | success=%zu | no_base=%zu | not_enough_imu=%zu | "
+    "stale_interval=%zu | prediction_failed=%zu | publish_rejected=%zu",
+    predicted_odom_success_count_,
+    predicted_odom_no_base_count_,
+    predicted_odom_not_enough_imu_count_,
+    predicted_odom_stale_interval_count_,
+    predicted_odom_prediction_failed_count_,
+    predicted_odom_publish_rejected_count_);
 }
 
 void LioEkfNode::updatePredictionBaseState(const rclcpp::Time& stamp)
