@@ -114,6 +114,18 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
       odom_frame_.c_str(),
       base_frame_.c_str());
 
+    {
+      std::lock_guard<std::mutex> lock(latest_tf_mutex_);
+      latest_T_odom_child_ = Eigen::Isometry3d::Identity();
+      latest_tf_child_frame_ = base_frame_;
+      has_latest_tf_ = true;
+    }
+    RCLCPP_INFO(
+      get_logger(),
+      "Publishing bootstrap %s -> %s TF until the first EKF odometry update is accepted",
+      odom_frame_.c_str(),
+      base_frame_.c_str());
+
     if (tf_publish_rate_hz_ > 0.0) {
       const auto tf_period =
         std::chrono::duration_cast<std::chrono::nanoseconds>(
