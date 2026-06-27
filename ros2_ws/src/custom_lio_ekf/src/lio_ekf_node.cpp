@@ -138,10 +138,23 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
     }
   }
 
+  if (publish_predicted_odom_ && predicted_odom_rate_hz_ > 0.0) {
+    const auto predicted_odom_period =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::duration<double>(1.0 / predicted_odom_rate_hz_));
+
+    predicted_odom_timer_ = create_wall_timer(
+      predicted_odom_period,
+      std::bind(&LioEkfNode::publishPredictedOdometry, this),
+      tf_callback_group_);
+  }
+
   RCLCPP_INFO(
     get_logger(),
-    "custom_lio_ekf initialized | accel_translation_prediction=%s",
-    ekf_parameters_.use_accel_translation_prediction ? "true" : "false");
+    "custom_lio_ekf initialized | accel_translation_prediction=%s | predicted_odom=%s %.2f Hz",
+    ekf_parameters_.use_accel_translation_prediction ? "true" : "false",
+    publish_predicted_odom_ ? "true" : "false",
+    predicted_odom_rate_hz_);
 }
 
 void LioEkfNode::declareParameters()
@@ -162,8 +175,11 @@ void LioEkfNode::declareParameters()
   declare_parameter<bool>("publish_path", true);
   declare_parameter<bool>("publish_diagnostics", true);
   declare_parameter<bool>("stop_tf_on_tracking_degraded", true);
+  declare_parameter<bool>("publish_predicted_odom", true);
 
   declare_parameter<double>("tf_publish_rate_hz", 20.0);
+  declare_parameter<double>("predicted_odom_rate_hz", 10.0);
+  declare_parameter<double>("max_predicted_odom_interval_sec", 1.5);
   declare_parameter<int>("max_consecutive_tracking_failures", 3);
   declare_parameter<int>("max_path_poses", 2000);
 
@@ -241,8 +257,12 @@ void LioEkfNode::readParameters()
   publish_path_ = get_parameter("publish_path").as_bool();
   publish_diagnostics_ = get_parameter("publish_diagnostics").as_bool();
   stop_tf_on_tracking_degraded_ = get_parameter("stop_tf_on_tracking_degraded").as_bool();
+  publish_predicted_odom_ = get_parameter("publish_predicted_odom").as_bool();
 
   tf_publish_rate_hz_ = get_parameter("tf_publish_rate_hz").as_double();
+  predicted_odom_rate_hz_ = get_parameter("predicted_odom_rate_hz").as_double();
+  max_predicted_odom_interval_sec_ =
+    get_parameter("max_predicted_odom_interval_sec").as_double();
   max_consecutive_tracking_failures_ = get_parameter("max_consecutive_tracking_failures").as_int();
   max_path_poses_ = get_parameter("max_path_poses").as_int();
 
@@ -328,68 +348,74 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   const auto prediction_start = std::chrono::steady_clock::now();
   EkfPredictionStats prediction_stats;
-  const bool prediction_ok = runPrediction(scan_stamp, prediction_stats);
-  const auto prediction_end = std::chrono::steady_clock::now();
-
-  diagnostics.prediction = prediction_stats;
-  diagnostics.prediction_time_ms =
-    elapsedMilliseconds(prediction_start, prediction_end);
-
+  bool prediction_ok = false;
   LidarUpdateStats update_stats;
   bool update_ok = false;
 
-  if (prediction_ok) {
-    const auto update_start = std::chrono::steady_clock::now();
-    update_ok = runLidarUpdate(filtered_scan, update_stats);
-    const auto update_end = std::chrono::steady_clock::now();
+  {
+    std::lock_guard<std::mutex> state_lock(state_mutex_);
 
-    diagnostics.lidar_update = update_stats;
-    diagnostics.lidar_update_time_ms =
-      elapsedMilliseconds(update_start, update_end);
-  } else {
-    update_stats.status = "prediction_failed";
-    diagnostics.lidar_update = update_stats;
-  }
+    prediction_ok = runPrediction(scan_stamp, prediction_stats);
+    const auto prediction_end = std::chrono::steady_clock::now();
 
-  if (update_ok) {
-    consecutive_tracking_failures_ = 0;
-    updateMap(filtered_scan, diagnostics);
-    last_scan_stamp_ = scan_stamp;
-    has_last_scan_stamp_ = true;
-  } else {
+    diagnostics.prediction = prediction_stats;
+    diagnostics.prediction_time_ms =
+      elapsedMilliseconds(prediction_start, prediction_end);
+
     if (prediction_ok) {
-      // The state has already been predicted to this scan time. Advance the IMU
-      // interval even when LiDAR correction is rejected, otherwise the next scan
-      // re-integrates the same IMU samples and quickly pushes the state away.
+      const auto update_start = std::chrono::steady_clock::now();
+      update_ok = runLidarUpdate(filtered_scan, update_stats);
+      const auto update_end = std::chrono::steady_clock::now();
+
+      diagnostics.lidar_update = update_stats;
+      diagnostics.lidar_update_time_ms =
+        elapsedMilliseconds(update_start, update_end);
+    } else {
+      update_stats.status = "prediction_failed";
+      diagnostics.lidar_update = update_stats;
+    }
+
+    if (update_ok) {
+      consecutive_tracking_failures_ = 0;
+      updateMap(filtered_scan, diagnostics);
       last_scan_stamp_ = scan_stamp;
       has_last_scan_stamp_ = true;
+    } else {
+      if (prediction_ok) {
+        // The state has already been predicted to this scan time. Advance the IMU
+        // interval even when LiDAR correction is rejected, otherwise the next scan
+        // re-integrates the same IMU samples and quickly pushes the state away.
+        last_scan_stamp_ = scan_stamp;
+        has_last_scan_stamp_ = true;
+      }
+
+      ++consecutive_tracking_failures_;
+
+      if (max_consecutive_tracking_failures_ > 0 &&
+          consecutive_tracking_failures_ >= max_consecutive_tracking_failures_) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(),
+          *get_clock(),
+          2000,
+          "LIO EKF tracking degraded after %d consecutive failures; last status=%s | "
+          "residuals=%zu | rms=%.4f | max=%.4f | dtheta=%.4f | dpos=%.4f",
+          consecutive_tracking_failures_,
+          diagnostics.lidar_update.status.c_str(),
+          diagnostics.lidar_update.valid_residuals,
+          diagnostics.lidar_update.rms_residual,
+          diagnostics.lidar_update.max_abs_residual,
+          diagnostics.lidar_update.final_delta_theta_norm,
+          diagnostics.lidar_update.final_delta_position_norm);
+        diagnostics.lidar_update.status = "tracking_degraded";
+      }
     }
 
-    ++consecutive_tracking_failures_;
-
-    if (max_consecutive_tracking_failures_ > 0 &&
-        consecutive_tracking_failures_ >= max_consecutive_tracking_failures_) {
-      RCLCPP_WARN_THROTTLE(
-        get_logger(),
-        *get_clock(),
-        2000,
-        "LIO EKF tracking degraded after %d consecutive failures; last status=%s | "
-        "residuals=%zu | rms=%.4f | max=%.4f | dtheta=%.4f | dpos=%.4f",
-        consecutive_tracking_failures_,
-        diagnostics.lidar_update.status.c_str(),
-        diagnostics.lidar_update.valid_residuals,
-        diagnostics.lidar_update.rms_residual,
-        diagnostics.lidar_update.max_abs_residual,
-        diagnostics.lidar_update.final_delta_theta_norm,
-        diagnostics.lidar_update.final_delta_position_norm);
-      diagnostics.lidar_update.status = "tracking_degraded";
-    }
+    diagnostics.map_initialized = local_map_manager_.isInitialized();
+    diagnostics.map_points = local_map_manager_.size();
   }
 
-  diagnostics.map_initialized = local_map_manager_.isInitialized();
-  diagnostics.map_points = local_map_manager_.size();
-
   publishOdometry(msg->header, diagnostics.lidar_update);
+  publishPredictedOdometry();
 
   if (shouldPublishLocalMap(msg->header)) {
     publishLocalMap(msg->header);
@@ -651,20 +677,24 @@ bool LioEkfNode::initializeMap(
   const custom_scan_to_map_odom::CloudTConstPtr& filtered_scan,
   LioEkfDiagnostics& diagnostics)
 {
-  if (!calibrateInitialImuState(rclcpp::Time(header.stamp))) {
-    diagnostics.lidar_update.success = false;
-    diagnostics.lidar_update.status = "waiting_for_initial_imu_calibration";
-    diagnostics.lidar_update.input_points = filtered_scan->size();
-    return false;
+  {
+    std::lock_guard<std::mutex> state_lock(state_mutex_);
+
+    if (!calibrateInitialImuState(rclcpp::Time(header.stamp))) {
+      diagnostics.lidar_update.success = false;
+      diagnostics.lidar_update.status = "waiting_for_initial_imu_calibration";
+      diagnostics.lidar_update.input_points = filtered_scan->size();
+      return false;
+    }
+
+    state_.P = makeInitialCovariance(ekf_parameters_.initial_covariance);
+
+    auto scan_world = transformCloudToWorld(filtered_scan, state_);
+    local_map_manager_.initialize(scan_world, state_.p_I_W);
+
+    last_scan_stamp_ = rclcpp::Time(header.stamp);
+    has_last_scan_stamp_ = true;
   }
-
-  state_.P = makeInitialCovariance(ekf_parameters_.initial_covariance);
-
-  auto scan_world = transformCloudToWorld(filtered_scan, state_);
-  local_map_manager_.initialize(scan_world, state_.p_I_W);
-
-  last_scan_stamp_ = rclcpp::Time(header.stamp);
-  has_last_scan_stamp_ = true;
 
   diagnostics.map_initialized = true;
   diagnostics.map_points = local_map_manager_.size();
@@ -808,9 +838,96 @@ void LioEkfNode::publishLatestTransform()
   publishTransform(get_clock()->now(), T_odom_child, child_frame);
 }
 
+void LioEkfNode::publishPredictedOdometry()
+{
+  if (!publish_predicted_odom_) {
+    return;
+  }
+
+  EkfState predicted_state;
+  rclcpp::Time base_stamp(0, 0, RCL_ROS_TIME);
+
+  {
+    std::unique_lock<std::mutex> state_lock(state_mutex_, std::try_to_lock);
+
+    if (!state_lock.owns_lock() ||
+        !local_map_manager_.isInitialized() ||
+        !has_last_scan_stamp_) {
+      return;
+    }
+
+    predicted_state = state_;
+    base_stamp = last_scan_stamp_;
+  }
+
+  std::vector<custom_imu_propagator::ImuSample> samples;
+
+  {
+    std::lock_guard<std::mutex> imu_lock(imu_mutex_);
+
+    if (imu_buffer_.size() < 2) {
+      return;
+    }
+
+    for (const auto& sample : imu_buffer_) {
+      if (sample.stamp >= base_stamp) {
+        samples.push_back(sample);
+      }
+    }
+  }
+
+  if (samples.size() < 2) {
+    return;
+  }
+
+  const rclcpp::Time predicted_stamp = samples.back().stamp;
+  const double prediction_interval = (predicted_stamp - base_stamp).seconds();
+
+  if (prediction_interval <= 0.0 ||
+      (max_predicted_odom_interval_sec_ > 0.0 &&
+       prediction_interval > max_predicted_odom_interval_sec_)) {
+    return;
+  }
+
+  ImuPredictionStats prediction_stats;
+  if (!predictNominalState(
+      predicted_state,
+      samples,
+      prediction_stats,
+      ekf_parameters_.use_accel_translation_prediction)) {
+    return;
+  }
+
+  std_msgs::msg::Header header;
+  header.stamp = predicted_stamp;
+  header.frame_id = odom_frame_;
+
+  LidarUpdateStats update_stats;
+  update_stats.success = true;
+  update_stats.status = "imu_predicted";
+
+  publishOdometryForState(header, update_stats, predicted_state, false);
+}
+
 bool LioEkfNode::publishOdometry(
   const std_msgs::msg::Header& header,
   const LidarUpdateStats& update_stats)
+{
+  EkfState state_snapshot;
+
+  {
+    std::lock_guard<std::mutex> state_lock(state_mutex_);
+    state_snapshot = state_;
+  }
+
+  return publishOdometryForState(header, update_stats, state_snapshot, publish_path_);
+}
+
+bool LioEkfNode::publishOdometryForState(
+  const std_msgs::msg::Header& header,
+  const LidarUpdateStats& update_stats,
+  const EkfState& state,
+  bool publish_path)
 {
   Eigen::Isometry3d T_imu_base = Eigen::Isometry3d::Identity();
 
@@ -818,9 +935,10 @@ bool LioEkfNode::publishOdometry(
     return false;
   }
 
-  const Eigen::Isometry3d T_odom_imu = imuPoseInWorld(state_);
+  const Eigen::Isometry3d T_odom_imu = imuPoseInWorld(state);
   const Eigen::Isometry3d T_odom_base = makePlanarTransform(T_odom_imu * T_imu_base);
   const bool tracking_degraded = update_stats.status == "tracking_degraded";
+  const bool imu_predicted = update_stats.status == "imu_predicted";
 
   nav_msgs::msg::Odometry odom;
   odom.header.stamp = header.stamp;
@@ -830,6 +948,11 @@ bool LioEkfNode::publishOdometry(
 
   double position_covariance = update_stats.success ? 0.05 : 0.25;
   double orientation_covariance = update_stats.success ? 0.10 : 0.50;
+
+  if (imu_predicted) {
+    position_covariance = 0.15;
+    orientation_covariance = 0.20;
+  }
 
   if (tracking_degraded) {
     position_covariance = 4.0;
@@ -843,46 +966,55 @@ bool LioEkfNode::publishOdometry(
   odom.pose.covariance[28] = orientation_covariance;
   odom.pose.covariance[35] = orientation_covariance;
 
-  if (update_stats.success && has_previous_odom_ && previous_odom_child_frame_ == base_frame_) {
-    const rclcpp::Time current_stamp(header.stamp);
-    const double dt = (current_stamp - previous_odom_stamp_).seconds();
+  const rclcpp::Time current_stamp(header.stamp);
 
-    if (dt > 1.0e-6 && dt < 5.0) {
-      const Eigen::Isometry3d odom_delta =
-        previous_odom_pose_.inverse() * T_odom_base;
+  {
+    std::lock_guard<std::mutex> odom_lock(odom_publish_mutex_);
 
-      odom.twist.twist.linear.x = odom_delta.translation().x() / dt;
-      odom.twist.twist.linear.y = odom_delta.translation().y() / dt;
-      odom.twist.twist.angular.z = yawFromTransform(odom_delta) / dt;
+    if (has_previous_odom_ && current_stamp <= previous_odom_stamp_) {
+      return false;
+    }
+
+    if (update_stats.success && has_previous_odom_ && previous_odom_child_frame_ == base_frame_) {
+      const double dt = (current_stamp - previous_odom_stamp_).seconds();
+
+      if (dt > 1.0e-6 && dt < 5.0) {
+        const Eigen::Isometry3d odom_delta =
+          previous_odom_pose_.inverse() * T_odom_base;
+
+        odom.twist.twist.linear.x = odom_delta.translation().x() / dt;
+        odom.twist.twist.linear.y = odom_delta.translation().y() / dt;
+        odom.twist.twist.angular.z = yawFromTransform(odom_delta) / dt;
+      }
+    }
+
+    odom.twist.covariance[0] = update_stats.success ? 0.05 : position_covariance;
+    odom.twist.covariance[7] = update_stats.success ? 0.05 : position_covariance;
+    odom.twist.covariance[35] = update_stats.success ? 0.10 : orientation_covariance;
+
+    odom_pub_->publish(odom);
+
+    if (publish_tf_) {
+      if (tracking_degraded && stop_tf_on_tracking_degraded_) {
+        std::lock_guard<std::mutex> lock(latest_tf_mutex_);
+        has_latest_tf_ = false;
+      } else {
+        std::lock_guard<std::mutex> lock(latest_tf_mutex_);
+        latest_T_odom_child_ = T_odom_base;
+        latest_tf_child_frame_ = base_frame_;
+        has_latest_tf_ = true;
+      }
+    }
+
+    if (!tracking_degraded) {
+      previous_odom_pose_ = T_odom_base;
+      previous_odom_stamp_ = current_stamp;
+      previous_odom_child_frame_ = base_frame_;
+      has_previous_odom_ = true;
     }
   }
 
-  odom.twist.covariance[0] = update_stats.success ? 0.05 : position_covariance;
-  odom.twist.covariance[7] = update_stats.success ? 0.05 : position_covariance;
-  odom.twist.covariance[35] = update_stats.success ? 0.10 : orientation_covariance;
-
-  odom_pub_->publish(odom);
-
-  if (publish_tf_) {
-    if (tracking_degraded && stop_tf_on_tracking_degraded_) {
-      std::lock_guard<std::mutex> lock(latest_tf_mutex_);
-      has_latest_tf_ = false;
-    } else {
-      std::lock_guard<std::mutex> lock(latest_tf_mutex_);
-      latest_T_odom_child_ = T_odom_base;
-      latest_tf_child_frame_ = base_frame_;
-      has_latest_tf_ = true;
-    }
-  }
-
-  if (update_stats.success) {
-    previous_odom_pose_ = T_odom_base;
-    previous_odom_stamp_ = rclcpp::Time(header.stamp);
-    previous_odom_child_frame_ = base_frame_;
-    has_previous_odom_ = true;
-  }
-
-  if (publish_path_ && update_stats.success) {
+  if (publish_path && update_stats.success && !imu_predicted) {
     publishPath(header, odom);
   }
 
