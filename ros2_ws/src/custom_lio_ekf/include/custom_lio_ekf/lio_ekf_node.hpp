@@ -181,7 +181,18 @@ private:
   std::size_t predicted_odom_stale_interval_count_ = 0;
   std::size_t predicted_odom_prediction_failed_count_ = 0;
   std::size_t predicted_odom_publish_rejected_count_ = 0;
+  std::size_t prediction_base_update_count_ = 0;
   int consecutive_tracking_failures_ = 0;
+
+  double last_predicted_interval_sec_ = 0.0;
+  double last_predicted_base_stamp_sec_ = 0.0;
+  double last_predicted_imu_stamp_sec_ = 0.0;
+  double last_predicted_now_sec_ = 0.0;
+  double last_predicted_now_minus_base_sec_ = 0.0;
+  double last_predicted_now_minus_imu_sec_ = 0.0;
+  double last_base_update_stamp_sec_ = 0.0;
+  double last_base_update_now_sec_ = 0.0;
+  double last_base_update_now_minus_stamp_sec_ = 0.0;
 
   nav_msgs::msg::Path path_msg_;
 

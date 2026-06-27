@@ -880,6 +880,14 @@ void LioEkfNode::publishPredictedOdometry()
 
   const rclcpp::Time predicted_stamp = samples.back().stamp;
   const double prediction_interval = (predicted_stamp - base_stamp).seconds();
+  const rclcpp::Time now = get_clock()->now();
+
+  last_predicted_interval_sec_ = prediction_interval;
+  last_predicted_base_stamp_sec_ = base_stamp.seconds();
+  last_predicted_imu_stamp_sec_ = predicted_stamp.seconds();
+  last_predicted_now_sec_ = now.seconds();
+  last_predicted_now_minus_base_sec_ = (now - base_stamp).seconds();
+  last_predicted_now_minus_imu_sec_ = (now - predicted_stamp).seconds();
 
   if (prediction_interval <= 0.0 ||
       (max_predicted_odom_interval_sec_ > 0.0 &&
@@ -924,13 +932,27 @@ void LioEkfNode::logPredictedOdometryStats()
     *get_clock(),
     2000,
     "predicted_odom stats | success=%zu | no_base=%zu | not_enough_imu=%zu | "
-    "stale_interval=%zu | prediction_failed=%zu | publish_rejected=%zu",
+    "stale_interval=%zu | prediction_failed=%zu | publish_rejected=%zu | "
+    "base_updates=%zu | interval=%.3f | base_stamp=%.3f | imu_stamp=%.3f | "
+    "now=%.3f | now-base=%.3f | now-imu=%.3f | "
+    "last_base_update_stamp=%.3f | last_base_update_now=%.3f | "
+    "last_base_update_age=%.3f",
     predicted_odom_success_count_,
     predicted_odom_no_base_count_,
     predicted_odom_not_enough_imu_count_,
     predicted_odom_stale_interval_count_,
     predicted_odom_prediction_failed_count_,
-    predicted_odom_publish_rejected_count_);
+    predicted_odom_publish_rejected_count_,
+    prediction_base_update_count_,
+    last_predicted_interval_sec_,
+    last_predicted_base_stamp_sec_,
+    last_predicted_imu_stamp_sec_,
+    last_predicted_now_sec_,
+    last_predicted_now_minus_base_sec_,
+    last_predicted_now_minus_imu_sec_,
+    last_base_update_stamp_sec_,
+    last_base_update_now_sec_,
+    last_base_update_now_minus_stamp_sec_);
 }
 
 void LioEkfNode::updatePredictionBaseState(const rclcpp::Time& stamp)
@@ -939,6 +961,12 @@ void LioEkfNode::updatePredictionBaseState(const rclcpp::Time& stamp)
   prediction_base_state_ = state_;
   prediction_base_stamp_ = stamp;
   has_prediction_base_state_ = true;
+  ++prediction_base_update_count_;
+
+  const rclcpp::Time now = get_clock()->now();
+  last_base_update_stamp_sec_ = stamp.seconds();
+  last_base_update_now_sec_ = now.seconds();
+  last_base_update_now_minus_stamp_sec_ = (now - stamp).seconds();
 }
 
 bool LioEkfNode::getPredictionBaseState(EkfState& state, rclcpp::Time& stamp)
