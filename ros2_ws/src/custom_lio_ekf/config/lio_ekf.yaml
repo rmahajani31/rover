@@ -16,6 +16,7 @@ custom_lio_ekf:
     publish_path: true
     publish_diagnostics: false
     stop_tf_on_tracking_degraded: true
+    # TF is republished from the latest LiDAR-corrected pose; no IMU-only odom is emitted.
     tf_publish_rate_hz: 20.0
     max_consecutive_tracking_failures: 3
     max_path_poses: 2000
@@ -26,6 +27,7 @@ custom_lio_ekf:
     max_points_per_scan: 1200
 
     max_imu_buffer_seconds: 5.0
+    # Livox MID-360 IMU linear acceleration is observed in g on this setup.
     imu_accel_scale: 9.80665
 
     initial_gyro_bias: [0.0, 0.0, 0.0]

@@ -49,6 +49,7 @@ Matrix1x18d pointToPlaneJacobian(
   const Eigen::RowVector3d n_transpose =
     plane_normal.normalized().transpose();
 
+  // Jacobian of n^T(R_WI p_I + p_I_W - centroid) w.r.t. the error state.
   H.block<1, 3>(0, kThetaOffset) =
     n_transpose * (-R_WI * skewSymmetric(point_I));
 
@@ -153,6 +154,7 @@ bool buildPointToPlaneResidual(
   }
 
   result.robust_weight = robustResidualWeight(result.residual, options);
+  // Convert residual variance and robust loss into a scalar information weight.
   result.information_weight =
     result.robust_weight / lidarResidualVariance(options);
 

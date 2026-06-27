@@ -23,6 +23,7 @@ bool invertPositiveDefiniteMatrix(
   const Matrix18d& matrix,
   Matrix18d& inverse)
 {
+  // Covariance and information matrices should stay symmetric positive definite.
   Eigen::LDLT<Matrix18d> ldlt(matrix);
 
   if (ldlt.info() != Eigen::Success) {
@@ -73,6 +74,7 @@ bool buildLidarNormalEquations(
   LidarNormalEquations& equations)
 {
   equations = LidarNormalEquations{};
+  // Start with the EKF prior: information = P^-1, rhs = 0.
   equations.information = prior_information;
   equations.rhs = Vector18d::Zero();
 
@@ -102,6 +104,7 @@ bool buildLidarNormalEquations(
       continue;
     }
 
+    // Accumulate weighted Gauss-Newton normal equations for H * delta = -r.
     equations.information +=
       residual.information_weight * residual.H.transpose() * residual.H;
     equations.rhs -=
@@ -176,6 +179,7 @@ bool applyIteratedLidarUpdate(
   custom_scan_to_map_odom::PlaneFitter plane_fitter(
     planeFitterOptionsFromLidarOptions(options));
 
+  // Iterate on a copy so a rejected update cannot corrupt the live EKF state.
   EkfState iter_state = state;
   LidarNormalEquations final_equations;
 
@@ -268,6 +272,7 @@ bool applyIteratedLidarUpdate(
     return false;
   }
 
+  // Commit state and covariance only after the whole iterated update passes.
   state = iter_state;
 
   stats.success = true;

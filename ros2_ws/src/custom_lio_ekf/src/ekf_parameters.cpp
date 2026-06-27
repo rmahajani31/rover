@@ -33,6 +33,7 @@ Matrix18d makeInitialCovariance(const InitialCovarianceStdDevs& stddevs)
 {
   Matrix18d P = Matrix18d::Zero();
 
+  // Parameters are standard deviations; the EKF stores variances on P.
   setDiagonalBlock(P, kThetaOffset, square(stddevs.theta));
   setDiagonalBlock(P, kPositionOffset, square(stddevs.position));
   setDiagonalBlock(P, kVelocityOffset, square(stddevs.velocity));
@@ -47,6 +48,7 @@ Matrix12d makeContinuousImuNoiseCovariance(const ImuNoiseStdDevs& stddevs)
 {
   Matrix12d Q_c = Matrix12d::Zero();
 
+  // Continuous noise order: gyro, accel, gyro-bias random walk, accel-bias random walk.
   Q_c.block<3, 3>(0, 0) =
     square(stddevs.gyro_noise) * Eigen::Matrix3d::Identity();
 
@@ -75,6 +77,7 @@ double robustResidualWeight(
     return 1.0;
   }
 
+  // Huber weighting keeps large point-to-plane residuals from dominating.
   const double abs_residual = std::abs(residual);
 
   if (abs_residual <= options.huber_delta) {

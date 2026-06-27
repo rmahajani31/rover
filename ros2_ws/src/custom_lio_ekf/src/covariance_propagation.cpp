@@ -25,6 +25,7 @@ Matrix18d buildContinuousErrorDynamics(
 
   const Eigen::Matrix3d R_WI = state.q_WI.normalized().toRotationMatrix();
 
+  // Attitude error dynamics are active in both rotation-only and full IMU modes.
   F_c.block<3, 3>(kThetaOffset, kThetaOffset) =
     -skewSymmetric(gyro_unbiased);
 
@@ -35,6 +36,7 @@ Matrix18d buildContinuousErrorDynamics(
     return F_c;
   }
 
+  // These blocks are only valid when velocity/position are propagated from accel.
   F_c.block<3, 3>(kPositionOffset, kVelocityOffset) =
     Eigen::Matrix3d::Identity();
 
@@ -79,6 +81,7 @@ Matrix18d discretizeErrorDynamics(
   const Matrix18d& F_c,
   double dt)
 {
+  // First-order discretization is adequate for the short Livox IMU intervals.
   return Matrix18d::Identity() + F_c * dt;
 }
 

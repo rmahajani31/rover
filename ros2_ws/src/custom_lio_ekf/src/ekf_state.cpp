@@ -42,6 +42,7 @@ Eigen::Quaterniond so3Exp(const Eigen::Vector3d& delta_theta)
   const double theta = delta_theta.norm();
 
   if (theta < 1.0e-12) {
+    // First-order SO(3) exponential for tiny corrections.
     Eigen::Quaterniond q(
       1.0,
       0.5 * delta_theta.x(),
@@ -73,6 +74,7 @@ void injectError(EkfState& state, const Vector18d& delta_x)
   const Eigen::Vector3d delta_theta =
     delta_x.segment<3>(kThetaOffset);
 
+  // Right-multiply the small attitude error: R_WI <- R_WI * Exp(delta_theta).
   state.q_WI = state.q_WI * so3Exp(delta_theta);
   state.q_WI.normalize();
 
@@ -85,6 +87,7 @@ void injectError(EkfState& state, const Vector18d& delta_x)
 
 void symmetrizeCovariance(EkfState& state)
 {
+  // Numeric propagation/solves can introduce tiny asymmetric roundoff.
   state.P = 0.5 * (state.P + state.P.transpose());
 }
 

@@ -34,6 +34,8 @@
 namespace custom_lio_ekf
 {
 
+// ROS wrapper for the Phase 10 EKF pipeline; math-heavy pieces live in the
+// state, prediction, residual, and iterated-update modules.
 class LioEkfNode : public rclcpp::Node
 {
 public:

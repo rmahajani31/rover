@@ -44,6 +44,7 @@ void propagateNominalState(
   bool use_accel_translation)
 {
   if (use_accel_translation) {
+    // Optional full inertial translation; disabled if accel scale/bias is not trusted.
     const Eigen::Vector3d a_W = worldAcceleration(state, accel_unbiased);
 
     state.p_I_W = state.p_I_W +
@@ -53,6 +54,7 @@ void propagateNominalState(
     state.v_I_W = state.v_I_W + a_W * dt;
   }
 
+  // Attitude prediction is always integrated from gyro, even in rotation-only mode.
   state.q_WI = state.q_WI * so3Exp(gyro_unbiased * dt);
   state.q_WI.normalize();
 }

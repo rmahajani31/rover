@@ -50,6 +50,7 @@ Eigen::Isometry3d makePlanarTransform(const Eigen::Isometry3d& transform)
 {
   const double yaw = yawFromTransform(transform);
 
+  // Nav2 consumes planar base_link odometry; keep EKF roll/pitch internal.
   Eigen::Isometry3d planar_transform = Eigen::Isometry3d::Identity();
   planar_transform.translation().x() = transform.translation().x();
   planar_transform.translation().y() = transform.translation().y();
@@ -78,6 +79,7 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
   cloud_subscription_options.callback_group = cloud_callback_group_;
 
   auto cloud_qos = rclcpp::SensorDataQoS();
+  // Prefer fresh scans over backlog; stale LiDAR updates hurt Nav2 more than drops.
   cloud_qos.keep_last(1);
 
   cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -309,6 +311,7 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 {
   const auto callback_start = std::chrono::steady_clock::now();
 
+  // One scan callback performs the full Phase 10 cycle: predict, correct, map update.
   LioEkfDiagnostics diagnostics;
   diagnostics.map_initialized = local_map_manager_.isInitialized();
 
@@ -397,6 +400,7 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   diagnostics.map_initialized = local_map_manager_.isInitialized();
   diagnostics.map_points = local_map_manager_.size();
 
+  // Publish only the LiDAR-corrected EKF pose; no intermediate IMU-only odometry.
   publishOdometry(msg->header, diagnostics.lidar_update);
 
   if (shouldPublishLocalMap(msg->header)) {
@@ -547,6 +551,7 @@ bool LioEkfNode::getImuSamplesForScan(
 
   std::lock_guard<std::mutex> lock(imu_mutex_);
 
+  // Integrate only the IMU interval between the previous accepted scan and this scan.
   for (const auto& sample : imu_buffer_) {
     if (sample.stamp >= last_scan_stamp_ && sample.stamp <= scan_stamp) {
       samples.push_back(sample);
