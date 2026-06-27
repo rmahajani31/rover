@@ -133,6 +133,10 @@ def generate_launch_description():
                 costmap_projection_config,
                 {
                     "input_cloud_topic": costmap_projection_input_topic,
+                    # Nav2 consumes /custom/obstacle_cloud. The projected occupancy
+                    # grid is debug-only here and needs exact odom-timestamp TF,
+                    # which is too strict while the Phase 10 EKF is still slow.
+                    "publish_occupancy_grid": False,
                 },
             ],
         ),
@@ -164,6 +168,7 @@ def generate_launch_description():
                     "odom_topic": "/nav2_odom",
                     "publish_tf": True,
                     "tf_publish_rate_hz": 20.0,
+                    "stop_tf_on_tracking_degraded": False,
                     "imu_frame": "livox_frame",
                     "lidar_frame": "livox_frame",
                 },
