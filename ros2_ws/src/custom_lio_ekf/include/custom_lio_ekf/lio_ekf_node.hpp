@@ -143,7 +143,7 @@ private:
 
   double tf_publish_rate_hz_ = 20.0;
   double predicted_odom_rate_hz_ = 10.0;
-  double max_predicted_odom_interval_sec_ = 1.5;
+  double max_predicted_odom_interval_sec_ = 2.0;
   int max_consecutive_tracking_failures_ = 3;
   int max_path_poses_ = 2000;
 

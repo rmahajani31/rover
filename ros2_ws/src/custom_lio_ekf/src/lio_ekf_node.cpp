@@ -184,7 +184,7 @@ void LioEkfNode::declareParameters()
 
   declare_parameter<double>("tf_publish_rate_hz", 20.0);
   declare_parameter<double>("predicted_odom_rate_hz", 10.0);
-  declare_parameter<double>("max_predicted_odom_interval_sec", 1.5);
+  declare_parameter<double>("max_predicted_odom_interval_sec", 2.0);
   declare_parameter<int>("max_consecutive_tracking_failures", 3);
   declare_parameter<int>("max_path_poses", 2000);
 

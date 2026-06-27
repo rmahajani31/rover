@@ -19,7 +19,7 @@ custom_lio_ekf:
     publish_predicted_odom: true
     tf_publish_rate_hz: 20.0
     predicted_odom_rate_hz: 10.0
-    max_predicted_odom_interval_sec: 1.5
+    max_predicted_odom_interval_sec: 2.0
     max_consecutive_tracking_failures: 3
     max_path_poses: 2000
 

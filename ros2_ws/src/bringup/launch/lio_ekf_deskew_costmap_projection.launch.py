@@ -170,7 +170,7 @@ def generate_launch_description():
                     "tf_publish_rate_hz": 20.0,
                     "publish_predicted_odom": True,
                     "predicted_odom_rate_hz": 10.0,
-                    "max_predicted_odom_interval_sec": 1.5,
+                    "max_predicted_odom_interval_sec": 2.0,
                     "stop_tf_on_tracking_degraded": False,
                     "imu_prediction.use_accel_translation": True,
                     "imu_prediction.calibrate_initial_imu": True,
