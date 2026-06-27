@@ -64,6 +64,8 @@ private:
     const custom_scan_to_map_odom::CloudTConstPtr& filtered_scan,
     LioEkfDiagnostics& diagnostics);
 
+  bool calibrateInitialImuState(const rclcpp::Time& scan_stamp);
+
   bool runPrediction(
     const rclcpp::Time& scan_stamp,
     EkfPredictionStats& prediction_stats);
@@ -139,6 +141,10 @@ private:
 
   double max_imu_buffer_seconds_ = 5.0;
   double imu_accel_scale_ = 9.80665;
+  bool calibrate_initial_imu_ = true;
+  int initial_imu_calibration_min_samples_ = 20;
+  double initial_imu_calibration_window_sec_ = 1.0;
+  bool initial_imu_calibrated_ = false;
 
   EkfParameters ekf_parameters_;
   LidarImuExtrinsics lidar_imu_extrinsics_;

@@ -174,6 +174,9 @@ void LioEkfNode::declareParameters()
 
   declare_parameter<double>("max_imu_buffer_seconds", 5.0);
   declare_parameter<double>("imu_accel_scale", 9.80665);
+  declare_parameter<bool>("imu_prediction.calibrate_initial_imu", true);
+  declare_parameter<int>("imu_prediction.initial_calibration_min_samples", 20);
+  declare_parameter<double>("imu_prediction.initial_calibration_window_sec", 1.0);
 
   declare_parameter<std::vector<double>>("initial_gyro_bias", std::vector<double>{0.0, 0.0, 0.0});
   declare_parameter<std::vector<double>>("initial_accel_bias", std::vector<double>{0.0, 0.0, 0.0});
@@ -250,6 +253,13 @@ void LioEkfNode::readParameters()
 
   max_imu_buffer_seconds_ = get_parameter("max_imu_buffer_seconds").as_double();
   imu_accel_scale_ = get_parameter("imu_accel_scale").as_double();
+  calibrate_initial_imu_ = get_parameter("imu_prediction.calibrate_initial_imu").as_bool();
+  const int64_t initial_imu_calibration_min_samples =
+    get_parameter("imu_prediction.initial_calibration_min_samples").as_int();
+  initial_imu_calibration_min_samples_ =
+    static_cast<int>(std::max<int64_t>(1, initial_imu_calibration_min_samples));
+  initial_imu_calibration_window_sec_ =
+    get_parameter("imu_prediction.initial_calibration_window_sec").as_double();
 
   state_.b_g = readVector3Parameter("initial_gyro_bias", Eigen::Vector3d::Zero());
   state_.b_a = readVector3Parameter("initial_accel_bias", Eigen::Vector3d::Zero());
@@ -546,11 +556,108 @@ void LioEkfNode::trimImuBuffer(const rclcpp::Time& newest_stamp)
   }
 }
 
+bool LioEkfNode::calibrateInitialImuState(const rclcpp::Time& scan_stamp)
+{
+  if (!calibrate_initial_imu_ || initial_imu_calibrated_) {
+    return true;
+  }
+
+  Eigen::Vector3d accel_sum = Eigen::Vector3d::Zero();
+  Eigen::Vector3d gyro_sum = Eigen::Vector3d::Zero();
+  int sample_count = 0;
+
+  {
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+
+    for (const auto& sample : imu_buffer_) {
+      if (sample.stamp > scan_stamp) {
+        continue;
+      }
+
+      if (initial_imu_calibration_window_sec_ > 0.0 &&
+          (scan_stamp - sample.stamp).seconds() > initial_imu_calibration_window_sec_) {
+        continue;
+      }
+
+      if (!sample.accel.allFinite() || !sample.gyro.allFinite()) {
+        continue;
+      }
+
+      accel_sum += sample.accel;
+      gyro_sum += sample.gyro;
+      ++sample_count;
+    }
+  }
+
+  if (sample_count < initial_imu_calibration_min_samples_) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Skipping initial IMU calibration: only %d samples available, need %d",
+      sample_count,
+      initial_imu_calibration_min_samples_);
+    return false;
+  }
+
+  const Eigen::Vector3d accel_mean = accel_sum / static_cast<double>(sample_count);
+  const Eigen::Vector3d gyro_mean = gyro_sum / static_cast<double>(sample_count);
+  const double accel_norm = accel_mean.norm();
+  const double gravity_norm = state_.g_W.norm();
+
+  if (!std::isfinite(accel_norm) || accel_norm < 1.0 ||
+      !std::isfinite(gravity_norm) || gravity_norm < 1.0) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Skipping initial IMU calibration: accel_norm=%.4f gravity_norm=%.4f",
+      accel_norm,
+      gravity_norm);
+    return false;
+  }
+
+  const Eigen::Vector3d measured_specific_force = accel_mean.normalized();
+  const Eigen::Vector3d expected_specific_force_world = (-state_.g_W).normalized();
+
+  state_.q_WI =
+    Eigen::Quaterniond::FromTwoVectors(
+      measured_specific_force,
+      expected_specific_force_world);
+  state_.q_WI.normalize();
+
+  const Eigen::Vector3d expected_specific_force_imu =
+    state_.q_WI.inverse() * (-state_.g_W);
+
+  state_.b_g = gyro_mean;
+  state_.b_a = accel_mean - expected_specific_force_imu;
+  state_.v_I_W = Eigen::Vector3d::Zero();
+  initial_imu_calibrated_ = true;
+
+  RCLCPP_INFO(
+    get_logger(),
+    "Initial IMU calibration: samples=%d accel_norm=%.4f gyro_bias=[%.5f %.5f %.5f] "
+    "accel_bias=[%.5f %.5f %.5f]",
+    sample_count,
+    accel_norm,
+    state_.b_g.x(),
+    state_.b_g.y(),
+    state_.b_g.z(),
+    state_.b_a.x(),
+    state_.b_a.y(),
+    state_.b_a.z());
+
+  return true;
+}
+
 bool LioEkfNode::initializeMap(
   const std_msgs::msg::Header& header,
   const custom_scan_to_map_odom::CloudTConstPtr& filtered_scan,
   LioEkfDiagnostics& diagnostics)
 {
+  if (!calibrateInitialImuState(rclcpp::Time(header.stamp))) {
+    diagnostics.lidar_update.success = false;
+    diagnostics.lidar_update.status = "waiting_for_initial_imu_calibration";
+    diagnostics.lidar_update.input_points = filtered_scan->size();
+    return false;
+  }
+
   state_.P = makeInitialCovariance(ekf_parameters_.initial_covariance);
 
   auto scan_world = transformCloudToWorld(filtered_scan, state_);

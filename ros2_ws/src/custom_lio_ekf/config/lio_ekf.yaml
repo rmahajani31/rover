@@ -50,7 +50,10 @@ custom_lio_ekf:
       accel_bias_random_walk: 0.001
 
     imu_prediction:
-      use_accel_translation: false
+      use_accel_translation: true
+      calibrate_initial_imu: true
+      initial_calibration_min_samples: 20
+      initial_calibration_window_sec: 1.0
 
     lidar_update:
       max_iterations: 5
