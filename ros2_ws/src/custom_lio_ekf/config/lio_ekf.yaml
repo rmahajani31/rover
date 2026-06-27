@@ -16,7 +16,8 @@ custom_lio_ekf:
     publish_path: true
     publish_diagnostics: false
     stop_tf_on_tracking_degraded: true
-    publish_predicted_odom: true
+    publish_predicted_odom: false
+    predicted_odom_use_accel_translation: false
     tf_publish_rate_hz: 20.0
     predicted_odom_rate_hz: 10.0
     max_predicted_odom_interval_sec: 2.0

@@ -139,7 +139,8 @@ private:
   bool publish_path_ = true;
   bool publish_diagnostics_ = true;
   bool stop_tf_on_tracking_degraded_ = true;
-  bool publish_predicted_odom_ = true;
+  bool publish_predicted_odom_ = false;
+  bool predicted_odom_use_accel_translation_ = false;
 
   double tf_publish_rate_hz_ = 20.0;
   double predicted_odom_rate_hz_ = 10.0;

@@ -156,10 +156,12 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
 
   RCLCPP_INFO(
     get_logger(),
-    "custom_lio_ekf initialized | accel_translation_prediction=%s | predicted_odom=%s %.2f Hz",
+    "custom_lio_ekf initialized | accel_translation_prediction=%s | "
+    "predicted_odom=%s %.2f Hz | predicted_odom_accel_translation=%s",
     ekf_parameters_.use_accel_translation_prediction ? "true" : "false",
     publish_predicted_odom_ ? "true" : "false",
-    predicted_odom_rate_hz_);
+    predicted_odom_rate_hz_,
+    predicted_odom_use_accel_translation_ ? "true" : "false");
 }
 
 void LioEkfNode::declareParameters()
@@ -180,7 +182,8 @@ void LioEkfNode::declareParameters()
   declare_parameter<bool>("publish_path", true);
   declare_parameter<bool>("publish_diagnostics", true);
   declare_parameter<bool>("stop_tf_on_tracking_degraded", true);
-  declare_parameter<bool>("publish_predicted_odom", true);
+  declare_parameter<bool>("publish_predicted_odom", false);
+  declare_parameter<bool>("predicted_odom_use_accel_translation", false);
 
   declare_parameter<double>("tf_publish_rate_hz", 20.0);
   declare_parameter<double>("predicted_odom_rate_hz", 10.0);
@@ -263,6 +266,8 @@ void LioEkfNode::readParameters()
   publish_diagnostics_ = get_parameter("publish_diagnostics").as_bool();
   stop_tf_on_tracking_degraded_ = get_parameter("stop_tf_on_tracking_degraded").as_bool();
   publish_predicted_odom_ = get_parameter("publish_predicted_odom").as_bool();
+  predicted_odom_use_accel_translation_ =
+    get_parameter("predicted_odom_use_accel_translation").as_bool();
 
   tf_publish_rate_hz_ = get_parameter("tf_publish_rate_hz").as_double();
   predicted_odom_rate_hz_ = get_parameter("predicted_odom_rate_hz").as_double();
@@ -905,7 +910,7 @@ void LioEkfNode::publishPredictedOdometry()
       predicted_state,
       samples,
       prediction_stats,
-      ekf_parameters_.use_accel_translation_prediction)) {
+      predicted_odom_use_accel_translation_)) {
     ++predicted_odom_prediction_failed_count_;
     logPredictedOdometryStats();
     return;
