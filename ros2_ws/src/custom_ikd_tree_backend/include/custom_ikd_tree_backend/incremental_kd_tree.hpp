@@ -30,6 +30,8 @@ public:
 
   void deleteOutsideBox(const BoundingBox& box);
 
+  void rebuild();
+
   bool knnSearch(
     const Eigen::Vector3d& query,
     int k,
@@ -41,6 +43,7 @@ public:
   std::size_t size() const;
   std::size_t activeSize() const;
   std::size_t invalidCount() const;
+  double invalidRatio() const;
 
   bool empty() const;
 

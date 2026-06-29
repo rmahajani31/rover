@@ -67,6 +67,13 @@ void IncrementalKdTree::deleteOutsideBox(const BoundingBox& box)
   deleteOutsideBoxRecursive(root_.get(), box);
 }
 
+void IncrementalKdTree::rebuild()
+{
+  std::vector<Eigen::Vector3d> active_points;
+  getAllActivePoints(active_points);
+  buildFromPoints(active_points);
+}
+
 bool IncrementalKdTree::knnSearch(
   const Eigen::Vector3d& query,
   int k,
@@ -123,6 +130,18 @@ std::size_t IncrementalKdTree::activeSize() const
 std::size_t IncrementalKdTree::invalidCount() const
 {
   return root_ ? static_cast<std::size_t>(root_->invalid_count) : 0;
+}
+
+double IncrementalKdTree::invalidRatio() const
+{
+  const std::size_t physical_size = size();
+
+  if (physical_size == 0) {
+    return 0.0;
+  }
+
+  return static_cast<double>(invalidCount()) /
+         static_cast<double>(physical_size);
 }
 
 bool IncrementalKdTree::empty() const
