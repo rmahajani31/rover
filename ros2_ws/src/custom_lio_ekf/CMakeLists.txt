@@ -54,7 +54,7 @@ add_library(iterated_lidar_update
   src/iterated_lidar_update.cpp
 )
 
-add_library(diagnostics
+add_library(custom_lio_ekf_diagnostics
   src/diagnostics.cpp
 )
 
@@ -92,7 +92,7 @@ target_include_directories(iterated_lidar_update PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
-target_include_directories(diagnostics PUBLIC
+target_include_directories(custom_lio_ekf_diagnostics PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
@@ -153,12 +153,12 @@ target_link_libraries(iterated_lidar_update
   Eigen3::Eigen
 )
 
-ament_target_dependencies(diagnostics
+ament_target_dependencies(custom_lio_ekf_diagnostics
   builtin_interfaces
   diagnostic_msgs
 )
 
-target_link_libraries(diagnostics
+target_link_libraries(custom_lio_ekf_diagnostics
   covariance_propagation
   ekf_state
   iterated_lidar_update
@@ -183,7 +183,7 @@ ament_target_dependencies(custom_lio_ekf_node
 
 target_link_libraries(custom_lio_ekf_node
   covariance_propagation
-  diagnostics
+  custom_lio_ekf_diagnostics
   ekf_parameters
   ekf_state
   iterated_lidar_update
@@ -191,6 +191,18 @@ target_link_libraries(custom_lio_ekf_node
   ${PCL_LIBRARIES}
   Eigen3::Eigen
 )
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_diagnostics
+    test/test_diagnostics.cpp
+  )
+
+  target_link_libraries(test_diagnostics
+    custom_lio_ekf_diagnostics
+  )
+endif()
 
 install(
   TARGETS
@@ -200,7 +212,7 @@ install(
     covariance_propagation
     lidar_residual
     iterated_lidar_update
-    diagnostics
+    custom_lio_ekf_diagnostics
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -229,7 +241,7 @@ ament_export_libraries(
   covariance_propagation
   lidar_residual
   iterated_lidar_update
-  diagnostics
+  custom_lio_ekf_diagnostics
 )
 ament_export_dependencies(Eigen3 custom_imu_propagator custom_scan_to_map_odom)
 
