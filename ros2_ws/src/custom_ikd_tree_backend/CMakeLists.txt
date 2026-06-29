@@ -28,6 +28,10 @@ add_library(voxel_key
   src/voxel_key.cpp
 )
 
+add_library(pcl_rebuild_backend
+  src/pcl_rebuild_backend.cpp
+)
+
 target_include_directories(map_point PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -43,6 +47,12 @@ target_include_directories(voxel_key PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
+target_include_directories(pcl_rebuild_backend PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${PCL_INCLUDE_DIRS}
+)
+
 target_link_libraries(map_point
   Eigen3::Eigen
 )
@@ -55,11 +65,17 @@ target_link_libraries(voxel_key
   Eigen3::Eigen
 )
 
+target_link_libraries(pcl_rebuild_backend
+  Eigen3::Eigen
+  ${PCL_LIBRARIES}
+)
+
 install(
   TARGETS
     map_point
     bounding_box
     voxel_key
+    pcl_rebuild_backend
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -84,6 +100,7 @@ ament_export_libraries(
   map_point
   bounding_box
   voxel_key
+  pcl_rebuild_backend
 )
 ament_export_dependencies(PCL Eigen3)
 
