@@ -183,7 +183,6 @@ ament_target_dependencies(custom_lio_ekf_node
 
 target_link_libraries(custom_lio_ekf_node
   covariance_propagation
-  custom_lio_ekf_diagnostics
   ekf_parameters
   ekf_state
   iterated_lidar_update
