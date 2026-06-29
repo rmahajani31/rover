@@ -24,6 +24,12 @@ public:
 
   void insertPoints(const std::vector<Eigen::Vector3d>& points);
 
+  bool deletePoint(
+    const Eigen::Vector3d& point,
+    double tolerance);
+
+  void deleteOutsideBox(const BoundingBox& box);
+
   bool knnSearch(
     const Eigen::Vector3d& query,
     int k,
@@ -76,6 +82,15 @@ private:
   static void collectActivePointsRecursive(
     const KdTreeNode* node,
     std::vector<Eigen::Vector3d>& points);
+
+  static bool deletePointRecursive(
+    KdTreeNode* node,
+    const Eigen::Vector3d& point,
+    double tolerance_sq);
+
+  static void deleteOutsideBoxRecursive(
+    KdTreeNode* node,
+    const BoundingBox& box);
 
   static double currentWorstSquared(
     const NeighborHeap& heap,

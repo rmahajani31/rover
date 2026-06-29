@@ -46,6 +46,27 @@ void IncrementalKdTree::insertPoints(
   }
 }
 
+bool IncrementalKdTree::deletePoint(
+  const Eigen::Vector3d& point,
+  double tolerance)
+{
+  if (!root_ || !isFinitePoint(point) || tolerance < 0.0) {
+    return false;
+  }
+
+  const double tolerance_sq = tolerance * tolerance;
+  return deletePointRecursive(root_.get(), point, tolerance_sq);
+}
+
+void IncrementalKdTree::deleteOutsideBox(const BoundingBox& box)
+{
+  if (!root_ || !box.isValid()) {
+    return;
+  }
+
+  deleteOutsideBoxRecursive(root_.get(), box);
+}
+
 bool IncrementalKdTree::knnSearch(
   const Eigen::Vector3d& query,
   int k,
@@ -193,6 +214,57 @@ void IncrementalKdTree::collectActivePointsRecursive(
 
   collectActivePointsRecursive(node->left.get(), points);
   collectActivePointsRecursive(node->right.get(), points);
+}
+
+bool IncrementalKdTree::deletePointRecursive(
+  KdTreeNode* node,
+  const Eigen::Vector3d& point,
+  double tolerance_sq)
+{
+  if (!node || node->subtree_deleted) {
+    return false;
+  }
+
+  bool deleted_here = false;
+
+  if (!node->deleted &&
+      (node->point - point).squaredNorm() <= tolerance_sq) {
+    node->deleted = true;
+    deleted_here = true;
+  }
+
+  bool deleted_child = false;
+
+  if (!deleted_here) {
+    deleted_child =
+      deletePointRecursive(node->left.get(), point, tolerance_sq) ||
+      deletePointRecursive(node->right.get(), point, tolerance_sq);
+  }
+
+  if (deleted_here || deleted_child) {
+    updateMetadata(*node);
+    return true;
+  }
+
+  return false;
+}
+
+void IncrementalKdTree::deleteOutsideBoxRecursive(
+  KdTreeNode* node,
+  const BoundingBox& box)
+{
+  if (!node || node->subtree_deleted) {
+    return;
+  }
+
+  if (!box.contains(node->point)) {
+    node->deleted = true;
+  }
+
+  deleteOutsideBoxRecursive(node->left.get(), box);
+  deleteOutsideBoxRecursive(node->right.get(), box);
+
+  updateMetadata(*node);
 }
 
 double IncrementalKdTree::currentWorstSquared(
