@@ -32,6 +32,10 @@ add_library(pcl_rebuild_backend
   src/pcl_rebuild_backend.cpp
 )
 
+add_library(backend_profiler
+  src/backend_profiler.cpp
+)
+
 target_include_directories(map_point PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -51,6 +55,11 @@ target_include_directories(pcl_rebuild_backend PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${PCL_INCLUDE_DIRS}
+)
+
+target_include_directories(backend_profiler PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
 )
 
 target_link_libraries(map_point
@@ -76,6 +85,7 @@ install(
     bounding_box
     voxel_key
     pcl_rebuild_backend
+    backend_profiler
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -101,6 +111,7 @@ ament_export_libraries(
   bounding_box
   voxel_key
   pcl_rebuild_backend
+  backend_profiler
 )
 ament_export_dependencies(PCL Eigen3)
 
