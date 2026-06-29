@@ -1130,6 +1130,10 @@ void LioEkfNode::publishDiagnostics(
     return;
   }
 
+  if (!diagnostics.map_initialized) {
+    return;
+  }
+
   auto diagnostic_msg = makeNodeDiagnosticArray(diagnostics, header.stamp);
   diagnostics_pub_->publish(diagnostic_msg);
 }
