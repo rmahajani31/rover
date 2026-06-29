@@ -36,6 +36,10 @@ add_library(backend_profiler
   src/backend_profiler.cpp
 )
 
+add_library(voxel_hash_backend
+  src/voxel_hash_backend.cpp
+)
+
 target_include_directories(map_point PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -62,6 +66,12 @@ target_include_directories(backend_profiler PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
+target_include_directories(voxel_hash_backend PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${PCL_INCLUDE_DIRS}
+)
+
 target_link_libraries(map_point
   Eigen3::Eigen
 )
@@ -79,6 +89,13 @@ target_link_libraries(pcl_rebuild_backend
   ${PCL_LIBRARIES}
 )
 
+target_link_libraries(voxel_hash_backend
+  backend_profiler
+  voxel_key
+  Eigen3::Eigen
+  ${PCL_LIBRARIES}
+)
+
 install(
   TARGETS
     map_point
@@ -86,6 +103,7 @@ install(
     voxel_key
     pcl_rebuild_backend
     backend_profiler
+    voxel_hash_backend
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -112,6 +130,7 @@ ament_export_libraries(
   voxel_key
   pcl_rebuild_backend
   backend_profiler
+  voxel_hash_backend
 )
 ament_export_dependencies(PCL Eigen3)
 
