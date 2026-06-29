@@ -10,7 +10,6 @@
 #include <string>
 #include <vector>
 
-#include <diagnostic_msgs/msg/key_value.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <pcl/common/point_tests.h>
@@ -33,144 +32,6 @@ void updateCloudLayout(const custom_scan_to_map_odom::CloudTPtr& cloud)
   cloud->width = static_cast<std::uint32_t>(cloud->points.size());
   cloud->height = 1;
   cloud->is_dense = false;
-}
-
-diagnostic_msgs::msg::KeyValue makeKeyValue(
-  const std::string& key,
-  const std::string& value)
-{
-  diagnostic_msgs::msg::KeyValue key_value;
-  key_value.key = key;
-  key_value.value = value;
-  return key_value;
-}
-
-void addDiagnosticValue(
-  diagnostic_msgs::msg::DiagnosticStatus& status,
-  const std::string& key,
-  const std::string& value)
-{
-  status.values.push_back(makeKeyValue(key, value));
-}
-
-void addDiagnosticValue(
-  diagnostic_msgs::msg::DiagnosticStatus& status,
-  const std::string& key,
-  bool value)
-{
-  addDiagnosticValue(status, key, value ? "true" : "false");
-}
-
-void addDiagnosticValue(
-  diagnostic_msgs::msg::DiagnosticStatus& status,
-  const std::string& key,
-  std::size_t value)
-{
-  addDiagnosticValue(status, key, std::to_string(value));
-}
-
-void addDiagnosticValue(
-  diagnostic_msgs::msg::DiagnosticStatus& status,
-  const std::string& key,
-  int value)
-{
-  addDiagnosticValue(status, key, std::to_string(value));
-}
-
-void addDiagnosticValue(
-  diagnostic_msgs::msg::DiagnosticStatus& status,
-  const std::string& key,
-  double value)
-{
-  addDiagnosticValue(status, key, std::to_string(value));
-}
-
-std::uint8_t diagnosticLevel(const LioEkfDiagnostics& diagnostics)
-{
-  if (diagnostics.lidar_update.success && diagnostics.map_initialized) {
-    return diagnostic_msgs::msg::DiagnosticStatus::OK;
-  }
-
-  const std::string& status = diagnostics.lidar_update.status;
-  if (!diagnostics.map_initialized ||
-      status == "not_started" ||
-      status == "empty_filtered_scan" ||
-      status == "waiting_for_initial_imu_calibration" ||
-      status == "missing_imu_interval" ||
-      status == "prediction_failed" ||
-      status == "too_few_valid_residuals") {
-    return diagnostic_msgs::msg::DiagnosticStatus::WARN;
-  }
-
-  return diagnostic_msgs::msg::DiagnosticStatus::ERROR;
-}
-
-std::string diagnosticMessage(const LioEkfDiagnostics& diagnostics)
-{
-  if (!diagnostics.map_initialized) {
-    if (!diagnostics.lidar_update.status.empty() &&
-        diagnostics.lidar_update.status != "not_started") {
-      return diagnostics.lidar_update.status;
-    }
-    return "local_map_not_initialized";
-  }
-
-  if (!diagnostics.prediction.success &&
-      !diagnostics.prediction.status.empty() &&
-      diagnostics.prediction.status != "not_started") {
-    return diagnostics.prediction.status;
-  }
-
-  return diagnostics.lidar_update.status;
-}
-
-diagnostic_msgs::msg::DiagnosticArray makeNodeDiagnosticArray(
-  const LioEkfDiagnostics& diagnostics,
-  const builtin_interfaces::msg::Time& stamp)
-{
-  diagnostic_msgs::msg::DiagnosticArray array;
-  array.header.stamp = stamp;
-
-  diagnostic_msgs::msg::DiagnosticStatus status;
-  status.name = "custom_lio_ekf";
-  status.hardware_id = "custom_lio_ekf";
-  status.level = diagnosticLevel(diagnostics);
-  status.message = diagnosticMessage(diagnostics);
-
-  addDiagnosticValue(status, "map_initialized", diagnostics.map_initialized);
-  addDiagnosticValue(status, "input_points", diagnostics.input_points);
-  addDiagnosticValue(status, "map_points", diagnostics.map_points);
-
-  addDiagnosticValue(status, "prediction_success", diagnostics.prediction.success);
-  addDiagnosticValue(status, "prediction_status", diagnostics.prediction.status);
-  addDiagnosticValue(
-    status,
-    "imu_intervals_integrated",
-    diagnostics.prediction.intervals_integrated);
-  addDiagnosticValue(status, "imu_dt_total", diagnostics.prediction.dt_total);
-
-  addDiagnosticValue(status, "lidar_update_success", diagnostics.lidar_update.success);
-  addDiagnosticValue(status, "lidar_update_status", diagnostics.lidar_update.status);
-  addDiagnosticValue(status, "lidar_iterations", diagnostics.lidar_update.iterations);
-  addDiagnosticValue(status, "valid_residuals", diagnostics.lidar_update.valid_residuals);
-  addDiagnosticValue(status, "mean_abs_residual", diagnostics.lidar_update.mean_abs_residual);
-  addDiagnosticValue(status, "rms_residual", diagnostics.lidar_update.rms_residual);
-  addDiagnosticValue(status, "max_abs_residual", diagnostics.lidar_update.max_abs_residual);
-  addDiagnosticValue(
-    status,
-    "delta_theta_norm",
-    diagnostics.lidar_update.final_delta_theta_norm);
-  addDiagnosticValue(
-    status,
-    "delta_position_norm",
-    diagnostics.lidar_update.final_delta_position_norm);
-
-  addDiagnosticValue(status, "prediction_time_ms", diagnostics.prediction_time_ms);
-  addDiagnosticValue(status, "lidar_update_time_ms", diagnostics.lidar_update_time_ms);
-  addDiagnosticValue(status, "map_update_time_ms", diagnostics.map_update_time_ms);
-
-  array.status.push_back(status);
-  return array;
 }
 
 double elapsedMilliseconds(
@@ -1130,12 +991,14 @@ void LioEkfNode::publishDiagnostics(
     return;
   }
 
-  if (!diagnostics.map_initialized) {
-    return;
-  }
-
-  auto diagnostic_msg = makeNodeDiagnosticArray(diagnostics, header.stamp);
+  RCLCPP_DEBUG(
+    get_logger(),
+    "Publishing LIO EKF diagnostics: status=%s",
+    diagnostics.lidar_update.status.c_str());
+  const auto diagnostic_msg =
+    makeDiagnosticArray(diagnostics, header.stamp, "custom_lio_ekf");
   diagnostics_pub_->publish(diagnostic_msg);
+  RCLCPP_DEBUG(get_logger(), "LIO EKF diagnostics published");
 }
 
 void LioEkfNode::publishTransform(

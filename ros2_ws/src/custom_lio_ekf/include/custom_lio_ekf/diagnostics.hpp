@@ -7,7 +7,6 @@
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
 
 #include "custom_lio_ekf/covariance_propagation.hpp"
-#include "custom_lio_ekf/ekf_state.hpp"
 #include "custom_lio_ekf/iterated_lidar_update.hpp"
 
 namespace custom_lio_ekf
@@ -26,18 +25,7 @@ struct LioEkfDiagnostics
 
   EkfPredictionStats prediction;
   LidarUpdateStats lidar_update;
-
-  Eigen::Vector3d gyro_bias = Eigen::Vector3d::Zero();
-  Eigen::Vector3d accel_bias = Eigen::Vector3d::Zero();
-  Eigen::Vector3d gravity = Eigen::Vector3d(0.0, 0.0, -9.81);
-
-  Vector18d covariance_diagonal = Vector18d::Zero();
 };
-
-LioEkfDiagnostics makeDiagnostics(
-  const EkfState& state,
-  const EkfPredictionStats& prediction,
-  const LidarUpdateStats& lidar_update);
 
 diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   const LioEkfDiagnostics& diagnostics,
