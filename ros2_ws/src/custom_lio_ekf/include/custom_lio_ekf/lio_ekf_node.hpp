@@ -90,7 +90,8 @@ private:
 
   bool publishOdometry(
     const std_msgs::msg::Header& header,
-    const LidarUpdateStats& update_stats);
+    const LidarUpdateStats& update_stats,
+    bool* tf_lookup_success = nullptr);
 
   void publishPath(
     const std_msgs::msg::Header& header,

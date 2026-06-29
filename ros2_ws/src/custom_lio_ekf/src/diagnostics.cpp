@@ -1,7 +1,10 @@
 #include "custom_lio_ekf/diagnostics.hpp"
 
-#include <sstream>
+#include <cstdint>
 #include <string>
+
+#include <diagnostic_msgs/msg/diagnostic_status.hpp>
+#include <diagnostic_msgs/msg/key_value.hpp>
 
 namespace custom_lio_ekf
 {
@@ -9,141 +12,168 @@ namespace custom_lio_ekf
 namespace
 {
 
-std::string vectorToString(const Eigen::Vector3d& value)
-{
-  std::ostringstream stream;
-  stream << value.x() << ", " << value.y() << ", " << value.z();
-  return stream.str();
-}
-
-std::string covarianceDiagonalToString(const Vector18d& diagonal)
-{
-  std::ostringstream stream;
-  for (int i = 0; i < kErrorStateDim; ++i) {
-    if (i > 0) {
-      stream << ", ";
-    }
-    stream << diagonal(i);
-  }
-  return stream.str();
-}
-
-void addValue(
-  diagnostic_msgs::msg::DiagnosticStatus& status,
+diagnostic_msgs::msg::KeyValue makeKeyValue(
   const std::string& key,
   const std::string& value)
 {
   diagnostic_msgs::msg::KeyValue key_value;
   key_value.key = key;
   key_value.value = value;
-  status.values.push_back(key_value);
+  return key_value;
 }
 
-void addValue(
-  diagnostic_msgs::msg::DiagnosticStatus& status,
-  const std::string& key,
-  double value)
+std::uint8_t diagnosticLevel(const LioEkfDiagnostics& diagnostics)
 {
-  addValue(status, key, std::to_string(value));
+  if (diagnostics.lidar_update.success &&
+      diagnostics.map_initialized &&
+      diagnostics.tf_lookup_success &&
+      diagnostics.odom_publish_success) {
+    return diagnostic_msgs::msg::DiagnosticStatus::OK;
+  }
+
+  const std::string& status = diagnostics.lidar_update.status;
+
+  // Startup and sparse-data states are actionable but not necessarily fatal.
+  if (!diagnostics.map_initialized ||
+      status == "not_started" ||
+      status == "empty_filtered_scan" ||
+      status == "waiting_for_initial_imu_calibration" ||
+      status == "missing_imu_interval" ||
+      status == "prediction_failed" ||
+      (diagnostics.lidar_update.success && !diagnostics.tf_lookup_success) ||
+      (diagnostics.lidar_update.success && !diagnostics.odom_publish_success) ||
+      status == "too_few_valid_residuals") {
+    return diagnostic_msgs::msg::DiagnosticStatus::WARN;
+  }
+
+  return diagnostic_msgs::msg::DiagnosticStatus::ERROR;
 }
 
-void addValue(
-  diagnostic_msgs::msg::DiagnosticStatus& status,
-  const std::string& key,
-  std::size_t value)
+std::string diagnosticMessage(const LioEkfDiagnostics& diagnostics)
 {
-  addValue(status, key, std::to_string(value));
-}
+  if (!diagnostics.map_initialized) {
+    if (!diagnostics.lidar_update.status.empty() &&
+        diagnostics.lidar_update.status != "not_started") {
+      return diagnostics.lidar_update.status;
+    }
+    return "local_map_not_initialized";
+  }
 
-void addValue(
-  diagnostic_msgs::msg::DiagnosticStatus& status,
-  const std::string& key,
-  int value)
-{
-  addValue(status, key, std::to_string(value));
-}
+  if (diagnostics.lidar_update.success && !diagnostics.tf_lookup_success) {
+    return "tf_lookup_failed";
+  }
 
-void addValue(
-  diagnostic_msgs::msg::DiagnosticStatus& status,
-  const std::string& key,
-  bool value)
-{
-  addValue(status, key, value ? "true" : "false");
+  if (diagnostics.lidar_update.success && !diagnostics.odom_publish_success) {
+    return "odom_publish_failed";
+  }
+
+  if (!diagnostics.prediction.success &&
+      !diagnostics.prediction.status.empty() &&
+      diagnostics.prediction.status != "not_started") {
+    return diagnostics.prediction.status;
+  }
+
+  return diagnostics.lidar_update.status;
 }
 
 }  // namespace
-
-LioEkfDiagnostics makeDiagnostics(
-  const EkfState& state,
-  const EkfPredictionStats& prediction,
-  const LidarUpdateStats& lidar_update)
-{
-  LioEkfDiagnostics diagnostics;
-  diagnostics.prediction = prediction;
-  diagnostics.lidar_update = lidar_update;
-  diagnostics.gyro_bias = state.b_g;
-  diagnostics.accel_bias = state.b_a;
-  diagnostics.gravity = state.g_W;
-  diagnostics.covariance_diagonal = state.P.diagonal();
-  return diagnostics;
-}
 
 diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   const LioEkfDiagnostics& diagnostics,
   const builtin_interfaces::msg::Time& stamp,
   const std::string& name)
 {
+  diagnostic_msgs::msg::DiagnosticArray array;
+  array.header.stamp = stamp;
+
   diagnostic_msgs::msg::DiagnosticStatus status;
   status.name = name;
   status.hardware_id = "custom_lio_ekf";
+  status.level = diagnosticLevel(diagnostics);
+  status.message = diagnosticMessage(diagnostics);
 
-  if (!diagnostics.map_initialized) {
-    status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
-    status.message = "local_map_not_initialized";
-  } else if (!diagnostics.prediction.success) {
-    status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
-    status.message = diagnostics.prediction.status;
-  } else if (!diagnostics.lidar_update.success) {
-    status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
-    status.message = diagnostics.lidar_update.status;
-  } else {
-    status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
-    status.message = "success";
-  }
+  status.values.push_back(makeKeyValue(
+    "frame_count",
+    std::to_string(diagnostics.frame_count)));
+  status.values.push_back(makeKeyValue(
+    "map_initialized",
+    diagnostics.map_initialized ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "input_points",
+    std::to_string(diagnostics.input_points)));
+  status.values.push_back(makeKeyValue(
+    "map_points",
+    std::to_string(diagnostics.map_points)));
+  status.values.push_back(makeKeyValue(
+    "local_map_points_before_update",
+    std::to_string(diagnostics.local_map_points_before_update)));
+  status.values.push_back(makeKeyValue(
+    "local_map_points_after_update",
+    std::to_string(diagnostics.local_map_points_after_update)));
+  status.values.push_back(makeKeyValue(
+    "imu_samples_buffered",
+    std::to_string(diagnostics.imu_samples_buffered)));
+  status.values.push_back(makeKeyValue(
+    "imu_samples_received",
+    std::to_string(diagnostics.imu_samples_received)));
+  status.values.push_back(makeKeyValue(
+    "consecutive_tracking_failures",
+    std::to_string(diagnostics.consecutive_tracking_failures)));
+  status.values.push_back(makeKeyValue(
+    "tf_lookup_success",
+    diagnostics.tf_lookup_success ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "odom_publish_success",
+    diagnostics.odom_publish_success ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "prediction_success",
+    diagnostics.prediction.success ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "prediction_status",
+    diagnostics.prediction.status));
+  status.values.push_back(makeKeyValue(
+    "imu_intervals_integrated",
+    std::to_string(diagnostics.prediction.intervals_integrated)));
+  status.values.push_back(makeKeyValue(
+    "imu_dt_total",
+    std::to_string(diagnostics.prediction.dt_total)));
+  status.values.push_back(makeKeyValue(
+    "lidar_update_success",
+    diagnostics.lidar_update.success ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "lidar_update_status",
+    diagnostics.lidar_update.status));
+  status.values.push_back(makeKeyValue(
+    "lidar_iterations",
+    std::to_string(diagnostics.lidar_update.iterations)));
+  status.values.push_back(makeKeyValue(
+    "valid_residuals",
+    std::to_string(diagnostics.lidar_update.valid_residuals)));
+  status.values.push_back(makeKeyValue(
+    "mean_abs_residual",
+    std::to_string(diagnostics.lidar_update.mean_abs_residual)));
+  status.values.push_back(makeKeyValue(
+    "rms_residual",
+    std::to_string(diagnostics.lidar_update.rms_residual)));
+  status.values.push_back(makeKeyValue(
+    "max_abs_residual",
+    std::to_string(diagnostics.lidar_update.max_abs_residual)));
+  status.values.push_back(makeKeyValue(
+    "delta_theta_norm",
+    std::to_string(diagnostics.lidar_update.final_delta_theta_norm)));
+  status.values.push_back(makeKeyValue(
+    "delta_position_norm",
+    std::to_string(diagnostics.lidar_update.final_delta_position_norm)));
+  status.values.push_back(makeKeyValue(
+    "prediction_time_ms",
+    std::to_string(diagnostics.prediction_time_ms)));
+  status.values.push_back(makeKeyValue(
+    "lidar_update_time_ms",
+    std::to_string(diagnostics.lidar_update_time_ms)));
+  status.values.push_back(makeKeyValue(
+    "map_update_time_ms",
+    std::to_string(diagnostics.map_update_time_ms)));
 
-  addValue(status, "map_initialized", diagnostics.map_initialized);
-  addValue(status, "input_points", diagnostics.input_points);
-  addValue(status, "map_points", diagnostics.map_points);
-
-  addValue(status, "prediction_success", diagnostics.prediction.success);
-  addValue(status, "prediction_status", diagnostics.prediction.status);
-  addValue(status, "imu_intervals_integrated", diagnostics.prediction.intervals_integrated);
-  addValue(status, "imu_dt_total", diagnostics.prediction.dt_total);
-
-  addValue(status, "lidar_update_success", diagnostics.lidar_update.success);
-  addValue(status, "lidar_update_status", diagnostics.lidar_update.status);
-  addValue(status, "lidar_iterations", diagnostics.lidar_update.iterations);
-  addValue(status, "valid_residuals", diagnostics.lidar_update.valid_residuals);
-  addValue(status, "mean_abs_residual", diagnostics.lidar_update.mean_abs_residual);
-  addValue(status, "rms_residual", diagnostics.lidar_update.rms_residual);
-  addValue(status, "max_abs_residual", diagnostics.lidar_update.max_abs_residual);
-  addValue(status, "delta_theta_norm", diagnostics.lidar_update.final_delta_theta_norm);
-  addValue(status, "delta_position_norm", diagnostics.lidar_update.final_delta_position_norm);
-
-  addValue(status, "prediction_time_ms", diagnostics.prediction_time_ms);
-  addValue(status, "lidar_update_time_ms", diagnostics.lidar_update_time_ms);
-  addValue(status, "map_update_time_ms", diagnostics.map_update_time_ms);
-
-  addValue(status, "gyro_bias", vectorToString(diagnostics.gyro_bias));
-  addValue(status, "accel_bias", vectorToString(diagnostics.accel_bias));
-  addValue(status, "gravity", vectorToString(diagnostics.gravity));
-  addValue(
-    status,
-    "covariance_diagonal",
-    covarianceDiagonalToString(diagnostics.covariance_diagonal));
-
-  diagnostic_msgs::msg::DiagnosticArray array;
-  array.header.stamp = stamp;
   array.status.push_back(status);
   return array;
 }

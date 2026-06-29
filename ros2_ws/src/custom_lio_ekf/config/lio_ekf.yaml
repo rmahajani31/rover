@@ -14,7 +14,7 @@ custom_lio_ekf:
 
     publish_tf: false
     publish_path: true
-    publish_diagnostics: false
+    publish_diagnostics: true
     stop_tf_on_tracking_degraded: true
     # TF is republished from the latest LiDAR-corrected pose; no IMU-only odom is emitted.
     tf_publish_rate_hz: 20.0

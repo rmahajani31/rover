@@ -314,12 +314,22 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   // One scan callback performs the full Phase 10 cycle: predict, correct, map update.
   LioEkfDiagnostics diagnostics;
   diagnostics.map_initialized = local_map_manager_.isInitialized();
+  diagnostics.frame_count = frame_count_;
+  diagnostics.consecutive_tracking_failures = consecutive_tracking_failures_;
+
+  {
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    diagnostics.imu_samples_buffered = imu_buffer_.size();
+    diagnostics.imu_samples_received = imu_samples_received_;
+  }
 
   auto raw_cloud = custom_scan_to_map_odom::fromRosCloud(*msg);
   auto filtered_scan = filterScan(raw_cloud);
 
   diagnostics.input_points = filtered_scan->size();
   diagnostics.map_points = local_map_manager_.size();
+  diagnostics.local_map_points_before_update = local_map_manager_.size();
+  diagnostics.local_map_points_after_update = local_map_manager_.size();
 
   if (filtered_scan->empty()) {
     diagnostics.lidar_update.status = "empty_filtered_scan";
@@ -399,9 +409,13 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   diagnostics.map_initialized = local_map_manager_.isInitialized();
   diagnostics.map_points = local_map_manager_.size();
+  diagnostics.consecutive_tracking_failures = consecutive_tracking_failures_;
 
   // Publish only the LiDAR-corrected EKF pose; no intermediate IMU-only odometry.
-  publishOdometry(msg->header, diagnostics.lidar_update);
+  bool tf_lookup_success = false;
+  diagnostics.odom_publish_success =
+    publishOdometry(msg->header, diagnostics.lidar_update, &tf_lookup_success);
+  diagnostics.tf_lookup_success = tf_lookup_success;
 
   if (shouldPublishLocalMap(msg->header)) {
     publishLocalMap(msg->header);
@@ -672,9 +686,12 @@ bool LioEkfNode::initializeMap(
     diagnostics.lidar_update.success = false;
     diagnostics.lidar_update.status = "waiting_for_initial_imu_calibration";
     diagnostics.lidar_update.input_points = filtered_scan->size();
+    diagnostics.local_map_points_before_update = local_map_manager_.size();
+    diagnostics.local_map_points_after_update = local_map_manager_.size();
     return false;
   }
 
+  diagnostics.local_map_points_before_update = local_map_manager_.size();
   state_.P = makeInitialCovariance(ekf_parameters_.initial_covariance);
 
   auto scan_world = transformCloudToWorld(filtered_scan, state_);
@@ -685,11 +702,15 @@ bool LioEkfNode::initializeMap(
 
   diagnostics.map_initialized = true;
   diagnostics.map_points = local_map_manager_.size();
+  diagnostics.local_map_points_after_update = local_map_manager_.size();
   diagnostics.lidar_update.success = true;
   diagnostics.lidar_update.status = "map_initialized";
   diagnostics.lidar_update.input_points = filtered_scan->size();
 
-  publishOdometry(header, diagnostics.lidar_update);
+  bool tf_lookup_success = false;
+  diagnostics.odom_publish_success =
+    publishOdometry(header, diagnostics.lidar_update, &tf_lookup_success);
+  diagnostics.tf_lookup_success = tf_lookup_success;
   publishLocalMap(header);
 
   RCLCPP_INFO(
@@ -738,8 +759,10 @@ void LioEkfNode::updateMap(
 {
   const auto map_update_start = std::chrono::steady_clock::now();
 
+  diagnostics.local_map_points_before_update = local_map_manager_.size();
   auto scan_world = transformCloudToWorld(filtered_scan, state_);
   local_map_manager_.updateAfterOptimization(scan_world, state_.p_I_W);
+  diagnostics.local_map_points_after_update = local_map_manager_.size();
 
   const auto map_update_end = std::chrono::steady_clock::now();
   diagnostics.map_update_time_ms =
@@ -827,12 +850,20 @@ void LioEkfNode::publishLatestTransform()
 
 bool LioEkfNode::publishOdometry(
   const std_msgs::msg::Header& header,
-  const LidarUpdateStats& update_stats)
+  const LidarUpdateStats& update_stats,
+  bool* tf_lookup_success)
 {
   Eigen::Isometry3d T_imu_base = Eigen::Isometry3d::Identity();
 
+  if (tf_lookup_success) {
+    *tf_lookup_success = false;
+  }
+
   if (!lookupImuToBaseTransform(rclcpp::Time(header.stamp), T_imu_base)) {
     return false;
+  }
+  if (tf_lookup_success) {
+    *tf_lookup_success = true;
   }
 
   const Eigen::Isometry3d T_odom_imu = imuPoseInWorld(state_);
@@ -991,7 +1022,7 @@ void LioEkfNode::publishDiagnostics(
     return;
   }
 
-  auto diagnostic_msg =
+  const auto diagnostic_msg =
     makeDiagnosticArray(diagnostics, header.stamp, "custom_lio_ekf");
   diagnostics_pub_->publish(diagnostic_msg);
 }
