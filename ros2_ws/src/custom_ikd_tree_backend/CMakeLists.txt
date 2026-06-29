@@ -44,6 +44,10 @@ add_library(kd_tree_node
   src/kd_tree_node.cpp
 )
 
+add_library(incremental_kd_tree
+  src/incremental_kd_tree.cpp
+)
+
 target_include_directories(map_point PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -81,6 +85,11 @@ target_include_directories(kd_tree_node PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
+target_include_directories(incremental_kd_tree PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
 target_link_libraries(map_point
   Eigen3::Eigen
 )
@@ -110,6 +119,12 @@ target_link_libraries(kd_tree_node
   Eigen3::Eigen
 )
 
+target_link_libraries(incremental_kd_tree
+  bounding_box
+  kd_tree_node
+  Eigen3::Eigen
+)
+
 install(
   TARGETS
     map_point
@@ -119,6 +134,7 @@ install(
     backend_profiler
     voxel_hash_backend
     kd_tree_node
+    incremental_kd_tree
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -147,6 +163,7 @@ ament_export_libraries(
   backend_profiler
   voxel_hash_backend
   kd_tree_node
+  incremental_kd_tree
 )
 ament_export_dependencies(PCL Eigen3)
 
