@@ -43,6 +43,14 @@ TEST(LioEkfDiagnostics, DefaultDiagnosticsMessageIsPublishable)
     diagnostic_msgs::msg::DiagnosticStatus::WARN);
   EXPECT_EQ(message.status.front().message, "local_map_not_initialized");
   EXPECT_FALSE(message.status.front().values.empty());
+  EXPECT_TRUE(hasKey(message.status.front(), "frame_count"));
+  EXPECT_TRUE(hasKey(message.status.front(), "imu_samples_buffered"));
+  EXPECT_TRUE(hasKey(message.status.front(), "imu_samples_received"));
+  EXPECT_TRUE(hasKey(message.status.front(), "consecutive_tracking_failures"));
+  EXPECT_TRUE(hasKey(message.status.front(), "tf_lookup_success"));
+  EXPECT_TRUE(hasKey(message.status.front(), "odom_publish_success"));
+  EXPECT_TRUE(hasKey(message.status.front(), "local_map_points_before_update"));
+  EXPECT_TRUE(hasKey(message.status.front(), "local_map_points_after_update"));
   EXPECT_FALSE(hasKey(message.status.front(), "covariance_diagonal"));
 }
 
@@ -50,6 +58,8 @@ TEST(LioEkfDiagnostics, SuccessfulUpdateReportsOk)
 {
   LioEkfDiagnostics diagnostics;
   diagnostics.map_initialized = true;
+  diagnostics.tf_lookup_success = true;
+  diagnostics.odom_publish_success = true;
   diagnostics.prediction.success = true;
   diagnostics.prediction.status = "success";
   diagnostics.lidar_update.success = true;

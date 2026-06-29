@@ -24,7 +24,10 @@ diagnostic_msgs::msg::KeyValue makeKeyValue(
 
 std::uint8_t diagnosticLevel(const LioEkfDiagnostics& diagnostics)
 {
-  if (diagnostics.lidar_update.success && diagnostics.map_initialized) {
+  if (diagnostics.lidar_update.success &&
+      diagnostics.map_initialized &&
+      diagnostics.tf_lookup_success &&
+      diagnostics.odom_publish_success) {
     return diagnostic_msgs::msg::DiagnosticStatus::OK;
   }
 
@@ -37,6 +40,8 @@ std::uint8_t diagnosticLevel(const LioEkfDiagnostics& diagnostics)
       status == "waiting_for_initial_imu_calibration" ||
       status == "missing_imu_interval" ||
       status == "prediction_failed" ||
+      (diagnostics.lidar_update.success && !diagnostics.tf_lookup_success) ||
+      (diagnostics.lidar_update.success && !diagnostics.odom_publish_success) ||
       status == "too_few_valid_residuals") {
     return diagnostic_msgs::msg::DiagnosticStatus::WARN;
   }
@@ -52,6 +57,14 @@ std::string diagnosticMessage(const LioEkfDiagnostics& diagnostics)
       return diagnostics.lidar_update.status;
     }
     return "local_map_not_initialized";
+  }
+
+  if (diagnostics.lidar_update.success && !diagnostics.tf_lookup_success) {
+    return "tf_lookup_failed";
+  }
+
+  if (diagnostics.lidar_update.success && !diagnostics.odom_publish_success) {
+    return "odom_publish_failed";
   }
 
   if (!diagnostics.prediction.success &&
@@ -80,6 +93,9 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.message = diagnosticMessage(diagnostics);
 
   status.values.push_back(makeKeyValue(
+    "frame_count",
+    std::to_string(diagnostics.frame_count)));
+  status.values.push_back(makeKeyValue(
     "map_initialized",
     diagnostics.map_initialized ? "true" : "false"));
   status.values.push_back(makeKeyValue(
@@ -88,6 +104,27 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.values.push_back(makeKeyValue(
     "map_points",
     std::to_string(diagnostics.map_points)));
+  status.values.push_back(makeKeyValue(
+    "local_map_points_before_update",
+    std::to_string(diagnostics.local_map_points_before_update)));
+  status.values.push_back(makeKeyValue(
+    "local_map_points_after_update",
+    std::to_string(diagnostics.local_map_points_after_update)));
+  status.values.push_back(makeKeyValue(
+    "imu_samples_buffered",
+    std::to_string(diagnostics.imu_samples_buffered)));
+  status.values.push_back(makeKeyValue(
+    "imu_samples_received",
+    std::to_string(diagnostics.imu_samples_received)));
+  status.values.push_back(makeKeyValue(
+    "consecutive_tracking_failures",
+    std::to_string(diagnostics.consecutive_tracking_failures)));
+  status.values.push_back(makeKeyValue(
+    "tf_lookup_success",
+    diagnostics.tf_lookup_success ? "true" : "false"));
+  status.values.push_back(makeKeyValue(
+    "odom_publish_success",
+    diagnostics.odom_publish_success ? "true" : "false"));
   status.values.push_back(makeKeyValue(
     "prediction_success",
     diagnostics.prediction.success ? "true" : "false"));
