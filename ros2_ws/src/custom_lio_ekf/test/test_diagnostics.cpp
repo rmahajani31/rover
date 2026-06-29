@@ -9,6 +9,18 @@ namespace custom_lio_ekf
 namespace
 {
 
+bool hasKey(
+  const diagnostic_msgs::msg::DiagnosticStatus& status,
+  const std::string& key)
+{
+  for (const auto& value : status.values) {
+    if (value.key == key) {
+      return true;
+    }
+  }
+  return false;
+}
+
 TEST(LioEkfDiagnostics, DefaultDiagnosticsMessageIsPublishable)
 {
   LioEkfDiagnostics diagnostics;
@@ -31,6 +43,8 @@ TEST(LioEkfDiagnostics, DefaultDiagnosticsMessageIsPublishable)
     diagnostic_msgs::msg::DiagnosticStatus::WARN);
   EXPECT_EQ(message.status.front().message, "local_map_not_initialized");
   EXPECT_FALSE(message.status.front().values.empty());
+  EXPECT_TRUE(hasKey(message.status.front(), "state_snapshot_available"));
+  EXPECT_FALSE(hasKey(message.status.front(), "covariance_diagonal"));
 }
 
 TEST(LioEkfDiagnostics, SuccessfulUpdateReportsOk)
@@ -50,6 +64,7 @@ TEST(LioEkfDiagnostics, SuccessfulUpdateReportsOk)
     message.status.front().level,
     diagnostic_msgs::msg::DiagnosticStatus::OK);
   EXPECT_EQ(message.status.front().message, "success");
+  EXPECT_TRUE(hasKey(message.status.front(), "covariance_diagonal"));
 }
 
 }  // namespace

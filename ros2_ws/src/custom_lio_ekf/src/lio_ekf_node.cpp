@@ -991,8 +991,16 @@ void LioEkfNode::publishDiagnostics(
     return;
   }
 
+  auto diagnostic_snapshot = diagnostics;
+  if (diagnostic_snapshot.map_initialized) {
+    diagnostic_snapshot.gyro_bias = state_.b_g;
+    diagnostic_snapshot.accel_bias = state_.b_a;
+    diagnostic_snapshot.gravity = state_.g_W;
+    diagnostic_snapshot.covariance_diagonal = state_.P.diagonal();
+  }
+
   auto diagnostic_msg =
-    makeDiagnosticArray(diagnostics, header.stamp, "custom_lio_ekf");
+    makeDiagnosticArray(diagnostic_snapshot, header.stamp, "custom_lio_ekf");
   diagnostics_pub_->publish(diagnostic_msg);
 }
 

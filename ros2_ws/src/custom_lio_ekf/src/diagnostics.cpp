@@ -3,11 +3,23 @@
 #include <sstream>
 #include <string>
 
+#include <diagnostic_msgs/msg/key_value.hpp>
+
 namespace custom_lio_ekf
 {
 
 namespace
 {
+
+diagnostic_msgs::msg::KeyValue makeKeyValue(
+  const std::string& key,
+  const std::string& value)
+{
+  diagnostic_msgs::msg::KeyValue key_value;
+  key_value.key = key;
+  key_value.value = value;
+  return key_value;
+}
 
 std::string vectorToString(const Eigen::Vector3d& value)
 {
@@ -33,10 +45,7 @@ void addValue(
   const std::string& key,
   const std::string& value)
 {
-  diagnostic_msgs::msg::KeyValue key_value;
-  key_value.key = key;
-  key_value.value = value;
-  status.values.push_back(key_value);
+  status.values.push_back(makeKeyValue(key, value));
 }
 
 void addValue(
@@ -93,6 +102,9 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   const builtin_interfaces::msg::Time& stamp,
   const std::string& name)
 {
+  diagnostic_msgs::msg::DiagnosticArray array;
+  array.header.stamp = stamp;
+
   diagnostic_msgs::msg::DiagnosticStatus status;
   status.name = name;
   status.hardware_id = "custom_lio_ekf";
@@ -134,16 +146,21 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   addValue(status, "lidar_update_time_ms", diagnostics.lidar_update_time_ms);
   addValue(status, "map_update_time_ms", diagnostics.map_update_time_ms);
 
-  addValue(status, "gyro_bias", vectorToString(diagnostics.gyro_bias));
-  addValue(status, "accel_bias", vectorToString(diagnostics.accel_bias));
-  addValue(status, "gravity", vectorToString(diagnostics.gravity));
-  addValue(
-    status,
-    "covariance_diagonal",
-    covarianceDiagonalToString(diagnostics.covariance_diagonal));
+  // Keep startup diagnostics scalar-only, matching the scan-to-map diagnostics
+  // pattern. The first cloud can arrive before IMU calibration initializes the
+  // EKF state; publishing the status is more important than exporting state
+  // internals in that transient path.
+  addValue(status, "state_snapshot_available", diagnostics.map_initialized);
+  if (diagnostics.map_initialized) {
+    addValue(status, "gyro_bias", vectorToString(diagnostics.gyro_bias));
+    addValue(status, "accel_bias", vectorToString(diagnostics.accel_bias));
+    addValue(status, "gravity", vectorToString(diagnostics.gravity));
+    addValue(
+      status,
+      "covariance_diagonal",
+      covarianceDiagonalToString(diagnostics.covariance_diagonal));
+  }
 
-  diagnostic_msgs::msg::DiagnosticArray array;
-  array.header.stamp = stamp;
   array.status.push_back(status);
   return array;
 }
