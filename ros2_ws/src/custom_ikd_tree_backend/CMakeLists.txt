@@ -16,6 +16,31 @@ find_package(ament_cmake REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common filters kdtree)
 find_package(Eigen3 REQUIRED)
 
+add_library(map_point
+  src/map_point.cpp
+)
+
+target_include_directories(map_point PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(map_point
+  Eigen3::Eigen
+)
+
+install(
+  TARGETS map_point
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
 install(
   DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
@@ -25,6 +50,8 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 endif()
 
+ament_export_include_directories(include)
+ament_export_libraries(map_point)
 ament_export_dependencies(PCL Eigen3)
 
 ament_package()
