@@ -24,12 +24,21 @@ add_library(bounding_box
   src/bounding_box.cpp
 )
 
+add_library(voxel_key
+  src/voxel_key.cpp
+)
+
 target_include_directories(map_point PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 
 target_include_directories(bounding_box PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_include_directories(voxel_key PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
@@ -42,10 +51,15 @@ target_link_libraries(bounding_box
   Eigen3::Eigen
 )
 
+target_link_libraries(voxel_key
+  Eigen3::Eigen
+)
+
 install(
   TARGETS
     map_point
     bounding_box
+    voxel_key
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -69,6 +83,7 @@ ament_export_include_directories(include)
 ament_export_libraries(
   map_point
   bounding_box
+  voxel_key
 )
 ament_export_dependencies(PCL Eigen3)
 
