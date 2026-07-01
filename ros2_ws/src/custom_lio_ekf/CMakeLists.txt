@@ -146,6 +146,7 @@ target_link_libraries(lidar_residual
 
 ament_target_dependencies(iterated_lidar_update
   custom_scan_to_map_odom
+  custom_ikd_tree_backend
 )
 
 target_link_libraries(iterated_lidar_update
