@@ -50,6 +50,7 @@ odometry as the Nav2 odometry source
 - `custom_lidar_deskew`, when using IMU point cloud deskew mode
 - `custom_imu_propagator`, when using IMU-assisted scan-to-map initial guesses
 - `custom_lio_ekf`, when using the rover error-state Kalman filter odometry mode
+- `custom_ikd_tree_backend`, when using the EKF ikd tree map backend mode
 - `fastlio2_nav2_adapter`, when using FAST-LIO2 as the Nav2 odometry source
 - `custom_livox_costmap_projection`, when using the upgraded costmap mode
 - `fast_lio` from
@@ -76,19 +77,19 @@ the packages it needs built and sourced in its own ROS 2 environment.
 The Jetson should build the lidar-heavy packages:
 
 ```bash
-colcon build --packages-select custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_lio_ekf livox_cloud_to_scan bringup
+colcon build --packages-select custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf livox_cloud_to_scan bringup
 source install/setup.bash
 ```
 
 The Pi does not need `livox_ros_driver2`, `custom_fastlio_preprocess`,
 `custom_livox_costmap_projection`, `custom_icp_odom`,
-`custom_imu_propagator`, `custom_scan_to_map_odom`, or
-`custom_lidar_deskew`, or `custom_lio_ekf` for normal
+`custom_imu_propagator`, `custom_scan_to_map_odom`,
+`custom_lidar_deskew`, `custom_ikd_tree_backend`, or `custom_lio_ekf` for normal
 driving/mapping. If those Jetson-only packages are present in the Pi workspace
 but their dependencies are not installed, skip them:
 
 ```bash
-colcon build --packages-skip custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_lio_ekf
+colcon build --packages-skip custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf
 source install/setup.bash
 ```
 
@@ -179,9 +180,9 @@ AMCL, and `/custom/obstacle_cloud` for the Nav2 local costmap and collision
 monitor.
 - `lio_ekf_deskew_costmap_projection.launch.py` starts the rover error-state
 Kalman filter mode on the Jetson: custom Livox preprocessing, IMU point cloud
-deskewing, `custom_lio_ekf` odometry from `/custom/deskewed_points`,
-`/scan_from_livox` for AMCL, and `/custom/obstacle_cloud` for the Nav2 local
-costmap and collision monitor.
+deskewing, `custom_lio_ekf` odometry from `/custom/deskewed_points`, ikd tree
+map backend mode for local-map KNN, `/scan_from_livox` for AMCL, and
+`/custom/obstacle_cloud` for the Nav2 local costmap and collision monitor.
 - `scan_to_scan_icp.launch.py` starts Jetson-side custom preprocessing and
 `custom_icp_odom` in shadow mode. It publishes custom ICP odometry for
 debugging but does not publish `odom -> base_link`.
@@ -315,6 +316,32 @@ and diagnostics topics can be enabled for inspection when needed.
 In the current rover bringup, Nav2 receives only LiDAR-corrected poses. The EKF
 does not publish intermediate IMU-only odometry, which avoids stationary drift
 from accelerometer bias or scale error.
+
+The local map backend is selected in
+`custom_lio_ekf/config/lio_ekf.yaml` with `local_map.backend_type`. The current
+rover configuration uses `ikd_tree`. The `pcl_rebuild` and `voxel_hash` backend
+types are kept for comparison and fallback testing.
+
+### `custom_ikd_tree_backend`
+
+Package that provides local map backend implementations for `custom_lio_ekf`.
+The current ikd tree map backend mode keeps one representative point per voxel,
+uses an incremental kd-tree for nearest-neighbor queries, and lazily marks
+deleted tree nodes until a rebuild compacts and rebalances the index.
+
+Supported backend types are:
+
+```text
+ikd_tree
+pcl_rebuild
+voxel_hash
+```
+
+The voxel hash remains the authoritative downsampled local map content. The
+tree is the query index used during point-to-plane residual construction.
+Backend timing and map-size counters are included in
+`/custom/lio_ekf_diagnostics` with `map_backend_lidar_*`,
+`map_backend_update_*`, and `map_backend_latest_*` keys.
 
 ### `custom_livox_costmap_projection`
 
@@ -467,7 +494,7 @@ Pi from the goBILDA Pinpoint v2 odometry computer.
 | `/custom/lio_ekf_odom` | Topic | Default error-state Kalman filter odometry output when not remapped to `/nav2_odom`. |
 | `/custom/lio_ekf_path` | Topic | Accepted error-state Kalman filter pose path for RViz inspection. |
 | `/custom/lio_ekf_local_map` | Topic | Local point cloud map maintained by the error-state Kalman filter odometry backend. |
-| `/custom/lio_ekf_diagnostics` | Topic | EKF prediction, LiDAR correction, covariance, residual, and timing diagnostics. |
+| `/custom/lio_ekf_diagnostics` | Topic | EKF prediction, LiDAR correction, covariance, residual, timing, and map backend diagnostics. |
 | `/custom/obstacle_cloud` | Topic | Filtered obstacle PointCloud2 stream used by the Nav2 local costmap and collision monitor in upgraded costmap mode. |
 | `/custom/projected_occupancy_grid` | Topic | Debug occupancy grid built from `/custom/obstacle_cloud` for RViz inspection. |
 | `/custom/costmap_projection_diagnostics` | Topic | Runtime projection health, TF status, point counts, and grid occupancy counts. |
@@ -515,9 +542,10 @@ monitor, and `/scan_from_livox` for AMCL.
 odometry while preserving `/custom/points_preprocessed` for obstacle
 projection and `/scan_from_livox` for AMCL.
 - Error-state Kalman filter mode using `/custom/deskewed_points` and
-`/livox/imu` for Jetson-side odometry, while preserving
-`/custom/points_preprocessed` for obstacle projection and `/scan_from_livox`
-for AMCL.
+`/livox/imu` for Jetson-side odometry. In ikd tree map backend mode,
+`custom_lio_ekf` uses `custom_ikd_tree_backend` for local-map KNN and updates
+while preserving `/custom/points_preprocessed` for obstacle projection and
+`/scan_from_livox` for AMCL.
 - Custom scan-to-scan ICP odometry running in shadow mode while the rover is
 driven using the normal Pi-side mapping or navigation stack.
 
@@ -965,6 +993,13 @@ The EKF consumes `/custom/deskewed_points` and `/livox/imu`, maintains a local
 LiDAR map, and publishes only LiDAR-corrected poses to Nav2. It does not
 publish intermediate IMU-only odometry.
 
+The current rover configuration uses ikd tree map backend mode:
+`local_map.backend_type: ikd_tree` in `custom_lio_ekf/config/lio_ekf.yaml`.
+This backend keeps a voxel-downsampled local map, serves point-to-plane
+nearest-neighbor queries from an incremental kd-tree, and reports backend
+timing in `/custom/lio_ekf_diagnostics`. Use `pcl_rebuild` only when comparing
+against the rebuild-style baseline.
+
 Start the Livox driver on the Jetson:
 
 ```bash
@@ -985,7 +1020,7 @@ This produces:
 /livox/lidar                  -> custom_fastlio_preprocess         -> /custom/points_for_deskew
 /livox/imu                    -> custom_lidar_deskew               -> deskew rotation
 /custom/points_for_deskew     -> custom_lidar_deskew               -> /custom/deskewed_points
-/custom/deskewed_points       -> custom_lio_ekf                    -> /nav2_odom
+/custom/deskewed_points       -> custom_lio_ekf + ikd tree backend -> /nav2_odom
 /custom/points_preprocessed   -> custom_livox_costmap_projection   -> /custom/obstacle_cloud
 /custom/points_for_nav2       -> livox_cloud_to_scan               -> /scan_from_livox
 custom_lio_ekf                                                     -> odom -> base_link
@@ -1006,6 +1041,7 @@ ros2 topic hz /custom/obstacle_cloud
 ros2 topic hz /scan_from_livox
 ros2 topic hz /nav2_odom
 ros2 topic echo /nav2_odom --once
+ros2 topic echo /custom/lio_ekf_diagnostics --once
 ros2 run tf2_ros tf2_echo odom base_link
 ros2 run tf2_ros tf2_echo base_link livox_frame
 ```
@@ -1018,6 +1054,7 @@ Expected topic usage:
 /custom/points_preprocessed -> Livox obstacle projection
 /custom/obstacle_cloud -> Nav2 local costmap and collision monitor
 /scan_from_livox -> AMCL
+/custom/lio_ekf_diagnostics -> EKF and map backend timing/status
 ```
 
 Run order summary:
@@ -1190,7 +1227,9 @@ topic, `custom_fastlio_preprocess` publishes `/custom/points_preprocessed` and
 odometry.
 - In error-state Kalman filter mode, `custom_lio_ekf` consumes
 `/custom/deskewed_points` and `/livox/imu`, publishes `/nav2_odom`, and
-broadcasts `odom -> base_link` from LiDAR-corrected EKF poses.
+broadcasts `odom -> base_link` from LiDAR-corrected EKF poses. The current
+configuration uses `local_map.backend_type: ikd_tree` for ikd tree map backend
+mode.
 - In upgraded costmap mode, `custom_livox_costmap_projection` consumes
 `/custom/points_preprocessed`, publishes `/custom/obstacle_cloud` for Nav2
 costmaps, and publishes `/custom/projected_occupancy_grid` for RViz/debugging.
@@ -1244,8 +1283,15 @@ goal.
 `/custom/obstacle_cloud`, `/scan_from_livox`, and `/nav2_odom` are publishing
 before sending a Nav2 goal.
 - In error-state Kalman filter mode, confirm `/custom/deskewed_points`,
-`/custom/obstacle_cloud`, `/scan_from_livox`, and `/nav2_odom` are publishing
-before sending a Nav2 goal.
+`/custom/obstacle_cloud`, `/scan_from_livox`, `/nav2_odom`, and
+`/custom/lio_ekf_diagnostics` are publishing before sending a Nav2 goal.
+- In ikd tree map backend mode, inspect `/custom/lio_ekf_diagnostics` keys such
+as `map_backend_lidar_knn_time_ms`, `map_backend_update_total_time_ms`,
+`map_backend_update_rebuild_time_ms`, and `consecutive_tracking_failures` if
+Nav2 odometry slows or tracking looks unstable.
+- To compare against the rebuild baseline, set `local_map.backend_type` to
+`pcl_rebuild` in `custom_lio_ekf/config/lio_ekf.yaml`; set it back to
+`ikd_tree` for the current rover run.
 - If Nav2 starts but obstacles do not appear in the costmaps in upgraded
 costmap mode, confirm the Pi was launched with
 `pi_fast_lio2_costmap_projection_nav2.launch.py`, not the older
@@ -1374,7 +1420,7 @@ an existing saved map YAML file.
    ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-9. For error-state Kalman filter mode:
+9. For error-state Kalman filter mode with ikd tree map backend mode:
 
    ```bash
    # Jetson
