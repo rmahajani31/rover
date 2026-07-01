@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <diagnostic_msgs/msg/key_value.hpp>
@@ -20,6 +21,64 @@ diagnostic_msgs::msg::KeyValue makeKeyValue(
   key_value.key = key;
   key_value.value = value;
   return key_value;
+}
+
+void appendBackendProfileValues(
+  std::vector<diagnostic_msgs::msg::KeyValue>& values,
+  const std::string& prefix,
+  const custom_ikd_tree_backend::BackendProfileSnapshot& profile)
+{
+  values.push_back(makeKeyValue(
+    prefix + "_status",
+    profile.status));
+  values.push_back(makeKeyValue(
+    prefix + "_map_size",
+    std::to_string(profile.map_size)));
+  values.push_back(makeKeyValue(
+    prefix + "_active_size",
+    std::to_string(profile.active_size)));
+  values.push_back(makeKeyValue(
+    prefix + "_invalid_node_count",
+    std::to_string(profile.invalid_node_count)));
+  values.push_back(makeKeyValue(
+    prefix + "_invalid_ratio",
+    std::to_string(profile.invalid_ratio)));
+  values.push_back(makeKeyValue(
+    prefix + "_knn_queries",
+    std::to_string(profile.knn_query_count)));
+  values.push_back(makeKeyValue(
+    prefix + "_inserted_points",
+    std::to_string(profile.inserted_point_count)));
+  values.push_back(makeKeyValue(
+    prefix + "_deleted_points",
+    std::to_string(profile.deleted_point_count)));
+  values.push_back(makeKeyValue(
+    prefix + "_rejected_by_voxel",
+    std::to_string(profile.rejected_by_voxel_count)));
+  values.push_back(makeKeyValue(
+    prefix + "_voxel_replacements",
+    std::to_string(profile.voxel_replacement_count)));
+  values.push_back(makeKeyValue(
+    prefix + "_rebuild_count",
+    std::to_string(profile.rebuild_count)));
+  values.push_back(makeKeyValue(
+    prefix + "_knn_time_ms",
+    std::to_string(profile.knn_time_ms)));
+  values.push_back(makeKeyValue(
+    prefix + "_insert_time_ms",
+    std::to_string(profile.insert_time_ms)));
+  values.push_back(makeKeyValue(
+    prefix + "_delete_time_ms",
+    std::to_string(profile.delete_time_ms)));
+  values.push_back(makeKeyValue(
+    prefix + "_downsample_time_ms",
+    std::to_string(profile.downsample_time_ms)));
+  values.push_back(makeKeyValue(
+    prefix + "_rebuild_time_ms",
+    std::to_string(profile.rebuild_time_ms)));
+  values.push_back(makeKeyValue(
+    prefix + "_total_time_ms",
+    std::to_string(profile.total_backend_time_ms)));
 }
 
 std::uint8_t diagnosticLevel(const LioEkfDiagnostics& diagnostics)
@@ -173,6 +232,21 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.values.push_back(makeKeyValue(
     "map_update_time_ms",
     std::to_string(diagnostics.map_update_time_ms)));
+  status.values.push_back(makeKeyValue(
+    "map_backend_type",
+    diagnostics.map_backend_type));
+  appendBackendProfileValues(
+    status.values,
+    "map_backend_latest",
+    diagnostics.map_backend_profile);
+  appendBackendProfileValues(
+    status.values,
+    "map_backend_lidar",
+    diagnostics.map_backend_lidar_profile);
+  appendBackendProfileValues(
+    status.values,
+    "map_backend_update",
+    diagnostics.map_backend_update_profile);
 
   array.status.push_back(status);
   return array;

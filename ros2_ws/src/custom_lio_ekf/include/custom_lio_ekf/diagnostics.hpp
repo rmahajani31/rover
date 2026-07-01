@@ -8,6 +8,7 @@
 
 #include "custom_lio_ekf/covariance_propagation.hpp"
 #include "custom_lio_ekf/iterated_lidar_update.hpp"
+#include "custom_ikd_tree_backend/backend_profiler.hpp"
 
 namespace custom_lio_ekf
 {
@@ -31,6 +32,11 @@ struct LioEkfDiagnostics
   double prediction_time_ms = 0.0;
   double lidar_update_time_ms = 0.0;
   double map_update_time_ms = 0.0;
+
+  std::string map_backend_type;
+  custom_ikd_tree_backend::BackendProfileSnapshot map_backend_profile;
+  custom_ikd_tree_backend::BackendProfileSnapshot map_backend_lidar_profile;
+  custom_ikd_tree_backend::BackendProfileSnapshot map_backend_update_profile;
 
   EkfPredictionStats prediction;
   LidarUpdateStats lidar_update;

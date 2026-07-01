@@ -41,6 +41,34 @@ double elapsedMilliseconds(
   return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
+void accumulateBackendProfile(
+  custom_ikd_tree_backend::BackendProfileSnapshot& target,
+  const custom_ikd_tree_backend::BackendProfileSnapshot& source)
+{
+  target.map_size = source.map_size;
+  target.active_size = source.active_size;
+  target.invalid_node_count = source.invalid_node_count;
+  target.invalid_ratio = source.invalid_ratio;
+
+  target.knn_query_count += source.knn_query_count;
+  target.inserted_point_count += source.inserted_point_count;
+  target.deleted_point_count += source.deleted_point_count;
+  target.rejected_by_voxel_count += source.rejected_by_voxel_count;
+  target.voxel_replacement_count += source.voxel_replacement_count;
+  target.rebuild_count += source.rebuild_count;
+
+  target.knn_time_ms += source.knn_time_ms;
+  target.insert_time_ms += source.insert_time_ms;
+  target.delete_time_ms += source.delete_time_ms;
+  target.downsample_time_ms += source.downsample_time_ms;
+  target.rebuild_time_ms += source.rebuild_time_ms;
+  target.total_backend_time_ms += source.total_backend_time_ms;
+
+  if (!source.status.empty() && source.status != "not_started") {
+    target.status = source.status;
+  }
+}
+
 double yawFromTransform(const Eigen::Isometry3d& transform)
 {
   return std::atan2(transform.linear()(1, 0), transform.linear()(0, 0));
@@ -375,6 +403,10 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     elapsedMilliseconds(prediction_start, prediction_end);
 
   if (prediction_ok) {
+    if (map_backend_) {
+      map_backend_->resetProfile();
+    }
+
     const auto update_start = std::chrono::steady_clock::now();
     update_ok = runLidarUpdate(filtered_scan, update_stats);
     const auto update_end = std::chrono::steady_clock::now();
@@ -382,6 +414,9 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     diagnostics.lidar_update = update_stats;
     diagnostics.lidar_update_time_ms =
       elapsedMilliseconds(update_start, update_end);
+    if (map_backend_) {
+      diagnostics.map_backend_lidar_profile = map_backend_->profileSnapshot();
+    }
   } else {
     update_stats.status = "prediction_failed";
     diagnostics.lidar_update = update_stats;
@@ -750,6 +785,7 @@ bool LioEkfNode::initializeMap(
 
   map_backend_->clear();
   map_backend_->insertPointsWithDownsampling(inside_points);
+  diagnostics.map_backend_update_profile = map_backend_->profileSnapshot();
   map_initialized_ = true;
 
   last_scan_stamp_ = scan_stamp;
@@ -816,15 +852,21 @@ void LioEkfNode::updateMap(
   const auto map_update_start = std::chrono::steady_clock::now();
 
   diagnostics.local_map_points_before_update = mapSize();
+  custom_ikd_tree_backend::BackendProfileSnapshot update_profile;
 
   const auto scan_world_points = transformCloudToWorldPoints(filtered_scan, state_);
 
   if (updateLocalCubeIfNeeded(state_.p_I_W)) {
     deleteOutsideLocalCube();
+    if (map_backend_) {
+      accumulateBackendProfile(update_profile, map_backend_->profileSnapshot());
+    }
   }
 
   const auto inside_points = filterPointsInsideLocalCube(scan_world_points);
   map_backend_->insertPointsWithDownsampling(inside_points);
+  accumulateBackendProfile(update_profile, map_backend_->profileSnapshot());
+  diagnostics.map_backend_update_profile = update_profile;
 
   diagnostics.local_map_points_after_update = mapSize();
 
@@ -1087,8 +1129,14 @@ void LioEkfNode::publishDiagnostics(
     return;
   }
 
+  LioEkfDiagnostics enriched_diagnostics = diagnostics;
+  enriched_diagnostics.map_backend_type = local_map_backend_type_;
+  if (map_backend_) {
+    enriched_diagnostics.map_backend_profile = map_backend_->profileSnapshot();
+  }
+
   const auto diagnostic_msg =
-    makeDiagnosticArray(diagnostics, header.stamp, "custom_lio_ekf");
+    makeDiagnosticArray(enriched_diagnostics, header.stamp, "custom_lio_ekf");
   diagnostics_pub_->publish(diagnostic_msg);
 }
 

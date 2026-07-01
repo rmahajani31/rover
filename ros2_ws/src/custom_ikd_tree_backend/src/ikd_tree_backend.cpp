@@ -37,6 +37,12 @@ const BackendProfileSnapshot& IkdTreeBackend::profileSnapshot() const
   return profiler_.snapshot();
 }
 
+void IkdTreeBackend::resetProfile()
+{
+  profiler_.resetFrame();
+  refreshProfileSizes();
+}
+
 void IkdTreeBackend::clear()
 {
   tree_.clear();

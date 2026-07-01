@@ -172,6 +172,7 @@ target_link_libraries(iterated_lidar_update
 ament_target_dependencies(custom_lio_ekf_diagnostics
   builtin_interfaces
   diagnostic_msgs
+  custom_ikd_tree_backend
 )
 
 target_link_libraries(custom_lio_ekf_diagnostics

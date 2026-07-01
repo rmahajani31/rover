@@ -13,6 +13,7 @@ PclRebuildBackend::PclRebuildBackend(double voxel_leaf_size)
   cloud_(new CloudT()),
   kdtree_(new pcl::KdTreeFLANN<PointT>())
 {
+  refreshProfileSizes();
 }
 
 void PclRebuildBackend::setVoxelLeafSize(double voxel_leaf_size)
@@ -25,77 +26,139 @@ double PclRebuildBackend::voxelLeafSize() const
   return voxel_leaf_size_;
 }
 
+const BackendProfileSnapshot& PclRebuildBackend::profileSnapshot() const
+{
+  return profiler_.snapshot();
+}
+
+void PclRebuildBackend::resetProfile()
+{
+  profiler_.resetFrame();
+  refreshProfileSizes();
+}
+
 void PclRebuildBackend::clear()
 {
   cloud_.reset(new CloudT());
   kdtree_.reset(new pcl::KdTreeFLANN<PointT>());
   kdtree_ready_ = false;
+  profiler_.resetFrame();
+  refreshProfileSizes();
 }
 
 void PclRebuildBackend::buildFromPoints(
   const std::vector<Eigen::Vector3d>& points)
 {
+  profiler_.resetFrame();
+  ScopedTimer total_timer(profiler_.mutableSnapshot().total_backend_time_ms);
+
   cloud_.reset(new CloudT());
-  appendFinitePoints(points);
+
+  {
+    ScopedTimer insert_timer(profiler_.mutableSnapshot().insert_time_ms);
+    appendFinitePoints(points);
+  }
+
   updateCloudLayout();
   rebuildKdTree();
+  refreshProfileSizes();
+  profiler_.mutableSnapshot().status = "success";
 }
 
 void PclRebuildBackend::insertPoints(
   const std::vector<Eigen::Vector3d>& points)
 {
+  profiler_.resetFrame();
+  ScopedTimer total_timer(profiler_.mutableSnapshot().total_backend_time_ms);
+
   if (points.empty()) {
+    refreshProfileSizes();
+    profiler_.mutableSnapshot().status = "empty_input";
     return;
   }
 
-  appendFinitePoints(points);
+  {
+    ScopedTimer insert_timer(profiler_.mutableSnapshot().insert_time_ms);
+    appendFinitePoints(points);
+  }
+
   updateCloudLayout();
   rebuildKdTree();
+  refreshProfileSizes();
+  profiler_.mutableSnapshot().status = "success";
 }
 
 void PclRebuildBackend::insertPointsWithDownsampling(
   const std::vector<Eigen::Vector3d>& points)
 {
+  profiler_.resetFrame();
+  ScopedTimer total_timer(profiler_.mutableSnapshot().total_backend_time_ms);
+
   if (points.empty()) {
+    refreshProfileSizes();
+    profiler_.mutableSnapshot().status = "empty_input";
     return;
   }
 
-  appendFinitePoints(points);
+  {
+    ScopedTimer insert_timer(profiler_.mutableSnapshot().insert_time_ms);
+    appendFinitePoints(points);
+  }
+
   updateCloudLayout();
   downsampleMap();
   rebuildKdTree();
+  refreshProfileSizes();
+  profiler_.mutableSnapshot().status = "success";
 }
 
 void PclRebuildBackend::deleteOutsideBox(
   const Eigen::Vector3d& box_min,
   const Eigen::Vector3d& box_max)
 {
+  profiler_.resetFrame();
+  ScopedTimer total_timer(profiler_.mutableSnapshot().total_backend_time_ms);
+
   if (!isFiniteVector(box_min) || !isFiniteVector(box_max)) {
+    refreshProfileSizes();
+    profiler_.mutableSnapshot().status = "invalid_box";
     return;
   }
 
   if (box_min.x() > box_max.x() ||
       box_min.y() > box_max.y() ||
       box_min.z() > box_max.z()) {
+    refreshProfileSizes();
+    profiler_.mutableSnapshot().status = "invalid_box";
     return;
   }
 
   CloudTPtr filtered(new CloudT());
   filtered->points.reserve(cloud_->points.size());
 
-  for (const auto& point : cloud_->points) {
-    const Eigen::Vector3d eigen_point = toEigenPoint(point);
+  {
+    ScopedTimer delete_timer(profiler_.mutableSnapshot().delete_time_ms);
 
-    if (eigen_point.x() >= box_min.x() && eigen_point.x() <= box_max.x() &&
-        eigen_point.y() >= box_min.y() && eigen_point.y() <= box_max.y() &&
-        eigen_point.z() >= box_min.z() && eigen_point.z() <= box_max.z()) {
-      filtered->points.push_back(point);
+    for (const auto& point : cloud_->points) {
+      const Eigen::Vector3d eigen_point = toEigenPoint(point);
+
+      if (eigen_point.x() >= box_min.x() && eigen_point.x() <= box_max.x() &&
+          eigen_point.y() >= box_min.y() && eigen_point.y() <= box_max.y() &&
+          eigen_point.z() >= box_min.z() && eigen_point.z() <= box_max.z()) {
+        filtered->points.push_back(point);
+      }
     }
+  }
+
+  if (cloud_->points.size() > filtered->points.size()) {
+    profiler_.addDeletedPoints(cloud_->points.size() - filtered->points.size());
   }
 
   cloud_ = filtered;
   updateCloudLayout();
   rebuildKdTree();
+  refreshProfileSizes();
+  profiler_.mutableSnapshot().status = "success";
 }
 
 bool PclRebuildBackend::knnSearch(
@@ -105,6 +168,9 @@ bool PclRebuildBackend::knnSearch(
   std::vector<Eigen::Vector3d>& neighbors) const
 {
   neighbors.clear();
+
+  profiler_.addKnnQuery();
+  ScopedTimer knn_timer(profiler_.mutableSnapshot().knn_time_ms);
 
   if (!kdtree_ready_ || !isFiniteVector(query) || k <= 0 || max_distance <= 0.0) {
     return false;
@@ -199,12 +265,15 @@ void PclRebuildBackend::appendFinitePoints(
   for (const auto& point : points) {
     if (isFiniteVector(point)) {
       cloud_->points.push_back(toPclPoint(point));
+      profiler_.addInsertedPoints(1);
     }
   }
 }
 
 void PclRebuildBackend::rebuildKdTree()
 {
+  ScopedTimer rebuild_timer(profiler_.mutableSnapshot().rebuild_time_ms);
+
   if (cloud_->points.empty()) {
     kdtree_ready_ = false;
     return;
@@ -212,6 +281,7 @@ void PclRebuildBackend::rebuildKdTree()
 
   kdtree_->setInputCloud(cloud_);
   kdtree_ready_ = true;
+  profiler_.addRebuild();
 }
 
 void PclRebuildBackend::downsampleMap()
@@ -221,6 +291,8 @@ void PclRebuildBackend::downsampleMap()
       cloud_->points.empty()) {
     return;
   }
+
+  ScopedTimer downsample_timer(profiler_.mutableSnapshot().downsample_time_ms);
 
   CloudTPtr filtered(new CloudT());
 
@@ -241,6 +313,14 @@ void PclRebuildBackend::updateCloudLayout()
   cloud_->width = static_cast<std::uint32_t>(cloud_->points.size());
   cloud_->height = 1;
   cloud_->is_dense = false;
+}
+
+void PclRebuildBackend::refreshProfileSizes()
+{
+  profiler_.setMapSizes(
+    cloud_->points.size(),
+    cloud_->points.size(),
+    0);
 }
 
 }  // namespace custom_ikd_tree_backend

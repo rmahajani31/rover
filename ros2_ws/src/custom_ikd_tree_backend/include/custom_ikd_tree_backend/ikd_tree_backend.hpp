@@ -35,7 +35,8 @@ public:
   void setOptions(const IkdTreeBackendOptions& options);
   const IkdTreeBackendOptions& options() const;
 
-  const BackendProfileSnapshot& profileSnapshot() const;
+  const BackendProfileSnapshot& profileSnapshot() const override;
+  void resetProfile() override;
 
   void clear() override;
 

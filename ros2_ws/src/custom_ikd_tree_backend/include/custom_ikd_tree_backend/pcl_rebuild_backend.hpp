@@ -9,6 +9,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
+#include "custom_ikd_tree_backend/backend_profiler.hpp"
 #include "custom_ikd_tree_backend/map_backend_interface.hpp"
 
 namespace custom_ikd_tree_backend
@@ -21,6 +22,9 @@ public:
 
   void setVoxelLeafSize(double voxel_leaf_size);
   double voxelLeafSize() const;
+
+  const BackendProfileSnapshot& profileSnapshot() const override;
+  void resetProfile() override;
 
   void clear() override;
 
@@ -63,6 +67,7 @@ private:
   void rebuildKdTree();
   void downsampleMap();
   void updateCloudLayout();
+  void refreshProfileSizes();
 
   double voxel_leaf_size_ = 0.25;
 
@@ -70,6 +75,8 @@ private:
   pcl::KdTreeFLANN<PointT>::Ptr kdtree_;
 
   bool kdtree_ready_ = false;
+
+  mutable BackendProfiler profiler_;
 };
 
 }  // namespace custom_ikd_tree_backend

@@ -36,6 +36,12 @@ const BackendProfileSnapshot& VoxelHashBackend::profileSnapshot() const
   return profiler_.snapshot();
 }
 
+void VoxelHashBackend::resetProfile()
+{
+  profiler_.resetFrame();
+  refreshProfileSizes();
+}
+
 void VoxelHashBackend::clear()
 {
   voxel_representatives_.clear();

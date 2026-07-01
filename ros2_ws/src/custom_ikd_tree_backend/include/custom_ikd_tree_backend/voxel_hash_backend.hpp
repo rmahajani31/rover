@@ -25,7 +25,8 @@ public:
   void setVoxelSize(double voxel_size);
   double voxelSize() const;
 
-  const BackendProfileSnapshot& profileSnapshot() const;
+  const BackendProfileSnapshot& profileSnapshot() const override;
+  void resetProfile() override;
 
   void clear() override;
 

@@ -5,6 +5,8 @@
 
 #include <Eigen/Core>
 
+#include "custom_ikd_tree_backend/backend_profiler.hpp"
+
 namespace custom_ikd_tree_backend
 {
 
@@ -40,6 +42,16 @@ public:
 
   virtual void getAllActivePoints(
     std::vector<Eigen::Vector3d>& points) const = 0;
+
+  virtual const BackendProfileSnapshot& profileSnapshot() const
+  {
+    static const BackendProfileSnapshot empty_snapshot;
+    return empty_snapshot;
+  }
+
+  virtual void resetProfile()
+  {
+  }
 };
 
 }  // namespace custom_ikd_tree_backend
