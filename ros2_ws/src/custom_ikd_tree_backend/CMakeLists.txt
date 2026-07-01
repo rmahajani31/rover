@@ -153,6 +153,7 @@ install(
     kd_tree_node
     incremental_kd_tree
     ikd_tree_backend
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -173,17 +174,7 @@ if(BUILD_TESTING)
 endif()
 
 ament_export_include_directories(include)
-ament_export_libraries(
-  map_point
-  bounding_box
-  voxel_key
-  pcl_rebuild_backend
-  backend_profiler
-  voxel_hash_backend
-  kd_tree_node
-  incremental_kd_tree
-  ikd_tree_backend
-)
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(PCL Eigen3)
 
 ament_package()
