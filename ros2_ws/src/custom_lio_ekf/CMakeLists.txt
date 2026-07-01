@@ -31,6 +31,19 @@ find_package(custom_imu_propagator REQUIRED)
 find_package(custom_scan_to_map_odom REQUIRED)
 find_package(custom_ikd_tree_backend REQUIRED)
 
+find_library(CUSTOM_IKD_TREE_BACKEND_LIBRARY
+  NAMES custom_ikd_tree_backend
+  PATHS "${custom_ikd_tree_backend_DIR}/../../../lib"
+  NO_DEFAULT_PATH
+)
+
+if(NOT CUSTOM_IKD_TREE_BACKEND_LIBRARY)
+  message(FATAL_ERROR
+    "Could not find libcustom_ikd_tree_backend from custom_ikd_tree_backend_DIR="
+    "${custom_ikd_tree_backend_DIR}. Build custom_ikd_tree_backend first or clean "
+    "build/install for custom_ikd_tree_backend and custom_lio_ekf.")
+endif()
+
 add_library(ekf_state
   src/ekf_state.cpp
 )
@@ -192,7 +205,7 @@ target_link_libraries(custom_lio_ekf_node
   ekf_state
   iterated_lidar_update
   lidar_residual
-  custom_ikd_tree_backend
+  ${CUSTOM_IKD_TREE_BACKEND_LIBRARY}
   ${PCL_LIBRARIES}
   Eigen3::Eigen
 )
