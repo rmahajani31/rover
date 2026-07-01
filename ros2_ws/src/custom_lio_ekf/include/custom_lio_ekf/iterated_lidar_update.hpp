@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <string>
 
-#include "custom_scan_to_map_odom/local_map.hpp"
+#include "custom_ikd_tree_backend/map_backend_interface.hpp"
 #include "custom_scan_to_map_odom/ros_conversions.hpp"
 #include "custom_lio_ekf/ekf_parameters.hpp"
 #include "custom_lio_ekf/ekf_state.hpp"
@@ -45,7 +45,7 @@ bool buildLidarNormalEquations(
   const EkfState& linearization_state,
   const Matrix18d& prior_information,
   const LidarImuExtrinsics& extrinsics,
-  const custom_scan_to_map_odom::LocalMap& local_map,
+  const custom_ikd_tree_backend::MapBackendInterface& map_backend,
   const custom_scan_to_map_odom::PlaneFitter& plane_fitter,
   const LidarUpdateOptions& options,
   LidarNormalEquations& equations);
@@ -59,7 +59,7 @@ bool applyIteratedLidarUpdate(
   EkfState& state,
   const custom_scan_to_map_odom::CloudTConstPtr& scan_lidar_frame,
   const LidarImuExtrinsics& extrinsics,
-  const custom_scan_to_map_odom::LocalMap& local_map,
+  const custom_ikd_tree_backend::MapBackendInterface& map_backend,
   const LidarUpdateOptions& options,
   LidarUpdateStats& stats);
 

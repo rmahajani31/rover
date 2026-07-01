@@ -41,6 +41,34 @@ double elapsedMilliseconds(
   return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
+void accumulateBackendProfile(
+  custom_ikd_tree_backend::BackendProfileSnapshot& target,
+  const custom_ikd_tree_backend::BackendProfileSnapshot& source)
+{
+  target.map_size = source.map_size;
+  target.active_size = source.active_size;
+  target.invalid_node_count = source.invalid_node_count;
+  target.invalid_ratio = source.invalid_ratio;
+
+  target.knn_query_count += source.knn_query_count;
+  target.inserted_point_count += source.inserted_point_count;
+  target.deleted_point_count += source.deleted_point_count;
+  target.rejected_by_voxel_count += source.rejected_by_voxel_count;
+  target.voxel_replacement_count += source.voxel_replacement_count;
+  target.rebuild_count += source.rebuild_count;
+
+  target.knn_time_ms += source.knn_time_ms;
+  target.insert_time_ms += source.insert_time_ms;
+  target.delete_time_ms += source.delete_time_ms;
+  target.downsample_time_ms += source.downsample_time_ms;
+  target.rebuild_time_ms += source.rebuild_time_ms;
+  target.total_backend_time_ms += source.total_backend_time_ms;
+
+  if (!source.status.empty() && source.status != "not_started") {
+    target.status = source.status;
+  }
+}
+
 double yawFromTransform(const Eigen::Isometry3d& transform)
 {
   return std::atan2(transform.linear()(1, 0), transform.linear()(0, 0));
@@ -69,7 +97,7 @@ LioEkfNode::LioEkfNode(const rclcpp::NodeOptions& options)
   readParameters();
 
   state_.P = makeInitialCovariance(ekf_parameters_.initial_covariance);
-  local_map_manager_.configure(local_map_config_);
+  configureMapBackend();
 
   cloud_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   imu_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -228,6 +256,10 @@ void LioEkfNode::declareParameters()
   declare_parameter<double>("local_map.movement_threshold_xy", 5.0);
   declare_parameter<double>("local_map.movement_threshold_z", 2.0);
   declare_parameter<double>("local_map.voxel_leaf_size", 0.15);
+  declare_parameter<std::string>("local_map.backend_type", "pcl_rebuild");
+  declare_parameter<double>("local_map.max_invalid_ratio", 0.30);
+  declare_parameter<int>("local_map.min_rebuild_size", 100);
+  declare_parameter<int>("local_map.max_insertions_before_rebuild", 2000);
   declare_parameter<bool>("local_map.publish_local_map", true);
   declare_parameter<double>("local_map.local_map_publish_period_sec", 1.0);
 }
@@ -286,6 +318,17 @@ void LioEkfNode::readParameters()
 
   ekf_parameters_ = parametersFromRosParameters();
   local_map_config_ = localMapConfigFromParameters();
+  local_map_backend_type_ = get_parameter("local_map.backend_type").as_string();
+  local_map_max_invalid_ratio_ =
+    get_parameter("local_map.max_invalid_ratio").as_double();
+  const int64_t min_rebuild_size =
+    get_parameter("local_map.min_rebuild_size").as_int();
+  local_map_min_rebuild_size_ =
+    static_cast<std::size_t>(std::max<int64_t>(0, min_rebuild_size));
+  const int64_t max_insertions_before_rebuild =
+    get_parameter("local_map.max_insertions_before_rebuild").as_int();
+  local_map_max_insertions_before_rebuild_ =
+    static_cast<std::size_t>(std::max<int64_t>(0, max_insertions_before_rebuild));
 }
 
 void LioEkfNode::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -313,7 +356,7 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   // One scan callback performs the full Phase 10 cycle: predict, correct, map update.
   LioEkfDiagnostics diagnostics;
-  diagnostics.map_initialized = local_map_manager_.isInitialized();
+  diagnostics.map_initialized = map_initialized_;
   diagnostics.frame_count = frame_count_;
   diagnostics.consecutive_tracking_failures = consecutive_tracking_failures_;
 
@@ -327,9 +370,9 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   auto filtered_scan = filterScan(raw_cloud);
 
   diagnostics.input_points = filtered_scan->size();
-  diagnostics.map_points = local_map_manager_.size();
-  diagnostics.local_map_points_before_update = local_map_manager_.size();
-  diagnostics.local_map_points_after_update = local_map_manager_.size();
+  diagnostics.map_points = mapSize();
+  diagnostics.local_map_points_before_update = mapSize();
+  diagnostics.local_map_points_after_update = mapSize();
 
   if (filtered_scan->empty()) {
     diagnostics.lidar_update.status = "empty_filtered_scan";
@@ -337,7 +380,7 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     return;
   }
 
-  if (!local_map_manager_.isInitialized()) {
+  if (!map_initialized_) {
     initializeMap(msg->header, filtered_scan, diagnostics);
     publishDiagnostics(msg->header, diagnostics);
     ++frame_count_;
@@ -360,6 +403,10 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     elapsedMilliseconds(prediction_start, prediction_end);
 
   if (prediction_ok) {
+    if (map_backend_) {
+      map_backend_->resetProfile();
+    }
+
     const auto update_start = std::chrono::steady_clock::now();
     update_ok = runLidarUpdate(filtered_scan, update_stats);
     const auto update_end = std::chrono::steady_clock::now();
@@ -367,6 +414,9 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     diagnostics.lidar_update = update_stats;
     diagnostics.lidar_update_time_ms =
       elapsedMilliseconds(update_start, update_end);
+    if (map_backend_) {
+      diagnostics.map_backend_lidar_profile = map_backend_->profileSnapshot();
+    }
   } else {
     update_stats.status = "prediction_failed";
     diagnostics.lidar_update = update_stats;
@@ -407,8 +457,8 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     }
   }
 
-  diagnostics.map_initialized = local_map_manager_.isInitialized();
-  diagnostics.map_points = local_map_manager_.size();
+  diagnostics.map_initialized = map_initialized_;
+  diagnostics.map_points = mapSize();
   diagnostics.consecutive_tracking_failures = consecutive_tracking_failures_;
 
   // Publish only the LiDAR-corrected EKF pose; no intermediate IMU-only odometry.
@@ -433,7 +483,7 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     "dtheta=%.4f | dpos=%.4f | time=%.2f ms",
     diagnostics.lidar_update.status.c_str(),
     filtered_scan->size(),
-    local_map_manager_.size(),
+    mapSize(),
     diagnostics.lidar_update.valid_residuals,
     diagnostics.lidar_update.rms_residual,
     diagnostics.lidar_update.final_delta_theta_norm,
@@ -550,6 +600,37 @@ custom_scan_to_map_odom::CloudTPtr LioEkfNode::transformCloudToWorld(
   }
 
   updateCloudLayout(transformed);
+  return transformed;
+}
+
+std::vector<Eigen::Vector3d> LioEkfNode::transformCloudToWorldPoints(
+  const custom_scan_to_map_odom::CloudTConstPtr& cloud,
+  const EkfState& state) const
+{
+  std::vector<Eigen::Vector3d> transformed;
+
+  if (!cloud || cloud->empty()) {
+    return transformed;
+  }
+
+  transformed.reserve(cloud->points.size());
+
+  for (const auto& point : cloud->points) {
+    const Eigen::Vector3d point_L(
+      static_cast<double>(point.x),
+      static_cast<double>(point.y),
+      static_cast<double>(point.z));
+
+    const Eigen::Vector3d point_I =
+      transformLidarPointToImu(point_L, lidar_imu_extrinsics_);
+    const Eigen::Vector3d point_W =
+      transformImuPointToWorld(state, point_I);
+
+    if (point_W.allFinite()) {
+      transformed.push_back(point_W);
+    }
+  }
+
   return transformed;
 }
 
@@ -686,23 +767,33 @@ bool LioEkfNode::initializeMap(
     diagnostics.lidar_update.success = false;
     diagnostics.lidar_update.status = "waiting_for_initial_imu_calibration";
     diagnostics.lidar_update.input_points = filtered_scan->size();
-    diagnostics.local_map_points_before_update = local_map_manager_.size();
-    diagnostics.local_map_points_after_update = local_map_manager_.size();
+    diagnostics.local_map_points_before_update = mapSize();
+    diagnostics.local_map_points_after_update = mapSize();
     return false;
   }
 
-  diagnostics.local_map_points_before_update = local_map_manager_.size();
+  diagnostics.local_map_points_before_update = mapSize();
   state_.P = makeInitialCovariance(ekf_parameters_.initial_covariance);
 
-  auto scan_world = transformCloudToWorld(filtered_scan, state_);
-  local_map_manager_.initialize(scan_world, state_.p_I_W);
+  local_cube_center_ = state_.p_I_W;
+  const auto scan_world_points = transformCloudToWorldPoints(filtered_scan, state_);
+  const auto inside_points = filterPointsInsideLocalCube(scan_world_points);
+
+  if (!map_backend_) {
+    configureMapBackend();
+  }
+
+  map_backend_->clear();
+  map_backend_->insertPointsWithDownsampling(inside_points);
+  diagnostics.map_backend_update_profile = map_backend_->profileSnapshot();
+  map_initialized_ = true;
 
   last_scan_stamp_ = scan_stamp;
   has_last_scan_stamp_ = true;
 
   diagnostics.map_initialized = true;
-  diagnostics.map_points = local_map_manager_.size();
-  diagnostics.local_map_points_after_update = local_map_manager_.size();
+  diagnostics.map_points = mapSize();
+  diagnostics.local_map_points_after_update = mapSize();
   diagnostics.lidar_update.success = true;
   diagnostics.lidar_update.status = "map_initialized";
   diagnostics.lidar_update.input_points = filtered_scan->size();
@@ -715,8 +806,9 @@ bool LioEkfNode::initializeMap(
 
   RCLCPP_INFO(
     get_logger(),
-    "Initialized LIO EKF local map with %zu points",
-    local_map_manager_.size());
+    "Initialized LIO EKF local map with %zu points using backend=%s",
+    mapSize(),
+    local_map_backend_type_.c_str());
 
   return true;
 }
@@ -748,7 +840,7 @@ bool LioEkfNode::runLidarUpdate(
     state_,
     filtered_scan,
     lidar_imu_extrinsics_,
-    local_map_manager_.localMap(),
+    *map_backend_,
     ekf_parameters_.lidar_update,
     update_stats);
 }
@@ -759,10 +851,24 @@ void LioEkfNode::updateMap(
 {
   const auto map_update_start = std::chrono::steady_clock::now();
 
-  diagnostics.local_map_points_before_update = local_map_manager_.size();
-  auto scan_world = transformCloudToWorld(filtered_scan, state_);
-  local_map_manager_.updateAfterOptimization(scan_world, state_.p_I_W);
-  diagnostics.local_map_points_after_update = local_map_manager_.size();
+  diagnostics.local_map_points_before_update = mapSize();
+  custom_ikd_tree_backend::BackendProfileSnapshot update_profile;
+
+  const auto scan_world_points = transformCloudToWorldPoints(filtered_scan, state_);
+
+  if (updateLocalCubeIfNeeded(state_.p_I_W)) {
+    deleteOutsideLocalCube();
+    if (map_backend_) {
+      accumulateBackendProfile(update_profile, map_backend_->profileSnapshot());
+    }
+  }
+
+  const auto inside_points = filterPointsInsideLocalCube(scan_world_points);
+  map_backend_->insertPointsWithDownsampling(inside_points);
+  accumulateBackendProfile(update_profile, map_backend_->profileSnapshot());
+  diagnostics.map_backend_update_profile = update_profile;
+
+  diagnostics.local_map_points_after_update = mapSize();
 
   const auto map_update_end = std::chrono::steady_clock::now();
   diagnostics.map_update_time_ms =
@@ -979,15 +1085,16 @@ void LioEkfNode::publishLocalMap(const std_msgs::msg::Header& header)
 {
   if (!local_map_config_.publish_local_map ||
       !local_map_pub_ ||
-      !local_map_manager_.isInitialized()) {
+      !map_initialized_ ||
+      !map_backend_) {
     return;
   }
 
   std_msgs::msg::Header map_header = header;
   map_header.frame_id = odom_frame_;
 
-  local_map_pub_->publish(
-    custom_scan_to_map_odom::toRosCloud(*local_map_manager_.cloud(), map_header));
+  const auto cloud = activeMapCloud();
+  local_map_pub_->publish(custom_scan_to_map_odom::toRosCloud(*cloud, map_header));
 
   last_local_map_publish_stamp_ = rclcpp::Time(header.stamp);
   has_last_local_map_publish_stamp_ = true;
@@ -996,7 +1103,7 @@ void LioEkfNode::publishLocalMap(const std_msgs::msg::Header& header)
 bool LioEkfNode::shouldPublishLocalMap(const std_msgs::msg::Header& header) const
 {
   if (!local_map_config_.publish_local_map ||
-      !local_map_manager_.isInitialized()) {
+      !map_initialized_) {
     return false;
   }
 
@@ -1022,8 +1129,14 @@ void LioEkfNode::publishDiagnostics(
     return;
   }
 
+  LioEkfDiagnostics enriched_diagnostics = diagnostics;
+  enriched_diagnostics.map_backend_type = local_map_backend_type_;
+  if (map_backend_) {
+    enriched_diagnostics.map_backend_profile = map_backend_->profileSnapshot();
+  }
+
   const auto diagnostic_msg =
-    makeDiagnosticArray(diagnostics, header.stamp, "custom_lio_ekf");
+    makeDiagnosticArray(enriched_diagnostics, header.stamp, "custom_lio_ekf");
   diagnostics_pub_->publish(diagnostic_msg);
 }
 
@@ -1146,6 +1259,143 @@ custom_scan_to_map_odom::LocalMapConfig LioEkfNode::localMapConfigFromParameters
   config.local_map_publish_period_sec =
     get_parameter("local_map.local_map_publish_period_sec").as_double();
   return config;
+}
+
+void LioEkfNode::configureMapBackend()
+{
+  if (local_map_backend_type_ == "ikd_tree") {
+    custom_ikd_tree_backend::IkdTreeBackendOptions options;
+    options.voxel_size = local_map_config_.voxel_leaf_size;
+    options.max_invalid_ratio = local_map_max_invalid_ratio_;
+    options.min_rebuild_size = local_map_min_rebuild_size_;
+    options.max_insertions_before_rebuild =
+      local_map_max_insertions_before_rebuild_;
+
+    map_backend_ =
+      std::make_unique<custom_ikd_tree_backend::IkdTreeBackend>(options);
+  } else if (local_map_backend_type_ == "voxel_hash") {
+    map_backend_ =
+      std::make_unique<custom_ikd_tree_backend::VoxelHashBackend>(
+      local_map_config_.voxel_leaf_size);
+  } else {
+    if (local_map_backend_type_ != "pcl_rebuild") {
+      RCLCPP_WARN(
+        get_logger(),
+        "Unknown local_map.backend_type=%s; falling back to pcl_rebuild",
+        local_map_backend_type_.c_str());
+      local_map_backend_type_ = "pcl_rebuild";
+    }
+
+    map_backend_ =
+      std::make_unique<custom_ikd_tree_backend::PclRebuildBackend>(
+      local_map_config_.voxel_leaf_size);
+  }
+
+  map_initialized_ = false;
+  local_cube_center_ = Eigen::Vector3d::Zero();
+}
+
+std::size_t LioEkfNode::mapSize() const
+{
+  return map_backend_ ? map_backend_->activeSize() : 0;
+}
+
+std::vector<Eigen::Vector3d> LioEkfNode::filterPointsInsideLocalCube(
+  const std::vector<Eigen::Vector3d>& points) const
+{
+  std::vector<Eigen::Vector3d> filtered;
+  filtered.reserve(points.size());
+
+  for (const auto& point : points) {
+    if (isInsideLocalCube(point)) {
+      filtered.push_back(point);
+    }
+  }
+
+  return filtered;
+}
+
+custom_scan_to_map_odom::CloudTPtr LioEkfNode::activeMapCloud() const
+{
+  custom_scan_to_map_odom::CloudTPtr cloud(
+    new custom_scan_to_map_odom::CloudT());
+
+  if (!map_backend_) {
+    updateCloudLayout(cloud);
+    return cloud;
+  }
+
+  std::vector<Eigen::Vector3d> points;
+  map_backend_->getAllActivePoints(points);
+  cloud->points.reserve(points.size());
+
+  for (const auto& point : points) {
+    custom_scan_to_map_odom::PointT output;
+    output.x = static_cast<float>(point.x());
+    output.y = static_cast<float>(point.y());
+    output.z = static_cast<float>(point.z());
+    output.intensity = 0.0F;
+    cloud->points.push_back(output);
+  }
+
+  updateCloudLayout(cloud);
+  return cloud;
+}
+
+bool LioEkfNode::isInsideLocalCube(const Eigen::Vector3d& point) const
+{
+  if (!point.allFinite()) {
+    return false;
+  }
+
+  const Eigen::Vector3d half_size = localCubeHalfSize();
+
+  return std::abs(point.x() - local_cube_center_.x()) <= half_size.x() &&
+         std::abs(point.y() - local_cube_center_.y()) <= half_size.y() &&
+         std::abs(point.z() - local_cube_center_.z()) <= half_size.z();
+}
+
+Eigen::Vector3d LioEkfNode::localCubeHalfSize() const
+{
+  return Eigen::Vector3d(
+    0.5 * local_map_config_.cube_size_x,
+    0.5 * local_map_config_.cube_size_y,
+    0.5 * local_map_config_.cube_size_z);
+}
+
+bool LioEkfNode::updateLocalCubeIfNeeded(const Eigen::Vector3d& robot_position)
+{
+  if (!robot_position.allFinite()) {
+    return false;
+  }
+
+  const double dx = std::abs(robot_position.x() - local_cube_center_.x());
+  const double dy = std::abs(robot_position.y() - local_cube_center_.y());
+  const double dz = std::abs(robot_position.z() - local_cube_center_.z());
+
+  const bool shift_needed =
+    dx > local_map_config_.movement_threshold_xy ||
+    dy > local_map_config_.movement_threshold_xy ||
+    dz > local_map_config_.movement_threshold_z;
+
+  if (shift_needed) {
+    local_cube_center_ = robot_position;
+  }
+
+  return shift_needed;
+}
+
+void LioEkfNode::deleteOutsideLocalCube()
+{
+  if (!map_backend_) {
+    return;
+  }
+
+  const Eigen::Vector3d half_size = localCubeHalfSize();
+  const Eigen::Vector3d box_min = local_cube_center_ - half_size;
+  const Eigen::Vector3d box_max = local_cube_center_ + half_size;
+
+  map_backend_->deleteOutsideBox(box_min, box_max);
 }
 
 }  // namespace custom_lio_ekf

@@ -5,7 +5,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#include "custom_scan_to_map_odom/local_map.hpp"
+#include "custom_ikd_tree_backend/map_backend_interface.hpp"
 #include "custom_scan_to_map_odom/plane_fitter.hpp"
 #include "custom_lio_ekf/ekf_parameters.hpp"
 #include "custom_lio_ekf/ekf_state.hpp"
@@ -67,7 +67,7 @@ bool buildPointToPlaneResidual(
   const Eigen::Vector3d& point_L,
   const EkfState& state,
   const LidarImuExtrinsics& extrinsics,
-  const custom_scan_to_map_odom::LocalMap& local_map,
+  const custom_ikd_tree_backend::MapBackendInterface& map_backend,
   const custom_scan_to_map_odom::PlaneFitter& plane_fitter,
   const LidarUpdateOptions& options,
   LidarResidual& result);

@@ -1,0 +1,22 @@
+custom_ikd_tree_backend:
+  ros__parameters:
+    # Standalone defaults; the EKF node can override these from its own config.
+    backend_type: pcl_rebuild
+
+    voxel_size: 0.25
+
+    local_cube_size: 30.0
+    local_cube_move_threshold: 1.0
+
+    knn_k: 5
+    max_neighbor_distance: 1.0
+
+    # Rebuild policy bounds lazy deletion and insertion imbalance.
+    rebuild_enabled: true
+    max_invalid_ratio: 0.30
+    max_balance_ratio: 0.75
+    min_rebuild_size: 100
+    max_insertions_before_rebuild: 2000
+
+    publish_debug_cloud: true
+    publish_diagnostics: true

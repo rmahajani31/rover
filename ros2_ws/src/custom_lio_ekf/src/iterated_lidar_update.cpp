@@ -68,7 +68,7 @@ bool buildLidarNormalEquations(
   const EkfState& linearization_state,
   const Matrix18d& prior_information,
   const LidarImuExtrinsics& extrinsics,
-  const custom_scan_to_map_odom::LocalMap& local_map,
+  const custom_ikd_tree_backend::MapBackendInterface& map_backend,
   const custom_scan_to_map_odom::PlaneFitter& plane_fitter,
   const LidarUpdateOptions& options,
   LidarNormalEquations& equations)
@@ -95,7 +95,7 @@ bool buildLidarNormalEquations(
       pointToEigen(point),
       linearization_state,
       extrinsics,
-      local_map,
+      map_backend,
       plane_fitter,
       options,
       residual);
@@ -159,7 +159,7 @@ bool applyIteratedLidarUpdate(
   EkfState& state,
   const custom_scan_to_map_odom::CloudTConstPtr& scan_lidar_frame,
   const LidarImuExtrinsics& extrinsics,
-  const custom_scan_to_map_odom::LocalMap& local_map,
+  const custom_ikd_tree_backend::MapBackendInterface& map_backend,
   const LidarUpdateOptions& options,
   LidarUpdateStats& stats)
 {
@@ -190,7 +190,7 @@ bool applyIteratedLidarUpdate(
         iter_state,
         prior_information,
         extrinsics,
-        local_map,
+        map_backend,
         plane_fitter,
         options,
         equations)) {
@@ -245,7 +245,7 @@ bool applyIteratedLidarUpdate(
       iter_state,
       prior_information,
       extrinsics,
-      local_map,
+      map_backend,
       plane_fitter,
       options,
       covariance_equations)) {

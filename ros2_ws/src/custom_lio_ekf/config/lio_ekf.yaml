@@ -80,5 +80,9 @@ custom_lio_ekf:
       movement_threshold_xy: 3.0
       movement_threshold_z: 2.0
       voxel_leaf_size: 0.25
+      backend_type: ikd_tree
+      max_invalid_ratio: 0.30
+      min_rebuild_size: 100
+      max_insertions_before_rebuild: 2000
       publish_local_map: false
       local_map_publish_period_sec: 5.0

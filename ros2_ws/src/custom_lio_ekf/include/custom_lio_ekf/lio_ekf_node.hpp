@@ -21,6 +21,10 @@
 #include <tf2_ros/transform_listener.h>
 
 #include "custom_imu_propagator/imu_sample.hpp"
+#include "custom_ikd_tree_backend/ikd_tree_backend.hpp"
+#include "custom_ikd_tree_backend/map_backend_interface.hpp"
+#include "custom_ikd_tree_backend/pcl_rebuild_backend.hpp"
+#include "custom_ikd_tree_backend/voxel_hash_backend.hpp"
 #include "custom_lio_ekf/covariance_propagation.hpp"
 #include "custom_lio_ekf/diagnostics.hpp"
 #include "custom_lio_ekf/ekf_parameters.hpp"
@@ -28,7 +32,6 @@
 #include "custom_lio_ekf/iterated_lidar_update.hpp"
 #include "custom_lio_ekf/lidar_residual.hpp"
 #include "custom_scan_to_map_odom/local_map_config.hpp"
-#include "custom_scan_to_map_odom/local_map_manager.hpp"
 #include "custom_scan_to_map_odom/ros_conversions.hpp"
 
 namespace custom_lio_ekf
@@ -52,6 +55,10 @@ private:
     const custom_scan_to_map_odom::CloudTConstPtr& cloud) const;
 
   custom_scan_to_map_odom::CloudTPtr transformCloudToWorld(
+    const custom_scan_to_map_odom::CloudTConstPtr& cloud,
+    const EkfState& state) const;
+
+  std::vector<Eigen::Vector3d> transformCloudToWorldPoints(
     const custom_scan_to_map_odom::CloudTConstPtr& cloud,
     const EkfState& state) const;
 
@@ -116,6 +123,19 @@ private:
   EkfParameters parametersFromRosParameters() const;
   custom_scan_to_map_odom::LocalMapConfig localMapConfigFromParameters() const;
 
+  void configureMapBackend();
+  std::size_t mapSize() const;
+
+  std::vector<Eigen::Vector3d> filterPointsInsideLocalCube(
+    const std::vector<Eigen::Vector3d>& points) const;
+
+  custom_scan_to_map_odom::CloudTPtr activeMapCloud() const;
+
+  bool isInsideLocalCube(const Eigen::Vector3d& point) const;
+  Eigen::Vector3d localCubeHalfSize() const;
+  bool updateLocalCubeIfNeeded(const Eigen::Vector3d& robot_position);
+  void deleteOutsideLocalCube();
+
   std::string input_topic_;
   std::string imu_topic_;
   std::string odom_topic_;
@@ -154,7 +174,13 @@ private:
   custom_scan_to_map_odom::LocalMapConfig local_map_config_;
 
   EkfState state_;
-  custom_scan_to_map_odom::LocalMapManager local_map_manager_;
+  std::unique_ptr<custom_ikd_tree_backend::MapBackendInterface> map_backend_;
+  bool map_initialized_ = false;
+  Eigen::Vector3d local_cube_center_ = Eigen::Vector3d::Zero();
+  std::string local_map_backend_type_ = "pcl_rebuild";
+  double local_map_max_invalid_ratio_ = 0.30;
+  std::size_t local_map_min_rebuild_size_ = 100;
+  std::size_t local_map_max_insertions_before_rebuild_ = 2000;
 
   std::deque<custom_imu_propagator::ImuSample> imu_buffer_;
   std::mutex imu_mutex_;

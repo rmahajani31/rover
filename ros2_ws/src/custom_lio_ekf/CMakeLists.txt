@@ -29,6 +29,20 @@ find_package(PCL REQUIRED COMPONENTS common filters)
 find_package(Eigen3 REQUIRED)
 find_package(custom_imu_propagator REQUIRED)
 find_package(custom_scan_to_map_odom REQUIRED)
+find_package(custom_ikd_tree_backend REQUIRED)
+
+find_library(CUSTOM_IKD_TREE_BACKEND_LIBRARY
+  NAMES custom_ikd_tree_backend
+  PATHS "${custom_ikd_tree_backend_DIR}/../../../lib"
+  NO_DEFAULT_PATH
+)
+
+if(NOT CUSTOM_IKD_TREE_BACKEND_LIBRARY)
+  message(FATAL_ERROR
+    "Could not find libcustom_ikd_tree_backend from custom_ikd_tree_backend_DIR="
+    "${custom_ikd_tree_backend_DIR}. Build custom_ikd_tree_backend first or clean "
+    "build/install for custom_ikd_tree_backend and custom_lio_ekf.")
+endif()
 
 add_library(ekf_state
   src/ekf_state.cpp
@@ -134,6 +148,7 @@ target_link_libraries(covariance_propagation
 
 ament_target_dependencies(lidar_residual
   custom_scan_to_map_odom
+  custom_ikd_tree_backend
 )
 
 target_link_libraries(lidar_residual
@@ -144,6 +159,7 @@ target_link_libraries(lidar_residual
 
 ament_target_dependencies(iterated_lidar_update
   custom_scan_to_map_odom
+  custom_ikd_tree_backend
 )
 
 target_link_libraries(iterated_lidar_update
@@ -156,6 +172,7 @@ target_link_libraries(iterated_lidar_update
 ament_target_dependencies(custom_lio_ekf_diagnostics
   builtin_interfaces
   diagnostic_msgs
+  custom_ikd_tree_backend
 )
 
 target_link_libraries(custom_lio_ekf_diagnostics
@@ -179,6 +196,7 @@ ament_target_dependencies(custom_lio_ekf_node
   pcl_ros
   custom_imu_propagator
   custom_scan_to_map_odom
+  custom_ikd_tree_backend
 )
 
 target_link_libraries(custom_lio_ekf_node
@@ -188,6 +206,7 @@ target_link_libraries(custom_lio_ekf_node
   ekf_state
   iterated_lidar_update
   lidar_residual
+  ${CUSTOM_IKD_TREE_BACKEND_LIBRARY}
   ${PCL_LIBRARIES}
   Eigen3::Eigen
 )
@@ -243,6 +262,11 @@ ament_export_libraries(
   iterated_lidar_update
   custom_lio_ekf_diagnostics
 )
-ament_export_dependencies(Eigen3 custom_imu_propagator custom_scan_to_map_odom)
+ament_export_dependencies(
+  Eigen3
+  custom_imu_propagator
+  custom_scan_to_map_odom
+  custom_ikd_tree_backend
+)
 
 ament_package()
