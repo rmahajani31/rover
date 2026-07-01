@@ -7,6 +7,7 @@
 namespace custom_ikd_tree_backend
 {
 
+// Integer grid coordinate for one downsampling voxel.
 struct VoxelKey
 {
   int x = 0;
@@ -22,6 +23,7 @@ struct VoxelKeyHash
   std::size_t operator()(const VoxelKey& key) const;
 };
 
+// Voxel helpers keep the downsampling rule consistent across backends.
 bool isValidVoxelSize(double voxel_size);
 
 VoxelKey voxelKeyFromPoint(

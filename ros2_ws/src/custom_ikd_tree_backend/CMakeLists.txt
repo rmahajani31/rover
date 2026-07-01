@@ -52,6 +52,7 @@ add_library(ikd_tree_backend
   src/ikd_tree_backend.cpp
 )
 
+# Public aggregate target used by downstream ROS packages.
 add_library(${PROJECT_NAME}
   src/backend_profiler.cpp
   src/bounding_box.cpp
@@ -167,6 +168,7 @@ target_link_libraries(${PROJECT_NAME}
 
 install(
   TARGETS
+    # Install both the aggregate library and module libraries for direct tests/tools.
     ${PROJECT_NAME}
     map_point
     bounding_box

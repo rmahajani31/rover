@@ -5,6 +5,7 @@
 namespace custom_ikd_tree_backend
 {
 
+// Axis-aligned box used for kd-tree subtree bounds and local-map pruning.
 struct BoundingBox
 {
   BoundingBox() = default;

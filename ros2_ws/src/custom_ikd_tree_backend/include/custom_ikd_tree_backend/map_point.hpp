@@ -5,6 +5,7 @@
 namespace custom_ikd_tree_backend
 {
 
+// Small point wrapper kept for backend-facing geometry helpers.
 struct MapPoint
 {
   MapPoint() = default;

@@ -17,6 +17,7 @@
 namespace custom_ikd_tree_backend
 {
 
+// Voxel-hash baseline that keeps one representative point per occupied voxel.
 class VoxelHashBackend final : public MapBackendInterface
 {
 public:

@@ -9,6 +9,7 @@
 namespace custom_ikd_tree_backend
 {
 
+// Node metadata is intentionally cached so searches and rebuild decisions stay cheap.
 struct KdTreeNode
 {
   explicit KdTreeNode(
@@ -25,6 +26,7 @@ struct KdTreeNode
 
   BoundingBox box;
 
+  // Deletions are lazy; rebuilds compact active points back into a fresh tree.
   bool deleted = false;
   bool subtree_deleted = false;
   int invalid_count = 0;

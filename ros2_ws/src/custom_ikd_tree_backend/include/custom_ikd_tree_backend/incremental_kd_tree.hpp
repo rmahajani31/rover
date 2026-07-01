@@ -12,6 +12,7 @@
 namespace custom_ikd_tree_backend
 {
 
+// Lightweight incremental kd-tree with lazy deletion and subtree-box KNN pruning.
 class IncrementalKdTree
 {
 public:
@@ -57,6 +58,7 @@ private:
 
   struct NeighborSet
   {
+    // K is tiny in the EKF path, so a small vector avoids priority-queue overhead.
     std::vector<NeighborCandidate>& candidates;
     int capacity = 0;
     double max_distance_sq = 0.0;

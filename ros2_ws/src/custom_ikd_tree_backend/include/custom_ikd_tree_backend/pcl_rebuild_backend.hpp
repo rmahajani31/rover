@@ -15,6 +15,7 @@
 namespace custom_ikd_tree_backend
 {
 
+// Baseline backend: simple PCL cloud plus full kd-tree rebuild after updates.
 class PclRebuildBackend final : public MapBackendInterface
 {
 public:

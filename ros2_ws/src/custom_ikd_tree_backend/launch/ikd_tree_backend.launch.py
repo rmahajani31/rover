@@ -5,6 +5,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    # This launch file only exposes package parameters; consumers create the node.
     default_config = PathJoinSubstitution([
         FindPackageShare("custom_ikd_tree_backend"),
         "config",

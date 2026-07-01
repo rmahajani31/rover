@@ -15,6 +15,7 @@
 namespace custom_ikd_tree_backend
 {
 
+// Runtime knobs for the voxel-filtered incremental kd-tree backend.
 struct IkdTreeBackendOptions
 {
   double voxel_size = 0.25;
@@ -97,6 +98,7 @@ private:
 
   IncrementalKdTree tree_;
 
+  // The voxel hash is the authoritative downsampled map; the tree is the query index.
   std::unordered_map<VoxelKey, Eigen::Vector3d, VoxelKeyHash> voxel_representatives_;
 
   std::size_t insertions_since_rebuild_ = 0;

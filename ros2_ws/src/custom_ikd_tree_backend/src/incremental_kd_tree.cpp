@@ -117,6 +117,7 @@ void IncrementalKdTree::deleteOutsideBox(const BoundingBox& box)
 
 void IncrementalKdTree::rebuild()
 {
+  // Rebuilds are the compaction point for lazy deletions.
   std::vector<Eigen::Vector3d> active_points;
   getAllActivePoints(active_points);
   buildFromPoints(active_points);
@@ -136,6 +137,7 @@ bool IncrementalKdTree::knnSearch(
 
   const double max_distance_sq = max_distance * max_distance;
 
+  // The EKF calls KNN thousands of times per scan; reuse storage per thread.
   thread_local std::vector<NeighborCandidate> candidate_storage;
   candidate_storage.clear();
 
@@ -238,6 +240,7 @@ std::unique_ptr<KdTreeNode> IncrementalKdTree::buildRecursive(
   const int axis = depth % 3;
   const int mid = begin + (end - begin) / 2;
 
+  // nth_element gives a balanced split without fully sorting each subtree.
   std::nth_element(
     points.begin() + begin,
     points.begin() + mid,
@@ -335,6 +338,7 @@ void IncrementalKdTree::deleteOutsideBoxRecursive(
     return;
   }
 
+  // Keep deletion cheap and defer physical removal to rebuild().
   if (!box.contains(node->point)) {
     node->deleted = true;
   }
@@ -422,6 +426,7 @@ void IncrementalKdTree::knnRecursive(
   const double worst_before_node =
     currentWorstSquared(neighbors);
 
+  // The subtree box gives a lower bound; if it is already worse, skip the branch.
   if (squaredDistanceToBoxUnchecked(node->box, query) > worst_before_node) {
     return;
   }

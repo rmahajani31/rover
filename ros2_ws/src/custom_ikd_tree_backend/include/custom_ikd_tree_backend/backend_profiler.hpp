@@ -7,6 +7,7 @@
 namespace custom_ikd_tree_backend
 {
 
+// Per-frame backend counters published through the EKF diagnostics topic.
 struct BackendProfileSnapshot
 {
   std::size_t map_size = 0;
@@ -37,6 +38,7 @@ class ScopedTimer
 public:
   explicit ScopedTimer(double& output_ms);
 
+  // Adds elapsed time to the referenced accumulator on scope exit.
   ~ScopedTimer();
 
   ScopedTimer(const ScopedTimer&) = delete;

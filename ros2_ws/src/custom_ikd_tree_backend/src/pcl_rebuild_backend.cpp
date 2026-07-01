@@ -106,6 +106,7 @@ void PclRebuildBackend::insertPointsWithDownsampling(
   }
 
   updateCloudLayout();
+  // Baseline behavior favors simplicity: downsample the whole cloud, then rebuild.
   downsampleMap();
   rebuildKdTree();
   refreshProfileSizes();

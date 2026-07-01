@@ -267,6 +267,7 @@ void VoxelHashBackend::insertPointWithVoxelRule(const Eigen::Vector3d& point)
   const double old_distance_sq = (it->second - center).squaredNorm();
   const double new_distance_sq = (point - center).squaredNorm();
 
+  // Keep the sample closest to the voxel center for a stable downsampled map.
   if (new_distance_sq < old_distance_sq) {
     it->second = point;
     profiler_.addVoxelReplacement(1);
@@ -279,6 +280,7 @@ void VoxelHashBackend::rebuildCloudAndKdTree()
 {
   ScopedTimer rebuild_timer(profiler_.mutableSnapshot().rebuild_time_ms);
 
+  // PCL owns the query index, so the cloud is rebuilt from voxel representatives.
   cloud_.reset(new CloudT());
   cloud_->points.reserve(voxel_representatives_.size());
 

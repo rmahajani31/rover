@@ -29,6 +29,7 @@ bool isActive(const KdTreeNode& node)
 
 void updateMetadata(KdTreeNode& node)
 {
+  // Metadata must include deleted nodes because they still occupy tree storage.
   node.tree_size = 1 + sizeOf(node.left) + sizeOf(node.right);
 
   if (node.subtree_deleted) {
@@ -42,6 +43,7 @@ void updateMetadata(KdTreeNode& node)
 
   node.box = BoundingBox(node.point, node.point);
 
+  // Subtree boxes are used as lower bounds during nearest-neighbor pruning.
   if (node.left) {
     node.box.expandToInclude(node.left->box);
   }

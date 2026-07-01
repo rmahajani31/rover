@@ -67,6 +67,7 @@ void IkdTreeBackend::buildFromPoints(
   {
     ScopedTimer insert_timer(profiler_.mutableSnapshot().insert_time_ms);
 
+    // First build the voxel representatives, then construct a balanced tree once.
     for (const auto& point : points) {
       updateVoxelRepresentativeOnly(point, true);
     }
@@ -242,6 +243,7 @@ void IkdTreeBackend::insertPointWithDownsampling(
   const double new_distance_sq = (point - center).squaredNorm();
 
   if (new_distance_sq < old_distance_sq) {
+    // Batch replacements through one tree rebuild instead of delete+insert per point.
     it->second = point;
     rebuild_needed_ = true;
     profiler_.addVoxelReplacement(1);
@@ -288,6 +290,7 @@ void IkdTreeBackend::updateVoxelRepresentativeOnly(
 
 void IkdTreeBackend::rebuildVoxelHashFromActiveTree()
 {
+  // Used after tree-side deletion so the voxel hash matches surviving points.
   std::vector<Eigen::Vector3d> active_points;
   tree_.getAllActivePoints(active_points);
 
@@ -302,6 +305,7 @@ void IkdTreeBackend::rebuildTreeFromVoxelHash()
 {
   ScopedTimer rebuild_timer(profiler_.mutableSnapshot().rebuild_time_ms);
 
+  // Used after voxel representative changes; the hash is already authoritative.
   tree_.buildFromPoints(voxelRepresentativesAsVector());
 
   insertions_since_rebuild_ = 0;

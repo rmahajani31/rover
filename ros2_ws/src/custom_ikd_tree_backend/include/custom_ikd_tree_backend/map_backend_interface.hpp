@@ -10,6 +10,7 @@
 namespace custom_ikd_tree_backend
 {
 
+// Common map backend contract used by the EKF residual builder.
 class MapBackendInterface
 {
 public:
@@ -43,12 +44,14 @@ public:
   virtual void getAllActivePoints(
     std::vector<Eigen::Vector3d>& points) const = 0;
 
+  // Backends that do not collect profiler data can use the empty default.
   virtual const BackendProfileSnapshot& profileSnapshot() const
   {
     static const BackendProfileSnapshot empty_snapshot;
     return empty_snapshot;
   }
 
+  // Reset timing counters without changing the map contents.
   virtual void resetProfile()
   {
   }
