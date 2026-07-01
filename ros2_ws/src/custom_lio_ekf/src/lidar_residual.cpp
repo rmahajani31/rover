@@ -63,7 +63,7 @@ bool buildPointToPlaneResidual(
   const Eigen::Vector3d& point_L,
   const EkfState& state,
   const LidarImuExtrinsics& extrinsics,
-  const custom_scan_to_map_odom::LocalMap& local_map,
+  const custom_ikd_tree_backend::MapBackendInterface& map_backend,
   const custom_scan_to_map_odom::PlaneFitter& plane_fitter,
   const LidarUpdateOptions& options,
   LidarResidual& result)
@@ -80,8 +80,8 @@ bool buildPointToPlaneResidual(
     return false;
   }
 
-  if (!local_map.isInitialized()) {
-    result.status = "local_map_not_initialized";
+  if (map_backend.activeSize() < static_cast<std::size_t>(options.k_neighbors)) {
+    result.status = "map_has_too_few_points";
     return false;
   }
 
@@ -94,28 +94,18 @@ bool buildPointToPlaneResidual(
   }
 
   std::vector<Eigen::Vector3d> neighbors;
-  std::vector<float> squared_distances;
 
-  if (!local_map.nearestKSearch(
+  if (!map_backend.knnSearch(
       result.point_W,
       options.k_neighbors,
-      neighbors,
-      squared_distances)) {
+      options.max_neighbor_distance,
+      neighbors)) {
     result.status = "nearest_neighbor_search_failed";
     return false;
   }
 
-  if (neighbors.size() < static_cast<std::size_t>(options.k_neighbors) ||
-      squared_distances.size() < static_cast<std::size_t>(options.k_neighbors)) {
+  if (neighbors.size() < static_cast<std::size_t>(options.k_neighbors)) {
     result.status = "too_few_neighbors";
-    return false;
-  }
-
-  const double max_neighbor_distance_sq =
-    options.max_neighbor_distance * options.max_neighbor_distance;
-
-  if (static_cast<double>(squared_distances.back()) > max_neighbor_distance_sq) {
-    result.status = "neighbors_too_far";
     return false;
   }
 

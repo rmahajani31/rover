@@ -25,6 +25,7 @@
   <depend>pcl_ros</depend>
   <depend>custom_imu_propagator</depend>
   <depend>custom_scan_to_map_odom</depend>
+  <depend>custom_ikd_tree_backend</depend>
 
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>

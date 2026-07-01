@@ -29,6 +29,7 @@ find_package(PCL REQUIRED COMPONENTS common filters)
 find_package(Eigen3 REQUIRED)
 find_package(custom_imu_propagator REQUIRED)
 find_package(custom_scan_to_map_odom REQUIRED)
+find_package(custom_ikd_tree_backend REQUIRED)
 
 add_library(ekf_state
   src/ekf_state.cpp
@@ -134,6 +135,7 @@ target_link_libraries(covariance_propagation
 
 ament_target_dependencies(lidar_residual
   custom_scan_to_map_odom
+  custom_ikd_tree_backend
 )
 
 target_link_libraries(lidar_residual
@@ -243,6 +245,11 @@ ament_export_libraries(
   iterated_lidar_update
   custom_lio_ekf_diagnostics
 )
-ament_export_dependencies(Eigen3 custom_imu_propagator custom_scan_to_map_odom)
+ament_export_dependencies(
+  Eigen3
+  custom_imu_propagator
+  custom_scan_to_map_odom
+  custom_ikd_tree_backend
+)
 
 ament_package()
