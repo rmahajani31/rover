@@ -52,6 +52,18 @@ add_library(ikd_tree_backend
   src/ikd_tree_backend.cpp
 )
 
+add_library(${PROJECT_NAME}
+  src/backend_profiler.cpp
+  src/bounding_box.cpp
+  src/ikd_tree_backend.cpp
+  src/incremental_kd_tree.cpp
+  src/kd_tree_node.cpp
+  src/map_point.cpp
+  src/pcl_rebuild_backend.cpp
+  src/voxel_hash_backend.cpp
+  src/voxel_key.cpp
+)
+
 target_include_directories(map_point PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -99,6 +111,12 @@ target_include_directories(ikd_tree_backend PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${PCL_INCLUDE_DIRS}
+)
+
 target_link_libraries(map_point
   Eigen3::Eigen
 )
@@ -142,8 +160,14 @@ target_link_libraries(ikd_tree_backend
   Eigen3::Eigen
 )
 
+target_link_libraries(${PROJECT_NAME}
+  Eigen3::Eigen
+  ${PCL_LIBRARIES}
+)
+
 install(
   TARGETS
+    ${PROJECT_NAME}
     map_point
     bounding_box
     voxel_key

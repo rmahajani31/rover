@@ -192,9 +192,7 @@ target_link_libraries(custom_lio_ekf_node
   ekf_state
   iterated_lidar_update
   lidar_residual
-  ikd_tree_backend
-  pcl_rebuild_backend
-  voxel_hash_backend
+  custom_ikd_tree_backend
   ${PCL_LIBRARIES}
   Eigen3::Eigen
 )
