@@ -5,6 +5,54 @@
 namespace custom_ikd_tree_backend
 {
 
+namespace
+{
+
+double squaredDistance(
+  const Eigen::Vector3d& a,
+  const Eigen::Vector3d& b)
+{
+  const double dx = a.x() - b.x();
+  const double dy = a.y() - b.y();
+  const double dz = a.z() - b.z();
+  return dx * dx + dy * dy + dz * dz;
+}
+
+double squaredDistanceToBoxUnchecked(
+  const BoundingBox& box,
+  const Eigen::Vector3d& point)
+{
+  double distance_sq = 0.0;
+
+  if (point.x() < box.min.x()) {
+    const double d = box.min.x() - point.x();
+    distance_sq += d * d;
+  } else if (point.x() > box.max.x()) {
+    const double d = point.x() - box.max.x();
+    distance_sq += d * d;
+  }
+
+  if (point.y() < box.min.y()) {
+    const double d = box.min.y() - point.y();
+    distance_sq += d * d;
+  } else if (point.y() > box.max.y()) {
+    const double d = point.y() - box.max.y();
+    distance_sq += d * d;
+  }
+
+  if (point.z() < box.min.z()) {
+    const double d = box.min.z() - point.z();
+    distance_sq += d * d;
+  } else if (point.z() > box.max.z()) {
+    const double d = point.z() - box.max.z();
+    distance_sq += d * d;
+  }
+
+  return distance_sq;
+}
+
+}  // namespace
+
 void IncrementalKdTree::clear()
 {
   root_.reset();
@@ -88,21 +136,39 @@ bool IncrementalKdTree::knnSearch(
 
   const double max_distance_sq = max_distance * max_distance;
 
-  NeighborHeap heap;
-  knnRecursive(root_.get(), query, k, max_distance_sq, heap);
+  thread_local std::vector<NeighborCandidate> candidate_storage;
+  candidate_storage.clear();
 
-  if (static_cast<int>(heap.size()) < k) {
+  if (candidate_storage.capacity() < static_cast<std::size_t>(k)) {
+    candidate_storage.reserve(static_cast<std::size_t>(k));
+  }
+
+  NeighborSet neighbor_set{
+    candidate_storage,
+    k,
+    max_distance_sq,
+    max_distance_sq,
+    0};
+
+  knnRecursive(root_.get(), query, neighbor_set);
+
+  if (static_cast<int>(neighbor_set.candidates.size()) < k) {
     return false;
   }
 
-  neighbors.reserve(heap.size());
+  std::sort(
+    neighbor_set.candidates.begin(),
+    neighbor_set.candidates.end(),
+    [](const NeighborCandidate& a, const NeighborCandidate& b) {
+      return a.squared_distance < b.squared_distance;
+    });
 
-  while (!heap.empty()) {
-    neighbors.push_back(heap.top().point);
-    heap.pop();
+  neighbors.reserve(neighbor_set.candidates.size());
+
+  for (const auto& candidate : neighbor_set.candidates) {
+    neighbors.push_back(candidate.point);
   }
 
-  std::reverse(neighbors.begin(), neighbors.end());
   return true;
 }
 
@@ -152,13 +218,6 @@ bool IncrementalKdTree::empty() const
 const BoundingBox* IncrementalKdTree::rootBox() const
 {
   return root_ ? &root_->box : nullptr;
-}
-
-bool IncrementalKdTree::WorseNeighborFirst::operator()(
-  const NeighborCandidate& a,
-  const NeighborCandidate& b) const
-{
-  return a.squared_distance < b.squared_distance;
 }
 
 bool IncrementalKdTree::isFinitePoint(const Eigen::Vector3d& point)
@@ -287,64 +346,87 @@ void IncrementalKdTree::deleteOutsideBoxRecursive(
 }
 
 double IncrementalKdTree::currentWorstSquared(
-  const NeighborHeap& heap,
-  int k,
-  double max_distance_sq)
+  const NeighborSet& neighbors)
 {
-  if (static_cast<int>(heap.size()) < k) {
-    return max_distance_sq;
+  if (static_cast<int>(neighbors.candidates.size()) < neighbors.capacity) {
+    return neighbors.max_distance_sq;
   }
 
-  return heap.top().squared_distance;
+  return neighbors.worst_squared_distance;
+}
+
+void IncrementalKdTree::refreshWorstNeighbor(NeighborSet& neighbors)
+{
+  neighbors.worst_index = 0;
+  neighbors.worst_squared_distance = 0.0;
+
+  if (neighbors.candidates.empty()) {
+    return;
+  }
+
+  neighbors.worst_squared_distance =
+    neighbors.candidates.front().squared_distance;
+
+  for (std::size_t i = 1; i < neighbors.candidates.size(); ++i) {
+    if (neighbors.candidates[i].squared_distance >
+        neighbors.worst_squared_distance) {
+      neighbors.worst_squared_distance =
+        neighbors.candidates[i].squared_distance;
+      neighbors.worst_index = i;
+    }
+  }
 }
 
 void IncrementalKdTree::tryAddNeighbor(
   const KdTreeNode& node,
   const Eigen::Vector3d& query,
-  int k,
-  double max_distance_sq,
-  NeighborHeap& heap)
+  NeighborSet& neighbors)
 {
   if (node.deleted) {
     return;
   }
 
-  const double squared_distance = (query - node.point).squaredNorm();
+  const double squared_distance = squaredDistance(query, node.point);
 
-  if (squared_distance > max_distance_sq) {
+  if (squared_distance > neighbors.max_distance_sq) {
     return;
   }
 
-  if (static_cast<int>(heap.size()) < k) {
-    heap.push(NeighborCandidate{squared_distance, node.point});
+  if (static_cast<int>(neighbors.candidates.size()) < neighbors.capacity) {
+    neighbors.candidates.push_back(NeighborCandidate{squared_distance, node.point});
+
+    if (neighbors.candidates.size() == 1 ||
+        squared_distance > neighbors.worst_squared_distance) {
+      neighbors.worst_squared_distance = squared_distance;
+      neighbors.worst_index = neighbors.candidates.size() - 1;
+    }
     return;
   }
 
-  if (squared_distance < heap.top().squared_distance) {
-    heap.pop();
-    heap.push(NeighborCandidate{squared_distance, node.point});
+  if (squared_distance < neighbors.worst_squared_distance) {
+    neighbors.candidates[neighbors.worst_index] =
+      NeighborCandidate{squared_distance, node.point};
+    refreshWorstNeighbor(neighbors);
   }
 }
 
 void IncrementalKdTree::knnRecursive(
   const KdTreeNode* node,
   const Eigen::Vector3d& query,
-  int k,
-  double max_distance_sq,
-  NeighborHeap& heap)
+  NeighborSet& neighbors)
 {
   if (!node || node->subtree_deleted) {
     return;
   }
 
   const double worst_before_node =
-    currentWorstSquared(heap, k, max_distance_sq);
+    currentWorstSquared(neighbors);
 
-  if (node->box.squaredDistanceTo(query) > worst_before_node) {
+  if (squaredDistanceToBoxUnchecked(node->box, query) > worst_before_node) {
     return;
   }
 
-  tryAddNeighbor(*node, query, k, max_distance_sq, heap);
+  tryAddNeighbor(*node, query, neighbors);
 
   const int axis = node->split_axis;
 
@@ -359,14 +441,14 @@ void IncrementalKdTree::knnRecursive(
     far_child = node->left.get();
   }
 
-  knnRecursive(near_child, query, k, max_distance_sq, heap);
+  knnRecursive(near_child, query, neighbors);
 
   const double worst_after_near =
-    currentWorstSquared(heap, k, max_distance_sq);
+    currentWorstSquared(neighbors);
 
   if (far_child &&
-      far_child->box.squaredDistanceTo(query) <= worst_after_near) {
-    knnRecursive(far_child, query, k, max_distance_sq, heap);
+      squaredDistanceToBoxUnchecked(far_child->box, query) <= worst_after_near) {
+    knnRecursive(far_child, query, neighbors);
   }
 }
 

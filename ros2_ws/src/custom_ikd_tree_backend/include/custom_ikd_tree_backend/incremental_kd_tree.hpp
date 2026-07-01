@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <memory>
-#include <queue>
 #include <vector>
 
 #include <Eigen/Core>
@@ -56,18 +55,14 @@ private:
     Eigen::Vector3d point = Eigen::Vector3d::Zero();
   };
 
-  struct WorseNeighborFirst
+  struct NeighborSet
   {
-    bool operator()(
-      const NeighborCandidate& a,
-      const NeighborCandidate& b) const;
+    std::vector<NeighborCandidate>& candidates;
+    int capacity = 0;
+    double max_distance_sq = 0.0;
+    double worst_squared_distance = 0.0;
+    std::size_t worst_index = 0;
   };
-
-  using NeighborHeap =
-    std::priority_queue<
-      NeighborCandidate,
-      std::vector<NeighborCandidate>,
-      WorseNeighborFirst>;
 
   static bool isFinitePoint(const Eigen::Vector3d& point);
 
@@ -96,23 +91,19 @@ private:
     const BoundingBox& box);
 
   static double currentWorstSquared(
-    const NeighborHeap& heap,
-    int k,
-    double max_distance_sq);
+    const NeighborSet& neighbors);
+
+  static void refreshWorstNeighbor(NeighborSet& neighbors);
 
   static void tryAddNeighbor(
     const KdTreeNode& node,
     const Eigen::Vector3d& query,
-    int k,
-    double max_distance_sq,
-    NeighborHeap& heap);
+    NeighborSet& neighbors);
 
   static void knnRecursive(
     const KdTreeNode* node,
     const Eigen::Vector3d& query,
-    int k,
-    double max_distance_sq,
-    NeighborHeap& heap);
+    NeighborSet& neighbors);
 
   std::unique_ptr<KdTreeNode> root_;
 };
