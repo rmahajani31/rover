@@ -84,6 +84,8 @@ private:
 
   void rebuildVoxelHashFromActiveTree();
 
+  void rebuildTreeFromVoxelHash();
+
   std::vector<Eigen::Vector3d> voxelRepresentativesAsVector() const;
 
   bool shouldRebuild() const;

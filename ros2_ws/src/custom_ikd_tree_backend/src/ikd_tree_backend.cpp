@@ -168,6 +168,11 @@ void IkdTreeBackend::getAllActivePoints(
 
 void IkdTreeBackend::rebuildIfNeeded()
 {
+  if (rebuild_needed_) {
+    rebuildTreeFromVoxelHash();
+    return;
+  }
+
   if (!shouldRebuild()) {
     return;
   }
@@ -231,17 +236,9 @@ void IkdTreeBackend::insertPointWithDownsampling(
   const double new_distance_sq = (point - center).squaredNorm();
 
   if (new_distance_sq < old_distance_sq) {
-    const bool deleted =
-      tree_.deletePoint(old_point, options_.delete_tolerance);
-
-    if (deleted) {
-      it->second = point;
-      tree_.insertPoint(point);
-      ++insertions_since_rebuild_;
-      profiler_.addVoxelReplacement(1);
-    } else {
-      rebuild_needed_ = true;
-    }
+    it->second = point;
+    rebuild_needed_ = true;
+    profiler_.addVoxelReplacement(1);
   } else {
     profiler_.addRejectedByVoxel(1);
   }
@@ -293,6 +290,19 @@ void IkdTreeBackend::rebuildVoxelHashFromActiveTree()
   for (const auto& point : active_points) {
     updateVoxelRepresentativeOnly(point, false);
   }
+}
+
+void IkdTreeBackend::rebuildTreeFromVoxelHash()
+{
+  ScopedTimer rebuild_timer(profiler_.mutableSnapshot().rebuild_time_ms);
+
+  tree_.buildFromPoints(voxelRepresentativesAsVector());
+
+  insertions_since_rebuild_ = 0;
+  rebuild_needed_ = false;
+
+  profiler_.addRebuild();
+  refreshProfileSizes();
 }
 
 std::vector<Eigen::Vector3d> IkdTreeBackend::voxelRepresentativesAsVector() const
