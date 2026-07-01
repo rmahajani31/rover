@@ -182,6 +182,7 @@ ament_target_dependencies(custom_lio_ekf_node
   pcl_ros
   custom_imu_propagator
   custom_scan_to_map_odom
+  custom_ikd_tree_backend
 )
 
 target_link_libraries(custom_lio_ekf_node
@@ -191,6 +192,9 @@ target_link_libraries(custom_lio_ekf_node
   ekf_state
   iterated_lidar_update
   lidar_residual
+  ikd_tree_backend
+  pcl_rebuild_backend
+  voxel_hash_backend
   ${PCL_LIBRARIES}
   Eigen3::Eigen
 )

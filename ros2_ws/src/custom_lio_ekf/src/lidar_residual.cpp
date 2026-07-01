@@ -1,6 +1,7 @@
 #include "custom_lio_ekf/lidar_residual.hpp"
 
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
 namespace custom_lio_ekf
