@@ -103,8 +103,10 @@ bool buildLidarNormalEquations(
   // Start with the EKF prior centered at x_minus:
   // rhs = -P_minus^-1 * (x_iter boxminus x_minus).
   equations.information = prior_information;
-  equations.rhs =
-    build_rhs ? -prior_information * prior_error : Vector18d::Zero();
+  equations.rhs = Vector18d::Zero();
+  if (build_rhs) {
+    equations.rhs = -prior_information * prior_error;
+  }
 
   if (!scan_lidar_frame || scan_lidar_frame->empty()) {
     equations.status = "empty_scan";
