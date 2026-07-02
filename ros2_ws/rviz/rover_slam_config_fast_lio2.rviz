@@ -142,7 +142,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /odom
+        Value: /nav2_odom
       Value: true
     - Class: rviz_default_plugins/TF
       Enabled: true
