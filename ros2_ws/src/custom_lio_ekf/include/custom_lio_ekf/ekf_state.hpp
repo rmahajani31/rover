@@ -51,11 +51,17 @@ Eigen::Matrix3d skewSymmetric(const Eigen::Vector3d& v);
 
 Eigen::Quaterniond so3Exp(const Eigen::Vector3d& delta_theta);
 
+Eigen::Vector3d so3Log(const Eigen::Quaterniond& q);
+
 Eigen::Isometry3d imuPoseInWorld(const EkfState& state);
 
 void normalizeRotation(EkfState& state);
 
 void injectError(EkfState& state, const Vector18d& delta_x);
+
+Vector18d errorStateDifference(
+  const EkfState& state,
+  const EkfState& reference);
 
 void symmetrizeCovariance(EkfState& state);
 

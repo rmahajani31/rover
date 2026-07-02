@@ -29,9 +29,11 @@ struct LioEkfDiagnostics
   bool tf_lookup_success = false;
   bool odom_publish_success = false;
 
+  double cloud_filter_time_ms = 0.0;
   double prediction_time_ms = 0.0;
   double lidar_update_time_ms = 0.0;
   double map_update_time_ms = 0.0;
+  double total_callback_time_ms = 0.0;
 
   std::string map_backend_type;
   custom_ikd_tree_backend::BackendProfileSnapshot map_backend_profile;

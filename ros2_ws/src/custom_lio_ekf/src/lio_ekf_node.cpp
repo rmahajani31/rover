@@ -366,8 +366,11 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     diagnostics.imu_samples_received = imu_samples_received_;
   }
 
+  const auto filter_start = std::chrono::steady_clock::now();
   auto raw_cloud = custom_scan_to_map_odom::fromRosCloud(*msg);
   auto filtered_scan = filterScan(raw_cloud);
+  const auto filter_end = std::chrono::steady_clock::now();
+  diagnostics.cloud_filter_time_ms = elapsedMilliseconds(filter_start, filter_end);
 
   diagnostics.input_points = filtered_scan->size();
   diagnostics.map_points = mapSize();
@@ -376,12 +379,16 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   if (filtered_scan->empty()) {
     diagnostics.lidar_update.status = "empty_filtered_scan";
+    diagnostics.total_callback_time_ms =
+      elapsedMilliseconds(callback_start, std::chrono::steady_clock::now());
     publishDiagnostics(msg->header, diagnostics);
     return;
   }
 
   if (!map_initialized_) {
     initializeMap(msg->header, filtered_scan, diagnostics);
+    diagnostics.total_callback_time_ms =
+      elapsedMilliseconds(callback_start, std::chrono::steady_clock::now());
     publishDiagnostics(msg->header, diagnostics);
     ++frame_count_;
     return;
@@ -471,6 +478,8 @@ void LioEkfNode::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     publishLocalMap(msg->header);
   }
 
+  diagnostics.total_callback_time_ms =
+    elapsedMilliseconds(callback_start, std::chrono::steady_clock::now());
   publishDiagnostics(msg->header, diagnostics);
 
   const auto callback_end = std::chrono::steady_clock::now();
