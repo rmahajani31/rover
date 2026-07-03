@@ -220,19 +220,50 @@ PointTimeSummary summarizePointTimes(
     return summary;
   }
 
+  const auto field_size = datatypeSize(field->datatype);
+  if (!field_size.has_value() ||
+      field->count == 0 ||
+      cloud.point_step == 0U ||
+      cloud.row_step == 0U ||
+      static_cast<std::size_t>(field->offset) + field_size.value() >
+      static_cast<std::size_t>(cloud.point_step)) {
+    return summary;
+  }
+
+  const std::size_t width = static_cast<std::size_t>(cloud.width);
+  const std::size_t height = static_cast<std::size_t>(cloud.height);
+  const std::size_t point_step = static_cast<std::size_t>(cloud.point_step);
+  const std::size_t row_step = static_cast<std::size_t>(cloud.row_step);
+
+  if (row_step < width * point_step || cloud.data.size() < row_step * height) {
+    return summary;
+  }
+
   double min_time = std::numeric_limits<double>::infinity();
   double max_time = -std::numeric_limits<double>::infinity();
+  const double scale = unitScale(unit);
 
   // Invalid point-time entries are skipped so one bad point does not reject the scan.
-  for (std::size_t i = 0; i < summary.total_point_count; ++i) {
-    const auto relative_time = readPointRelativeTimeSec(cloud, i, *field, unit);
-    if (!relative_time.has_value()) {
-      continue;
-    }
+  for (std::size_t row = 0; row < height; ++row) {
+    const std::size_t row_base = row * row_step;
+    for (std::size_t col = 0; col < width; ++col) {
+      const std::size_t byte_offset =
+        row_base + col * point_step + static_cast<std::size_t>(field->offset);
 
-    min_time = std::min(min_time, relative_time.value());
-    max_time = std::max(max_time, relative_time.value());
-    ++summary.valid_point_count;
+      const auto raw_value = readRawFieldValue(cloud, byte_offset, field->datatype);
+      if (!raw_value.has_value()) {
+        continue;
+      }
+
+      const double relative_time = raw_value.value() * scale;
+      if (!std::isfinite(relative_time)) {
+        continue;
+      }
+
+      min_time = std::min(min_time, relative_time);
+      max_time = std::max(max_time, relative_time);
+      ++summary.valid_point_count;
+    }
   }
 
   if (summary.valid_point_count == 0) {

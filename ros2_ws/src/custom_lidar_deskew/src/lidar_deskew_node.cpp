@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <string>
@@ -12,7 +13,6 @@
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <diagnostic_msgs/msg/key_value.hpp>
-#include <sensor_msgs/point_cloud2_iterator.hpp>
 
 #include "custom_lidar_deskew/imu_integrator.hpp"
 
@@ -34,6 +34,156 @@ diagnostic_msgs::msg::KeyValue makeStatusValue(
   key_value.key = key;
   key_value.value = value;
   return key_value;
+}
+
+double pointTimeUnitScale(PointTimeUnit unit)
+{
+  switch (unit) {
+    case PointTimeUnit::Seconds:
+      return 1.0;
+    case PointTimeUnit::Microseconds:
+      return 1e-6;
+    case PointTimeUnit::Nanoseconds:
+      return 1e-9;
+  }
+
+  return 1.0;
+}
+
+std::size_t datatypeSize(std::uint8_t datatype)
+{
+  using sensor_msgs::msg::PointField;
+
+  switch (datatype) {
+    case PointField::INT8:
+    case PointField::UINT8:
+      return 1;
+    case PointField::INT16:
+    case PointField::UINT16:
+      return 2;
+    case PointField::INT32:
+    case PointField::UINT32:
+    case PointField::FLOAT32:
+      return 4;
+    case PointField::FLOAT64:
+      return 8;
+    default:
+      return 0;
+  }
+}
+
+template <typename T>
+double readScalarAsDouble(const std::uint8_t* data)
+{
+  T value{};
+  std::memcpy(&value, data, sizeof(T));
+  return static_cast<double>(value);
+}
+
+bool readRelativePointTime(
+  const std::uint8_t* data,
+  std::uint8_t datatype,
+  double scale,
+  double& relative_time_sec)
+{
+  using sensor_msgs::msg::PointField;
+
+  switch (datatype) {
+    case PointField::INT8:
+      relative_time_sec = readScalarAsDouble<std::int8_t>(data) * scale;
+      break;
+    case PointField::UINT8:
+      relative_time_sec = readScalarAsDouble<std::uint8_t>(data) * scale;
+      break;
+    case PointField::INT16:
+      relative_time_sec = readScalarAsDouble<std::int16_t>(data) * scale;
+      break;
+    case PointField::UINT16:
+      relative_time_sec = readScalarAsDouble<std::uint16_t>(data) * scale;
+      break;
+    case PointField::INT32:
+      relative_time_sec = readScalarAsDouble<std::int32_t>(data) * scale;
+      break;
+    case PointField::UINT32:
+      relative_time_sec = readScalarAsDouble<std::uint32_t>(data) * scale;
+      break;
+    case PointField::FLOAT32:
+      relative_time_sec = readScalarAsDouble<float>(data) * scale;
+      break;
+    case PointField::FLOAT64:
+      relative_time_sec = readScalarAsDouble<double>(data) * scale;
+      break;
+    default:
+      return false;
+  }
+
+  return std::isfinite(relative_time_sec);
+}
+
+float readFloat32(const std::uint8_t* data)
+{
+  float value = 0.0F;
+  std::memcpy(&value, data, sizeof(float));
+  return value;
+}
+
+void writeFloat32(std::uint8_t* data, float value)
+{
+  std::memcpy(data, &value, sizeof(float));
+}
+
+bool fieldFitsPointStep(
+  const sensor_msgs::msg::PointField& field,
+  std::size_t field_size,
+  std::uint32_t point_step)
+{
+  return field.count > 0 &&
+         field_size > 0 &&
+         static_cast<std::size_t>(field.offset) + field_size <=
+         static_cast<std::size_t>(point_step);
+}
+
+Eigen::Quaterniond interpolateRotationMonotonic(
+  const std::vector<RotationSample>& samples,
+  double t,
+  std::size_t& lower_index)
+{
+  if (samples.empty()) {
+    return Eigen::Quaterniond::Identity();
+  }
+
+  if (!std::isfinite(t) || t <= samples.front().t) {
+    lower_index = 0;
+    return samples.front().q;
+  }
+
+  if (t >= samples.back().t) {
+    lower_index = samples.size() > 1 ? samples.size() - 2 : 0;
+    return samples.back().q;
+  }
+
+  while (lower_index + 1 < samples.size() && samples[lower_index + 1].t < t) {
+    ++lower_index;
+  }
+
+  while (lower_index > 0 && samples[lower_index].t > t) {
+    --lower_index;
+  }
+
+  if (lower_index + 1 >= samples.size()) {
+    return samples.back().q;
+  }
+
+  const auto& lower = samples[lower_index];
+  const auto& upper = samples[lower_index + 1];
+  const double interval = upper.t - lower.t;
+
+  if (interval <= 0.0 || !std::isfinite(interval)) {
+    return lower.q;
+  }
+
+  const double alpha = std::clamp((t - lower.t) / interval, 0.0, 1.0);
+  return lower.q.slerp(alpha, upper.q);
 }
 
 }  // namespace
@@ -415,6 +565,25 @@ sensor_msgs::msg::PointCloud2 LidarDeskewNode::deskewCloudRotationOnly(
     return output;
   }
 
+  using sensor_msgs::msg::PointField;
+  if (x_field->datatype != PointField::FLOAT32 ||
+      y_field->datatype != PointField::FLOAT32 ||
+      z_field->datatype != PointField::FLOAT32) {
+    stats.deskew_success = false;
+    return output;
+  }
+
+  const std::size_t point_time_size = datatypeSize(point_time_field.datatype);
+  if (!fieldFitsPointStep(*x_field, sizeof(float), output.point_step) ||
+      !fieldFitsPointStep(*y_field, sizeof(float), output.point_step) ||
+      !fieldFitsPointStep(*z_field, sizeof(float), output.point_step) ||
+      !fieldFitsPointStep(point_time_field, point_time_size, output.point_step) ||
+      output.point_step == 0U ||
+      output.row_step < output.width * output.point_step) {
+    stats.deskew_success = false;
+    return output;
+  }
+
   const auto rotations = integrateRotation(imu_samples, scan_start, scan_end, gyro_bias_);
   if (rotations.size() < 2) {
     stats.deskew_success = false;
@@ -422,41 +591,62 @@ sensor_msgs::msg::PointCloud2 LidarDeskewNode::deskewCloudRotationOnly(
   }
 
   // All points are expressed as if they were captured at the end of the scan.
-  const Eigen::Quaterniond q_end = interpolateRotation(rotations, scan_end);
-
-  sensor_msgs::PointCloud2Iterator<float> x_it(output, "x");
-  sensor_msgs::PointCloud2Iterator<float> y_it(output, "y");
-  sensor_msgs::PointCloud2Iterator<float> z_it(output, "z");
+  const Eigen::Quaterniond q_end_inverse = interpolateRotation(rotations, scan_end).inverse();
 
   const std::size_t total_points = pointCount(cloud);
   std::size_t deskewed_count = 0;
+  std::size_t rotation_lower_index = 0;
+  const double point_time_scale = pointTimeUnitScale(point_time_unit_);
+  const std::size_t point_step = static_cast<std::size_t>(output.point_step);
+  const std::size_t row_step = static_cast<std::size_t>(output.row_step);
+  const std::size_t width = static_cast<std::size_t>(output.width);
+  const std::size_t height = static_cast<std::size_t>(output.height);
 
-  for (std::size_t i = 0; i < total_points; ++i, ++x_it, ++y_it, ++z_it) {
-    const auto rel_time =
-      readPointRelativeTimeSec(cloud, i, point_time_field, point_time_unit_);
-    if (!rel_time.has_value()) {
-      continue;
+  if (output.data.size() < row_step * height) {
+    stats.deskew_success = false;
+    return output;
+  }
+
+  for (std::size_t row = 0; row < height; ++row) {
+    const std::size_t row_base = row * row_step;
+    for (std::size_t col = 0; col < width; ++col) {
+      const std::size_t point_base = row_base + col * point_step;
+      std::uint8_t* point_data = output.data.data() + point_base;
+
+      double relative_time_sec = 0.0;
+      if (!readRelativePointTime(
+          point_data + point_time_field.offset,
+          point_time_field.datatype,
+          point_time_scale,
+          relative_time_sec)) {
+        continue;
+      }
+
+      const double point_time = scan_start + relative_time_sec;
+      const Eigen::Quaterniond q_point =
+        interpolateRotationMonotonic(rotations, point_time, rotation_lower_index);
+      const Eigen::Vector3d p_raw(
+        static_cast<double>(readFloat32(point_data + x_field->offset)),
+        static_cast<double>(readFloat32(point_data + y_field->offset)),
+        static_cast<double>(readFloat32(point_data + z_field->offset)));
+
+      if (!p_raw.allFinite()) {
+        continue;
+      }
+
+      // Rotate from the point's acquisition time into the scan-end LiDAR orientation.
+      const Eigen::Vector3d p_new = q_end_inverse * (q_point * p_raw);
+
+      writeFloat32(point_data + x_field->offset, static_cast<float>(p_new.x()));
+      writeFloat32(point_data + y_field->offset, static_cast<float>(p_new.y()));
+      writeFloat32(point_data + z_field->offset, static_cast<float>(p_new.z()));
+
+      ++deskewed_count;
     }
+  }
 
-    const double point_time = scan_start + rel_time.value();
-    const Eigen::Quaterniond q_point = interpolateRotation(rotations, point_time);
-    const Eigen::Vector3d p_raw(
-      static_cast<double>(*x_it),
-      static_cast<double>(*y_it),
-      static_cast<double>(*z_it));
-
-    if (!p_raw.allFinite()) {
-      continue;
-    }
-
-    // Rotate from the point's acquisition time into the scan-end LiDAR orientation.
-    const Eigen::Vector3d p_new = q_end.inverse() * (q_point * p_raw);
-
-    *x_it = static_cast<float>(p_new.x());
-    *y_it = static_cast<float>(p_new.y());
-    *z_it = static_cast<float>(p_new.z());
-
-    ++deskewed_count;
+  if (deskewed_count > total_points) {
+    deskewed_count = total_points;
   }
 
   stats.deskewed_point_count = static_cast<int>(deskewed_count);
