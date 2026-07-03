@@ -56,6 +56,28 @@ Eigen::Quaterniond so3Exp(const Eigen::Vector3d& delta_theta)
   return Eigen::Quaterniond(Eigen::AngleAxisd(theta, axis));
 }
 
+Eigen::Vector3d so3Log(const Eigen::Quaterniond& q)
+{
+  Eigen::Quaterniond normalized = q.normalized();
+
+  if (normalized.w() < 0.0) {
+    normalized.coeffs() *= -1.0;
+  }
+
+  const Eigen::Vector3d vector_part(
+    normalized.x(),
+    normalized.y(),
+    normalized.z());
+  const double vector_norm = vector_part.norm();
+
+  if (vector_norm < 1.0e-12) {
+    return 2.0 * vector_part;
+  }
+
+  const double angle = 2.0 * std::atan2(vector_norm, normalized.w());
+  return angle * vector_part / vector_norm;
+}
+
 Eigen::Isometry3d imuPoseInWorld(const EkfState& state)
 {
   Eigen::Isometry3d T_WI = Eigen::Isometry3d::Identity();
@@ -83,6 +105,30 @@ void injectError(EkfState& state, const Vector18d& delta_x)
   state.b_g += delta_x.segment<3>(kGyroBiasOffset);
   state.b_a += delta_x.segment<3>(kAccelBiasOffset);
   state.g_W += delta_x.segment<3>(kGravityOffset);
+}
+
+Vector18d errorStateDifference(
+  const EkfState& state,
+  const EkfState& reference)
+{
+  Vector18d eta = Vector18d::Zero();
+
+  Eigen::Quaterniond delta_q =
+    reference.q_WI.normalized().conjugate() * state.q_WI.normalized();
+  delta_q.normalize();
+
+  if (delta_q.w() < 0.0) {
+    delta_q.coeffs() *= -1.0;
+  }
+
+  eta.segment<3>(kThetaOffset) = so3Log(delta_q);
+  eta.segment<3>(kPositionOffset) = state.p_I_W - reference.p_I_W;
+  eta.segment<3>(kVelocityOffset) = state.v_I_W - reference.v_I_W;
+  eta.segment<3>(kGyroBiasOffset) = state.b_g - reference.b_g;
+  eta.segment<3>(kAccelBiasOffset) = state.b_a - reference.b_a;
+  eta.segment<3>(kGravityOffset) = state.g_W - reference.g_W;
+
+  return eta;
 }
 
 void symmetrizeCovariance(EkfState& state)

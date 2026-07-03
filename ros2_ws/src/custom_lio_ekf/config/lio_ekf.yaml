@@ -13,7 +13,7 @@ custom_lio_ekf:
     lidar_frame: livox_frame
 
     publish_tf: false
-    publish_path: true
+    publish_path: false
     publish_diagnostics: true
     stop_tf_on_tracking_degraded: true
     # TF is republished from the latest LiDAR-corrected pose; no IMU-only odom is emitted.
@@ -24,7 +24,7 @@ custom_lio_ekf:
     scan_voxel_leaf_size: 0.35
     min_range: 0.30
     max_range: 15.0
-    max_points_per_scan: 1200
+    max_points_per_scan: 900
 
     max_imu_buffer_seconds: 5.0
     # Livox MID-360 IMU linear acceleration is observed in g on this setup.
@@ -58,7 +58,7 @@ custom_lio_ekf:
       initial_calibration_window_sec: 1.0
 
     lidar_update:
-      max_iterations: 3
+      max_iterations: 1
       k_neighbors: 5
       min_valid_residuals: 80
       lidar_residual_stddev: 0.05

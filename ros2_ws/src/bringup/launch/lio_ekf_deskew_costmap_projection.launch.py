@@ -39,6 +39,7 @@ def generate_launch_description():
     deskew_output_topic = LaunchConfiguration("deskew_output_topic")
     costmap_projection_input_topic = LaunchConfiguration("costmap_projection_input_topic")
     lio_ekf_input_topic = LaunchConfiguration("lio_ekf_input_topic")
+    scan_projection_input_topic = LaunchConfiguration("scan_projection_input_topic")
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -83,11 +84,21 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "costmap_projection_input_topic",
-            default_value="/custom/points_preprocessed",
+            default_value="/custom/deskewed_points",
             description=(
                 "PointCloud2 input topic consumed by custom_livox_costmap_projection. "
-                "Keep obstacle projection on the non-deskewed preprocessed cloud to avoid "
-                "adding deskew latency to Nav2 collision monitoring."
+                "Defaults to the deskewed cloud so moving walls do not smear in Nav2 obstacle data. "
+                "Override to /custom/points_preprocessed only when lowest latency is more important "
+                "than geometric consistency."
+            ),
+        ),
+        DeclareLaunchArgument(
+            "scan_projection_input_topic",
+            default_value="/custom/deskewed_points",
+            description=(
+                "PointCloud2 input topic projected into /scan_from_livox for AMCL. "
+                "Using the same deskewed cloud as LIO keeps the localization scan aligned "
+                "with the odometry update during rover motion."
             ),
         ),
         Node(
@@ -149,7 +160,7 @@ def generate_launch_description():
             parameters=[
                 livox_cloud_to_scan_config,
                 {
-                    "input_topic": "/custom/points_for_nav2",
+                    "input_topic": scan_projection_input_topic,
                     "output_topic": "/scan_from_livox",
                     "target_frame": "base_link",
                 },

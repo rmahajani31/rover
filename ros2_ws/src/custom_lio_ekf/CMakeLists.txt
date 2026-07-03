@@ -221,6 +221,22 @@ if(BUILD_TESTING)
   target_link_libraries(test_diagnostics
     custom_lio_ekf_diagnostics
   )
+
+  ament_add_gtest(test_ekf_state
+    test/test_ekf_state.cpp
+  )
+
+  target_link_libraries(test_ekf_state
+    ekf_state
+  )
+
+  ament_add_gtest(test_lidar_residual
+    test/test_lidar_residual.cpp
+  )
+
+  target_link_libraries(test_lidar_residual
+    lidar_residual
+  )
 endif()
 
 install(

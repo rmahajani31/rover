@@ -44,6 +44,8 @@ bool buildLidarNormalEquations(
   const custom_scan_to_map_odom::CloudTConstPtr& scan_lidar_frame,
   const EkfState& linearization_state,
   const Matrix18d& prior_information,
+  const Vector18d& prior_error,
+  bool build_rhs,
   const LidarImuExtrinsics& extrinsics,
   const custom_ikd_tree_backend::MapBackendInterface& map_backend,
   const custom_scan_to_map_odom::PlaneFitter& plane_fitter,

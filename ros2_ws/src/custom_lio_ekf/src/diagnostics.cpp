@@ -224,6 +224,9 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
     "delta_position_norm",
     std::to_string(diagnostics.lidar_update.final_delta_position_norm)));
   status.values.push_back(makeKeyValue(
+    "cloud_filter_time_ms",
+    std::to_string(diagnostics.cloud_filter_time_ms)));
+  status.values.push_back(makeKeyValue(
     "prediction_time_ms",
     std::to_string(diagnostics.prediction_time_ms)));
   status.values.push_back(makeKeyValue(
@@ -232,6 +235,9 @@ diagnostic_msgs::msg::DiagnosticArray makeDiagnosticArray(
   status.values.push_back(makeKeyValue(
     "map_update_time_ms",
     std::to_string(diagnostics.map_update_time_ms)));
+  status.values.push_back(makeKeyValue(
+    "total_callback_time_ms",
+    std::to_string(diagnostics.total_callback_time_ms)));
   status.values.push_back(makeKeyValue(
     "map_backend_type",
     diagnostics.map_backend_type));

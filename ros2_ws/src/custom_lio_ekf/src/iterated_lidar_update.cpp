@@ -11,6 +11,8 @@ namespace custom_lio_ekf
 namespace
 {
 
+constexpr double kMinPriorCovarianceDiagonal = 1.0e-12;
+
 Eigen::Vector3d pointToEigen(const custom_scan_to_map_odom::PointT& point)
 {
   return Eigen::Vector3d(
@@ -24,14 +26,36 @@ bool invertPositiveDefiniteMatrix(
   Matrix18d& inverse)
 {
   // Covariance and information matrices should stay symmetric positive definite.
-  Eigen::LDLT<Matrix18d> ldlt(matrix);
+  const Matrix18d symmetric_matrix = 0.5 * (matrix + matrix.transpose());
+  Eigen::LDLT<Matrix18d> ldlt(symmetric_matrix);
 
-  if (ldlt.info() != Eigen::Success) {
+  if (ldlt.info() != Eigen::Success || !ldlt.isPositive()) {
     return false;
   }
 
   inverse = ldlt.solve(Matrix18d::Identity());
+  inverse = 0.5 * (inverse + inverse.transpose());
   return inverse.allFinite();
+}
+
+bool regularizePriorCovariance(EkfState& prior_state)
+{
+  symmetrizeCovariance(prior_state);
+
+  if (!prior_state.P.allFinite()) {
+    return false;
+  }
+
+  for (int i = 0; i < kErrorStateDim; ++i) {
+    if (!std::isfinite(prior_state.P(i, i))) {
+      return false;
+    }
+
+    prior_state.P(i, i) =
+      std::max(prior_state.P(i, i), kMinPriorCovarianceDiagonal);
+  }
+
+  return prior_state.P.allFinite();
 }
 
 void updateResidualStats(
@@ -67,6 +91,8 @@ bool buildLidarNormalEquations(
   const custom_scan_to_map_odom::CloudTConstPtr& scan_lidar_frame,
   const EkfState& linearization_state,
   const Matrix18d& prior_information,
+  const Vector18d& prior_error,
+  bool build_rhs,
   const LidarImuExtrinsics& extrinsics,
   const custom_ikd_tree_backend::MapBackendInterface& map_backend,
   const custom_scan_to_map_odom::PlaneFitter& plane_fitter,
@@ -74,9 +100,13 @@ bool buildLidarNormalEquations(
   LidarNormalEquations& equations)
 {
   equations = LidarNormalEquations{};
-  // Start with the EKF prior: information = P^-1, rhs = 0.
+  // Start with the EKF prior centered at x_minus:
+  // rhs = -P_minus^-1 * (x_iter boxminus x_minus).
   equations.information = prior_information;
   equations.rhs = Vector18d::Zero();
+  if (build_rhs) {
+    equations.rhs = -prior_information * prior_error;
+  }
 
   if (!scan_lidar_frame || scan_lidar_frame->empty()) {
     equations.status = "empty_scan";
@@ -104,11 +134,21 @@ bool buildLidarNormalEquations(
       continue;
     }
 
+    if (!std::isfinite(residual.residual) ||
+        !std::isfinite(residual.information_weight) ||
+        residual.information_weight <= 0.0 ||
+        !residual.H.allFinite()) {
+      continue;
+    }
+
     // Accumulate weighted Gauss-Newton normal equations for H * delta = -r.
     equations.information +=
       residual.information_weight * residual.H.transpose() * residual.H;
-    equations.rhs -=
-      residual.information_weight * residual.H.transpose() * residual.residual;
+
+    if (build_rhs) {
+      equations.rhs -=
+        residual.information_weight * residual.H.transpose() * residual.residual;
+    }
 
     ++equations.stats.valid_residuals;
     updateResidualStats(
@@ -170,9 +210,16 @@ bool applyIteratedLidarUpdate(
     return false;
   }
 
-  Matrix18d prior_information;
-  if (!invertPositiveDefiniteMatrix(state.P, prior_information)) {
+  // Work from a local prior copy so failed LiDAR updates cannot mutate state.
+  EkfState prior_state = state;
+  if (!regularizePriorCovariance(prior_state)) {
     stats.status = "invalid_prior_covariance";
+    return false;
+  }
+
+  Matrix18d prior_information;
+  if (!invertPositiveDefiniteMatrix(prior_state.P, prior_information)) {
+    stats.status = "prior_information_update_failed";
     return false;
   }
 
@@ -180,15 +227,20 @@ bool applyIteratedLidarUpdate(
     planeFitterOptionsFromLidarOptions(options));
 
   // Iterate on a copy so a rejected update cannot corrupt the live EKF state.
-  EkfState iter_state = state;
+  EkfState iter_state = prior_state;
   LidarNormalEquations final_equations;
 
   for (int iter = 0; iter < options.max_iterations; ++iter) {
+    const Vector18d prior_error =
+      errorStateDifference(iter_state, prior_state);
+
     LidarNormalEquations equations;
     if (!buildLidarNormalEquations(
         scan_lidar_frame,
         iter_state,
         prior_information,
+        prior_error,
+        true,
         extrinsics,
         map_backend,
         plane_fitter,
@@ -239,22 +291,33 @@ bool applyIteratedLidarUpdate(
     }
   }
 
+  const Vector18d prior_error =
+    errorStateDifference(iter_state, prior_state);
+
+  const int completed_iterations = stats.iterations;
   LidarNormalEquations covariance_equations;
-  if (buildLidarNormalEquations(
+  if (!buildLidarNormalEquations(
       scan_lidar_frame,
       iter_state,
       prior_information,
+      prior_error,
+      false,
       extrinsics,
       map_backend,
       plane_fitter,
       options,
       covariance_equations)) {
-    final_equations = covariance_equations;
-    stats.valid_residuals = covariance_equations.stats.valid_residuals;
-    stats.mean_abs_residual = covariance_equations.stats.mean_abs_residual;
-    stats.rms_residual = covariance_equations.stats.rms_residual;
-    stats.max_abs_residual = covariance_equations.stats.max_abs_residual;
+    stats = covariance_equations.stats;
+    stats.iterations = completed_iterations;
+    stats.success = false;
+    return false;
   }
+
+  final_equations = covariance_equations;
+  stats.valid_residuals = covariance_equations.stats.valid_residuals;
+  stats.mean_abs_residual = covariance_equations.stats.mean_abs_residual;
+  stats.rms_residual = covariance_equations.stats.rms_residual;
+  stats.max_abs_residual = covariance_equations.stats.max_abs_residual;
 
   Matrix18d posterior_covariance;
   if (!invertPositiveDefiniteMatrix(final_equations.information, posterior_covariance)) {
