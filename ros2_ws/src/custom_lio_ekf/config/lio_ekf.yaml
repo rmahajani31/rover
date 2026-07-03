@@ -13,7 +13,7 @@ custom_lio_ekf:
     lidar_frame: livox_frame
 
     publish_tf: false
-    publish_path: true
+    publish_path: false
     publish_diagnostics: true
     stop_tf_on_tracking_degraded: true
     # TF is republished from the latest LiDAR-corrected pose; no IMU-only odom is emitted.
@@ -58,7 +58,7 @@ custom_lio_ekf:
       initial_calibration_window_sec: 1.0
 
     lidar_update:
-      max_iterations: 2
+      max_iterations: 1
       k_neighbors: 5
       min_valid_residuals: 80
       lidar_residual_stddev: 0.05
