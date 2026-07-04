@@ -1371,18 +1371,28 @@ an existing saved map YAML file.
    ros2 launch bringup fastlio_shadow.launch.py
    ```
 
-4. For FAST-LIO2 odometry-based Nav2, start this on the Jetson:
+4. For FAST-LIO2 odometry-based Nav2:
 
    ```bash
+   # Jetson
    ros2 launch livox_ros_driver2 msg_MID360_launch.py
    ros2 launch bringup fast_lio2_nav2.launch.py
+
+   # Pi
+   ros2 launch bringup pi_fast_lio2_nav2_main.launch.py \
+     map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-5. For FAST-LIO2 odometry with custom Livox preprocessing, start this on the Jetson:
+5. For FAST-LIO2 odometry with custom Livox preprocessing:
 
    ```bash
+   # Jetson
    ros2 launch livox_ros_driver2 msg_MID360_launch.py
    ros2 launch bringup pointcloud_preprocess_fast_lio2_nav2.launch.py
+
+   # Pi
+   ros2 launch bringup pi_fast_lio2_nav2_main.launch.py \
+     map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
 6. For upgraded costmap mode:
@@ -1448,12 +1458,5 @@ an existing saved map YAML file.
 
    ```bash
    ros2 launch bringup pi_nav2_livox.launch.py \
-     map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
-   ```
-
-13. For autonomous navigation with Jetson odometry on `/nav2_odom`, provide the saved map:
-
-   ```bash
-   ros2 launch bringup pi_fast_lio2_nav2_main.launch.py \
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
