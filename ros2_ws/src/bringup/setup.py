@@ -21,6 +21,7 @@ setup(
             'launch/pointcloud_preprocess_fast_lio2_nav2.launch.py',
             'launch/pi_fast_lio2_costmap_projection_nav2.launch.py',
             'launch/pi_fast_lio2_nav2.launch.py',
+            'launch/pi_fast_lio2_nav2_main.launch.py',
             'launch/pi_nav2_livox.launch.py',
             'launch/scan_to_map_costmap_projection.launch.py',
             'launch/scan_to_map_deskew_costmap_projection.launch.py',
@@ -29,6 +30,7 @@ setup(
         ('share/' + package_name + '/config', [
             'config/mid360_fastlio2.yaml',
             'config/nav2_params_fast_lio2_costmap_projection.yaml',
+            'config/nav2_params_fast_lio2_main.yaml',
             'config/nav2_params_fast_lio2_nav2.yaml',
             'config/slam_toolbox_async.yaml',
             'config/nav2_params_livox.yaml',
