@@ -1395,7 +1395,19 @@ an existing saved map YAML file.
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-6. For upgraded costmap mode:
+6. For scan-to-map primary odometry:
+
+   ```bash
+   # Jetson
+   ros2 launch livox_ros_driver2 msg_MID360_launch.py
+   ros2 launch bringup scan_to_map_primary_odom.launch.py
+
+   # Pi
+   ros2 launch bringup pi_fast_lio2_nav2_main.launch.py \
+     map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
+   ```
+
+7. For upgraded costmap mode:
 
    ```bash
    # Jetson
@@ -1407,7 +1419,7 @@ an existing saved map YAML file.
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-7. For IMU-integrated local map management mode:
+8. For IMU-integrated local map management mode:
 
    ```bash
    # Jetson
@@ -1419,7 +1431,7 @@ an existing saved map YAML file.
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-8. For IMU point cloud deskew mode:
+9. For IMU point cloud deskew mode:
 
    ```bash
    # Jetson
@@ -1430,7 +1442,7 @@ an existing saved map YAML file.
    ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-9. For error-state Kalman filter mode with ikd tree map backend mode:
+10. For error-state Kalman filter mode with ikd tree map backend mode:
 
    ```bash
    # Jetson
@@ -1441,20 +1453,20 @@ an existing saved map YAML file.
    ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-10. For custom scan-to-scan ICP shadow mode, start this on the Jetson:
+11. For custom scan-to-scan ICP shadow mode, start this on the Jetson:
 
    ```bash
    ros2 launch livox_ros_driver2 msg_MID360_launch.py
    ros2 launch bringup scan_to_scan_icp.launch.py
    ```
 
-11. For mapping, launch:
+12. For mapping, launch:
 
    ```bash
    ros2 launch bringup mapping.launch.py
    ```
 
-12. For autonomous navigation with wheel odometry, provide the saved map:
+13. For autonomous navigation with wheel odometry, provide the saved map:
 
    ```bash
    ros2 launch bringup pi_nav2_livox.launch.py \
