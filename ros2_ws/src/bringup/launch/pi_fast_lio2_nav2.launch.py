@@ -12,7 +12,7 @@ def generate_launch_description():
     nav2_bringup_dir = get_package_share_directory("nav2_bringup")
 
     # Pi-side bringup: FAST-LIO2 odometry and Livox scan topics arrive from Jetson.
-    default_params = os.path.join(bringup_dir, "config", "nav2_params_fast_lio2_nav2.yaml")
+    default_params = os.path.join(bringup_dir, "config", "nav2_params_fast_lio2_main.yaml")
     localization_launch = os.path.join(nav2_bringup_dir, "launch", "localization_launch.py")
     navigation_launch = os.path.join(nav2_bringup_dir, "launch", "navigation_launch.py")
 

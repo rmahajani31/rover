@@ -31,7 +31,6 @@ setup(
             'config/mid360_fastlio2.yaml',
             'config/nav2_params_fast_lio2_costmap_projection.yaml',
             'config/nav2_params_fast_lio2_main.yaml',
-            'config/nav2_params_fast_lio2_nav2.yaml',
             'config/slam_toolbox_async.yaml',
             'config/nav2_params_livox.yaml',
         ]),

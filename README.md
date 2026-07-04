@@ -186,9 +186,9 @@ map backend mode for local-map KNN, `/scan_from_livox` for AMCL, and
 - `scan_to_scan_icp.launch.py` starts Jetson-side custom preprocessing and
 `custom_icp_odom` in shadow mode. It publishes custom ICP odometry for
 debugging but does not publish `odom -> base_link`.
-- `pi_fast_lio2_nav2.launch.py` starts Pi-side Nav2 localization and
-navigation using `/nav2_odom` from the Jetson. The same Pi launch is used for
-FAST-LIO2 odometry and scan-to-map registration based odometry.
+- `pi_fast_lio2_nav2_main.launch.py` starts Pi-side Nav2 localization and
+navigation using `/nav2_odom` from the Jetson with the FAST-LIO2 Nav2 parameter
+baseline from the main branch.
 - `pi_fast_lio2_costmap_projection_nav2.launch.py` starts Pi-side Nav2 using
 `/nav2_odom` from the Jetson, `/scan_from_livox` for AMCL, and
 `/custom/obstacle_cloud` for the Nav2 local costmap and collision monitoring.
@@ -676,7 +676,7 @@ fastlio2_nav2_adapter                              -> odom -> base_link
 On the Pi, start Nav2 with the saved map:
 
 ```bash
-ros2 launch bringup pi_fast_lio2_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
+ros2 launch bringup pi_fast_lio2_nav2_main.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
 ```
 
 The Pi launch starts Nav2 localization and navigation, but intentionally does
@@ -732,7 +732,7 @@ fastlio2_nav2_adapter                                      -> odom -> base_link
 On the Pi, start Nav2 with the same FAST-LIO2 odometry launch:
 
 ```bash
-ros2 launch bringup pi_fast_lio2_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
+ros2 launch bringup pi_fast_lio2_nav2_main.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
 ```
 
 Before sending a goal, verify:
@@ -1294,8 +1294,8 @@ Nav2 odometry slows or tracking looks unstable.
 `ikd_tree` for the current rover run.
 - If Nav2 starts but obstacles do not appear in the costmaps in upgraded
 costmap mode, confirm the Pi was launched with
-`pi_fast_lio2_costmap_projection_nav2.launch.py`, not the older
-`pi_fast_lio2_nav2.launch.py`.
+`pi_fast_lio2_costmap_projection_nav2.launch.py`, not one of the plain
+FAST-LIO2 Nav2 launches.
 - If `/custom/projected_occupancy_grid` is missing but `/custom/obstacle_cloud`
 is publishing, check `/custom/costmap_projection_diagnostics` for
 `tf_target_to_grid_success` and verify `odom -> base_link` is available at the
@@ -1454,6 +1454,6 @@ an existing saved map YAML file.
 13. For autonomous navigation with Jetson odometry on `/nav2_odom`, provide the saved map:
 
    ```bash
-   ros2 launch bringup pi_fast_lio2_nav2.launch.py \
+   ros2 launch bringup pi_fast_lio2_nav2_main.launch.py \
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
