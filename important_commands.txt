@@ -67,9 +67,9 @@ ros2 launch livox_cloud_to_scan livox_cloud_to_scan.launch.py 2>&1 | tee out/out
 
 colcon build --packages-select bringup
 
-ros2 launch bringup jetson.launch.py 2>&1 | tee out/output.txt
+ros2 launch bringup jetson.launch.py | tee out/output.txt
 
-ros2 launch bringup mapping.launch.py 2>&1 | tee out/output.txt
+ros2 launch bringup mapping.launch.py | tee out/output.txt
 
 ros2 service call /slam_toolbox/save_map slam_toolbox/srv/SaveMap "{name: {data: '/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map'}}"
 
