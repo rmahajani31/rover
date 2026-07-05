@@ -54,8 +54,8 @@ odometry as the Nav2 odometry source
 - `fastlio2_nav2_adapter`, when using FAST-LIO2 as the Nav2 odometry source
 - `custom_livox_costmap_projection`, when using the upgraded costmap mode
 - `fast_lio` from
-  [Ericsii/FAST_LIO_ROS2](https://github.com/Ericsii/FAST_LIO_ROS2), when
-  running FAST-LIO2 shadow mode or FAST-LIO2 Nav2 odometry
+[Ericsii/FAST_LIO_ROS2](https://github.com/Ericsii/FAST_LIO_ROS2), when
+running FAST-LIO2 shadow mode or FAST-LIO2 Nav2 odometry
 
 The Livox driver used to publish point clouds is:
 
@@ -142,11 +142,11 @@ Key directories:
 ## Machine Responsibilities
 
 
-| Machine      | Responsibility                                                                                                                                                                                                  |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ESP32        | Runs the low-level rover firmware and communicates with the ROS 2 system through micro-ROS.                                                                                                                     |
-| Raspberry Pi | Runs the micro-ROS agent, gamepad control, mapping, localization, Nav2, and motor-command path. In Jetson-odometry Nav2 modes, it consumes `/nav2_odom` from the Jetson instead of starting `rover_odometry`. |
-| Jetson       | Runs Livox point cloud processing, custom preprocessing, IMU point cloud deskewing, error-state Kalman filter odometry, scan-to-scan ICP shadow odometry, scan-to-map registration based odometry, FAST-LIO2, `/scan_from_livox`, and Jetson-side odometry adapters.      |
+| Machine      | Responsibility                                                                                                                                                                                                                                                       |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ESP32        | Runs the low-level rover firmware and communicates with the ROS 2 system through micro-ROS.                                                                                                                                                                          |
+| Raspberry Pi | Runs the micro-ROS agent, gamepad control, mapping, localization, Nav2, and motor-command path. In Jetson-odometry Nav2 modes, it consumes `/nav2_odom` from the Jetson instead of starting `rover_odometry`.                                                        |
+| Jetson       | Runs Livox point cloud processing, custom preprocessing, IMU point cloud deskewing, error-state Kalman filter odometry, scan-to-scan ICP shadow odometry, scan-to-map registration based odometry, FAST-LIO2, `/scan_from_livox`, and Jetson-side odometry adapters. |
 
 
 ## ROS 2 Packages
@@ -480,44 +480,44 @@ Pi from the goBILDA Pinpoint v2 odometry computer.
 ## Important Topics and Frames
 
 
-| Name               | Type            | Notes                                                                     |
-| ------------------ | --------------- | ------------------------------------------------------------------------- |
-| `/livox/lidar`     | Topic           | Livox input from `livox_ros_driver2`.                                |
-| `/livox/imu`       | Topic           | Livox IMU input used for scan-to-map optimizer initial guesses.       |
-| `/livox/points`    | Topic           | PointCloud2 copy of Livox CustomMsg data used only in FAST-LIO2 shadow mode. |
-| `/custom/points_preprocessed` | Topic | Filtered PointCloud2 stream used by scan-to-map registration and scan-matching work. |
-| `/custom/points_for_nav2` | Topic | Filtered PointCloud2 stream projected into `/scan_from_livox` in the custom preprocessing mode. |
-| `/custom/points_for_deskew` | Topic | Timed PointCloud2 stream with per-point `offset_time` for IMU point cloud deskewing. |
-| `/custom/preprocess_diagnostics` | Topic | Runtime point counts, rejection counts, and processing time from `custom_fastlio_preprocess`. |
-| `/custom/deskewed_points` | Topic | Deskewed PointCloud2 stream used by scan-to-map registration in IMU point cloud deskew mode. |
-| `/custom/deskew/diagnostics` | Topic | Deskew health, IMU coverage, scan duration, point counts, and processing time. |
-| `/custom/lio_ekf_odom` | Topic | Default error-state Kalman filter odometry output when not remapped to `/nav2_odom`. |
-| `/custom/lio_ekf_path` | Topic | Accepted error-state Kalman filter pose path for RViz inspection. |
-| `/custom/lio_ekf_local_map` | Topic | Local point cloud map maintained by the error-state Kalman filter odometry backend. |
-| `/custom/lio_ekf_diagnostics` | Topic | EKF prediction, LiDAR correction, covariance, residual, timing, and map backend diagnostics. |
-| `/custom/obstacle_cloud` | Topic | Filtered obstacle PointCloud2 stream used by the Nav2 local costmap and collision monitor in upgraded costmap mode. |
-| `/custom/projected_occupancy_grid` | Topic | Debug occupancy grid built from `/custom/obstacle_cloud` for RViz inspection. |
-| `/custom/costmap_projection_diagnostics` | Topic | Runtime projection health, TF status, point counts, and grid occupancy counts. |
-| `/custom/icp_odom` | Topic | Shadow-mode scan-to-scan ICP odometry from `custom_icp_odom`. |
-| `/custom/icp_path` | Topic | Accumulated custom ICP path for RViz comparison. |
-| `/custom/icp/aligned_cloud` | Topic | Current scan transformed onto the previous scan by ICP/GICP. |
-| `/custom/icp/source_cloud` | Topic | Current downsampled scan used as the registration source. |
-| `/custom/icp/target_cloud` | Topic | Previous downsampled scan used as the registration target. |
-| `/custom/scan_to_map_odom` | Topic | Default scan-to-map registration odometry output when not remapped to `/nav2_odom`. |
-| `/custom/imu_predicted_odom` | Topic | Debug-only IMU predicted pose before lidar scan-to-map correction. |
-| `/custom/scan_to_map_path` | Topic | Accepted scan-to-map pose path for RViz inspection. |
-| `/custom/local_map` | Topic | Current local point cloud map maintained by scan-to-map registration. |
-| `/custom/scan_to_map_diagnostics` | Topic | Scan-to-map status, correspondence counts, residuals, and timing. |
-| `/scan_from_livox` | Topic           | 2D scan output from `livox_cloud_to_scan`; used by slam_toolbox and Nav2. |
-| `/fastlio_odom`    | Topic           | FAST-LIO2 odometry output for observation, bagging, and adapter input.     |
-| `/nav2_odom`       | Topic           | Nav2 odometry topic published by the active Jetson odometry source.        |
-| `/joy`             | Topic           | Gamepad input from `joy_node`.                                            |
-| `/cmd_vel`         | Topic           | Rover velocity command published by `gamepad_adapter`.                    |
-| `odom`             | Topic and frame | Wheel odometry topic in the rover-odometry path; odom frame in both Nav2 paths. |
-| `map`              | Frame           | Global map frame used by slam_toolbox and Nav2.                           |
-| `base_footprint`   | Frame           | Odometry child frame from `rover_odometry`.                               |
-| `base_link`        | Frame           | Main rover body frame.                                                    |
-| `livox_frame`      | Frame           | Livox lidar frame; statically published from `base_link`.                 |
+| Name                                     | Type            | Notes                                                                                                               |
+| ---------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `/livox/lidar`                           | Topic           | Livox input from `livox_ros_driver2`.                                                                               |
+| `/livox/imu`                             | Topic           | Livox IMU input used for scan-to-map optimizer initial guesses.                                                     |
+| `/livox/points`                          | Topic           | PointCloud2 copy of Livox CustomMsg data used only in FAST-LIO2 shadow mode.                                        |
+| `/custom/points_preprocessed`            | Topic           | Filtered PointCloud2 stream used by scan-to-map registration and scan-matching work.                                |
+| `/custom/points_for_nav2`                | Topic           | Filtered PointCloud2 stream projected into `/scan_from_livox` in the custom preprocessing mode.                     |
+| `/custom/points_for_deskew`              | Topic           | Timed PointCloud2 stream with per-point `offset_time` for IMU point cloud deskewing.                                |
+| `/custom/preprocess_diagnostics`         | Topic           | Runtime point counts, rejection counts, and processing time from `custom_fastlio_preprocess`.                       |
+| `/custom/deskewed_points`                | Topic           | Deskewed PointCloud2 stream used by scan-to-map registration in IMU point cloud deskew mode.                        |
+| `/custom/deskew/diagnostics`             | Topic           | Deskew health, IMU coverage, scan duration, point counts, and processing time.                                      |
+| `/custom/lio_ekf_odom`                   | Topic           | Default error-state Kalman filter odometry output when not remapped to `/nav2_odom`.                                |
+| `/custom/lio_ekf_path`                   | Topic           | Accepted error-state Kalman filter pose path for RViz inspection.                                                   |
+| `/custom/lio_ekf_local_map`              | Topic           | Local point cloud map maintained by the error-state Kalman filter odometry backend.                                 |
+| `/custom/lio_ekf_diagnostics`            | Topic           | EKF prediction, LiDAR correction, covariance, residual, timing, and map backend diagnostics.                        |
+| `/custom/obstacle_cloud`                 | Topic           | Filtered obstacle PointCloud2 stream used by the Nav2 local costmap and collision monitor in upgraded costmap mode. |
+| `/custom/projected_occupancy_grid`       | Topic           | Debug occupancy grid built from `/custom/obstacle_cloud` for RViz inspection.                                       |
+| `/custom/costmap_projection_diagnostics` | Topic           | Runtime projection health, TF status, point counts, and grid occupancy counts.                                      |
+| `/custom/icp_odom`                       | Topic           | Shadow-mode scan-to-scan ICP odometry from `custom_icp_odom`.                                                       |
+| `/custom/icp_path`                       | Topic           | Accumulated custom ICP path for RViz comparison.                                                                    |
+| `/custom/icp/aligned_cloud`              | Topic           | Current scan transformed onto the previous scan by ICP/GICP.                                                        |
+| `/custom/icp/source_cloud`               | Topic           | Current downsampled scan used as the registration source.                                                           |
+| `/custom/icp/target_cloud`               | Topic           | Previous downsampled scan used as the registration target.                                                          |
+| `/custom/scan_to_map_odom`               | Topic           | Default scan-to-map registration odometry output when not remapped to `/nav2_odom`.                                 |
+| `/custom/imu_predicted_odom`             | Topic           | Debug-only IMU predicted pose before lidar scan-to-map correction.                                                  |
+| `/custom/scan_to_map_path`               | Topic           | Accepted scan-to-map pose path for RViz inspection.                                                                 |
+| `/custom/local_map`                      | Topic           | Current local point cloud map maintained by scan-to-map registration.                                               |
+| `/custom/scan_to_map_diagnostics`        | Topic           | Scan-to-map status, correspondence counts, residuals, and timing.                                                   |
+| `/scan_from_livox`                       | Topic           | 2D scan output from `livox_cloud_to_scan`; used by slam_toolbox and Nav2.                                           |
+| `/fastlio_odom`                          | Topic           | FAST-LIO2 odometry output for observation, bagging, and adapter input.                                              |
+| `/nav2_odom`                             | Topic           | Nav2 odometry topic published by the active Jetson odometry source.                                                 |
+| `/joy`                                   | Topic           | Gamepad input from `joy_node`.                                                                                      |
+| `/cmd_vel`                               | Topic           | Rover velocity command published by `gamepad_adapter`.                                                              |
+| `odom`                                   | Topic and frame | Wheel odometry topic in the rover-odometry path; odom frame in both Nav2 paths.                                     |
+| `map`                                    | Frame           | Global map frame used by slam_toolbox and Nav2.                                                                     |
+| `base_footprint`                         | Frame           | Odometry child frame from `rover_odometry`.                                                                         |
+| `base_link`                              | Frame           | Main rover body frame.                                                                                              |
+| `livox_frame`                            | Frame           | Livox lidar frame; statically published from `base_link`.                                                           |
 
 
 ## Operating Modes
@@ -1358,20 +1358,42 @@ an existing saved map YAML file.
    ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/tty_rover_esp
    ```
 
-2. Start the Jetson lidar processing launch file:
+2. For mapping with rover odometry:
 
    ```bash
+   # Jetson
+   ros2 launch livox_ros_driver2 rviz_MID360_launch.py
    ros2 launch bringup jetson.launch.py
+
+   # Pi
+   ros2 launch bringup mapping.launch.py
    ```
 
-3. For FAST-LIO2 shadow mode instead of normal Jetson processing, start:
+3. For autonomous navigation with rover odometry after saving a map:
 
    ```bash
+   # Jetson
+   ros2 launch livox_ros_driver2 rviz_MID360_launch.py
+   ros2 launch bringup jetson.launch.py
+
+   # Pi
+   ros2 launch bringup pi_nav2_livox.launch.py \
+     map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
+   ```
+
+4. For FAST-LIO2 shadow mode:
+
+   ```bash
+   # Jetson
    ros2 launch livox_ros_driver2 msg_MID360_launch.py
    ros2 launch bringup fastlio_shadow.launch.py
+
+   # Pi
+   ros2 launch bringup pi_nav2_livox.launch.py \
+     map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-4. For FAST-LIO2 odometry-based Nav2:
+5. For FAST-LIO2 odometry-based Nav2:
 
    ```bash
    # Jetson
@@ -1383,7 +1405,7 @@ an existing saved map YAML file.
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-5. For FAST-LIO2 odometry with custom Livox preprocessing:
+6. For FAST-LIO2 odometry with custom Livox preprocessing:
 
    ```bash
    # Jetson
@@ -1395,7 +1417,7 @@ an existing saved map YAML file.
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-6. For scan-to-map primary odometry:
+7. For scan-to-map primary odometry:
 
    ```bash
    # Jetson
@@ -1407,7 +1429,7 @@ an existing saved map YAML file.
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-7. For upgraded costmap mode:
+8. For upgraded costmap mode:
 
    ```bash
    # Jetson
@@ -1419,7 +1441,7 @@ an existing saved map YAML file.
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-8. For IMU-integrated local map management mode:
+9. For IMU-integrated local map management mode:
 
    ```bash
    # Jetson
@@ -1431,7 +1453,7 @@ an existing saved map YAML file.
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-9. For IMU point cloud deskew mode:
+10. For IMU point cloud deskew mode:
 
    ```bash
    # Jetson
@@ -1442,7 +1464,7 @@ an existing saved map YAML file.
    ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-10. For error-state Kalman filter mode with ikd tree map backend mode:
+11. For error-state Kalman filter mode with ikd tree map backend mode:
 
    ```bash
    # Jetson
@@ -1453,22 +1475,17 @@ an existing saved map YAML file.
    ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-11. For custom scan-to-scan ICP shadow mode, start this on the Jetson:
+12. For custom scan-to-scan ICP shadow mode debug testing:
 
    ```bash
+   # Jetson
    ros2 launch livox_ros_driver2 msg_MID360_launch.py
    ros2 launch bringup scan_to_scan_icp.launch.py
-   ```
 
-12. For mapping, launch:
-
-   ```bash
+   # Pi
    ros2 launch bringup mapping.launch.py
    ```
 
-13. For autonomous navigation with wheel odometry, provide the saved map:
-
-   ```bash
-   ros2 launch bringup pi_nav2_livox.launch.py \
-     map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
-   ```
+   This mode does not publish Nav2 odometry or `odom -> base_link`; it is a
+   debug-only setting. Use the gamepad controller to move the rover and inspect
+   `/custom/icp_odom` for the estimated pose.
