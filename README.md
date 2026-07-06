@@ -92,8 +92,10 @@ The Pi does not need `livox_ros_driver2`, `fast_lio`,
 `custom_lidar_deskew`, `custom_ikd_tree_backend`, or `custom_lio_ekf` for normal
 driving/mapping. If those Jetson-only packages are present in the Pi workspace
 but their dependencies are not installed, skip them. The `bringup` package
-intentionally does not declare those Jetson-only launch targets as required
-runtime dependencies, so this skip build remains valid on the Pi:
+intentionally does not declare machine-specific local launch targets as required
+runtime dependencies, so this skip build remains valid on the Pi and the
+Jetson build can omit Pi-only packages such as `gamepad_adapter` and
+`rover_odometry`:
 
 ```bash
 colcon build --packages-skip fast_lio fastlio2_nav2_adapter custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf
