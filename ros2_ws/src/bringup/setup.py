@@ -20,7 +20,6 @@ setup(
             'launch/costmap_projection.launch.py',
             'launch/pointcloud_preprocess_fast_lio2_nav2.launch.py',
             'launch/pi_fast_lio2_costmap_projection_nav2.launch.py',
-            'launch/pi_fast_lio2_nav2.launch.py',
             'launch/pi_fast_lio2_nav2_main.launch.py',
             'launch/pi_nav2_livox.launch.py',
             'launch/scan_to_map_costmap_projection.launch.py',
@@ -37,10 +36,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='rmahajani',
-    maintainer_email='rmahajani@todo.todo',
-    description='TODO: Package description',
-    license='Apache-2.0',
+    maintainer='Rishabh Mahajani',
+    maintainer_email='rmahajani31@gmail.com',
+    description='Launch and configuration package for the rover ROS 2 stack.',
+    license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

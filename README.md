@@ -15,10 +15,14 @@ The Jetson is currently used for Livox point cloud projection, custom Livox
 preprocessing, FAST-LIO2 experiments, IMU point cloud deskewing,
 error-state Kalman filter odometry, and shadow-mode scan-to-scan ICP odometry.
 It also hosts local map management mode, where scan-to-map odometry and Livox
-obstacle projection run on the Jetson while Nav2 runs on the Pi. It is
-included in the architecture so heavier lidar point cloud processing and
-future camera-based visual processing can be added there as the rover stack
-grows.
+obstacle projection run on the Jetson while Nav2 runs on the Pi.
+
+There are two odometry paths in the rover stack. The Pi-side `rover_odometry`
+package reads the goBILDA Pinpoint v2 odometry pods over I2C and is used for
+the baseline mapping/navigation path. Jetson odometry modes publish
+`/nav2_odom` from lidar-based algorithms such as official FAST-LIO2,
+custom scan-to-map odometry, and the custom error-state EKF; in those modes the
+Pi consumes `/nav2_odom` and does not start `rover_odometry`.
 
 The micro-ROS bridge must be started on the Pi before launching mapping or
 autonomous navigation.
@@ -77,7 +81,7 @@ the packages it needs built and sourced in its own ROS 2 environment.
 The Jetson should build the lidar-heavy packages:
 
 ```bash
-colcon build --packages-select custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf livox_cloud_to_scan bringup
+colcon build --packages-select fast_lio custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf fastlio2_nav2_adapter livox_cloud_to_scan bringup
 source install/setup.bash
 ```
 
@@ -86,7 +90,9 @@ The Pi does not need `livox_ros_driver2`, `custom_fastlio_preprocess`,
 `custom_imu_propagator`, `custom_scan_to_map_odom`,
 `custom_lidar_deskew`, `custom_ikd_tree_backend`, or `custom_lio_ekf` for normal
 driving/mapping. If those Jetson-only packages are present in the Pi workspace
-but their dependencies are not installed, skip them:
+but their dependencies are not installed, skip them. The `bringup` package
+declares launch-time dependencies for the full stack, but this skip build is
+the expected Pi build path when the Jetson-only package dependencies are absent:
 
 ```bash
 colcon build --packages-skip custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf
@@ -145,7 +151,7 @@ Key directories:
 | Machine      | Responsibility                                                                                                                                                                                                                                                       |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ESP32        | Runs the low-level rover firmware and communicates with the ROS 2 system through micro-ROS.                                                                                                                                                                          |
-| Raspberry Pi | Runs the micro-ROS agent, gamepad control, mapping, localization, Nav2, and motor-command path. In Jetson-odometry Nav2 modes, it consumes `/nav2_odom` from the Jetson instead of starting `rover_odometry`.                                                        |
+| Raspberry Pi | Runs the micro-ROS agent, gamepad control, mapping, localization, Nav2, and motor-command path. In baseline modes, `rover_odometry` reads the goBILDA Pinpoint v2 pod odometry. In Jetson-odometry Nav2 modes, the Pi consumes `/nav2_odom` from the Jetson instead of starting `rover_odometry`. |
 | Jetson       | Runs Livox point cloud processing, custom preprocessing, IMU point cloud deskewing, error-state Kalman filter odometry, scan-to-scan ICP shadow odometry, scan-to-map registration based odometry, FAST-LIO2, `/scan_from_livox`, and Jetson-side odometry adapters. |
 
 
@@ -193,7 +199,7 @@ baseline from the main branch.
 `/nav2_odom` from the Jetson, `/scan_from_livox` for AMCL, and
 `/custom/obstacle_cloud` for the Nav2 local costmap and collision monitoring.
 - `mapping.launch.py` launches room mapping and saves maps into `ros2_ws/maps/`.
-- `pi_nav2_livox.launch.py` launches autonomous navigation using Nav2.
+- `pi_nav2_livox.launch.py` baseline Pi-side Nav2 localization and autonomous navigation launch using rover odometry and `/scan_from_livox`.
 
 ### `gamepad_adapter`
 
@@ -204,17 +210,22 @@ while manually driving the rover to map a room.
 
 Package that runs on the Jetson to process 3D point cloud data from the Livox
 Mid-360 and project it into 2D scan data for the rest of the navigation stack.
-The Jetson is intended to host more compute-heavy lidar point cloud processing
-and camera-based visual processing as the rover stack grows.
 
 For the current Jetson workflow, `/livox/lidar` is a Livox `CustomMsg` topic.
 Derived `PointCloud2` topics such as `/custom/points_preprocessed`,
 `/custom/points_for_nav2`, and `/livox/points` are the safe inputs for
 visualization, scan projection, and scan-to-map registration.
 
-The package can also build without `livox_ros_driver2`; in that case the
-Livox CustomMsg converter is skipped. This is useful on the Pi, where the
-driver and converter are not part of the runtime path.
+Early rover modes use `/scan_from_livox` from `livox_cloud_to_scan` as the
+primary MID-360-derived 2D obstacle source for slam_toolbox, Nav2 costmaps, and
+the collision monitor. In the upgraded costmap modes, `/custom/obstacle_cloud`
+replaces the scan projection as the Nav2 local costmap and collision-monitor
+obstacle source. `livox_cloud_to_scan` still publishes `/scan_from_livox` in
+those modes, but that scan is reserved for AMCL localization.
+
+The package can also build without `livox_ros_driver2`; in that case the Livox
+CustomMsg converter is skipped. This is useful on the Pi, where the driver and
+converter are not part of the runtime path.
 
 ### `custom_fastlio_preprocess`
 
@@ -228,9 +239,11 @@ streams:
 ```
 
 `/custom/points_preprocessed` is a downsampled cloud used by scan-to-map
-registration based odometry and other scan-matching work. `/custom/points_for_nav2`
-is an obstacle-focused cloud that feeds `livox_cloud_to_scan`, which still
-publishes the Nav2 scan topic `/scan_from_livox`.
+registration based odometry, the EKF LiDAR correction path, obstacle cloud
+projection, and other scan-matching work. `/custom/points_for_nav2` is an
+obstacle-focused cloud that feeds `livox_cloud_to_scan`, which publishes
+`/scan_from_livox` for early costmap modes and for AMCL in upgraded costmap
+modes.
 
 In IMU point cloud deskew mode, the preprocessor also publishes a timed cloud
 for deskewing:
@@ -242,8 +255,7 @@ for deskewing:
 That topic preserves per-point Livox `offset_time` so `custom_lidar_deskew`
 can correct scan motion before scan-to-map registration.
 
-The first implementation does not transform clouds internally. Nav2 height
-filtering is tuned in `livox_frame` so the output remains compatible with the
+Nav2 height filtering is tuned in `livox_frame` so the output remains compatible with the
 existing `livox_cloud_to_scan` height slice after the cloud is transformed into
 `base_link`.
 
@@ -346,7 +358,7 @@ Backend timing and map-size counters are included in
 ### `custom_livox_costmap_projection`
 
 Package that runs on the Jetson in upgraded costmap mode. It consumes the
-preprocessed Livox point cloud:
+preprocessed Livox point cloud by default:
 
 ```text
 /custom/points_preprocessed
@@ -369,6 +381,11 @@ in the current Nav2 configuration.
 In this mode, `/scan_from_livox` is still published, but it is reserved for
 AMCL localization. This keeps localization scan matching separate from obstacle
 marking.
+
+Some launch files override the package defaults. In particular,
+`lio_ekf_deskew_costmap_projection.launch.py` feeds
+`/custom/deskewed_points` into `custom_livox_costmap_projection` and disables
+`/custom/projected_occupancy_grid`; Nav2 still consumes `/custom/obstacle_cloud`.
 
 ### `custom_icp_odom`
 
@@ -407,8 +424,8 @@ cloud:
 ```
 
 It maintains a bounded local point cloud map, registers each incoming scan
-against that map with point-to-plane residuals, and publishes rover odometry
-for Nav2. The local map manager keeps the map inside a configurable cube around
+against that map with point-to-plane residuals, and publishes Jetson-side
+`/nav2_odom` for Nav2. The local map manager keeps the map inside a configurable cube around
 the rover, recenters that cube only after movement thresholds are crossed,
 clips new scan points to the active cube, downsamples the map, and rebuilds the
 nearest-neighbor structure after each accepted update.
@@ -474,8 +491,11 @@ roll, or pitch estimates from FAST-LIO2.
 
 ### `rover_odometry`
 
-Package responsible for rover odometry. Odometry is broadcast over I2C to the
-Pi from the goBILDA Pinpoint v2 odometry computer.
+Package responsible for the baseline Pi-side rover odometry path. It reads the
+goBILDA Pinpoint v2 odometry computer over I2C and publishes the odometry used
+by mapping and non-Jetson-odometry navigation modes. It is separate from
+Jetson-sourced `/nav2_odom`, which comes from FAST-LIO2, scan-to-map odometry,
+or the custom EKF in the lidar odometry modes.
 
 ## Important Topics and Frames
 
@@ -508,9 +528,9 @@ Pi from the goBILDA Pinpoint v2 odometry computer.
 | `/custom/scan_to_map_path`               | Topic           | Accepted scan-to-map pose path for RViz inspection.                                                                 |
 | `/custom/local_map`                      | Topic           | Current local point cloud map maintained by scan-to-map registration.                                               |
 | `/custom/scan_to_map_diagnostics`        | Topic           | Scan-to-map status, correspondence counts, residuals, and timing.                                                   |
-| `/scan_from_livox`                       | Topic           | 2D scan output from `livox_cloud_to_scan`; used by slam_toolbox and Nav2.                                           |
+| `/scan_from_livox`                       | Topic           | 2D scan output from `livox_cloud_to_scan`; used by slam_toolbox and early Nav2 costmap/collision-monitor modes, then AMCL-only in upgraded obstacle-cloud modes. |
 | `/fastlio_odom`                          | Topic           | FAST-LIO2 odometry output for observation, bagging, and adapter input.                                              |
-| `/nav2_odom`                             | Topic           | Nav2 odometry topic published by the active Jetson odometry source.                                                 |
+| `/nav2_odom`                             | Topic           | Nav2 odometry topic published by the active Jetson odometry source, such as FAST-LIO2, custom scan-to-map odometry, or custom EKF. |
 | `/joy`                                   | Topic           | Gamepad input from `joy_node`.                                                                                      |
 | `/cmd_vel`                               | Topic           | Rover velocity command published by `gamepad_adapter`.                                                              |
 | `odom`                                   | Topic and frame | Wheel odometry topic in the rover-odometry path; odom frame in both Nav2 paths.                                     |
@@ -533,8 +553,8 @@ The completed rover stack can be run in these main ways:
 - FAST-LIO2 providing odometry to Nav2 while the upgraded costmap mode feeds
 the Nav2 local costmap and collision monitor with `/custom/obstacle_cloud` and
 keeps `/scan_from_livox` for AMCL only.
-- Scan-to-map registration based odometry providing `/nav2_odom` to Nav2 while
-custom filtered clouds feed `/scan_from_livox`.
+- Scan-to-map registration based odometry providing Jetson-side `/nav2_odom` to
+Nav2 while custom filtered clouds feed `/scan_from_livox`.
 - Local map management mode using IMU-assisted scan-to-map odometry, a bounded
 local map, `/custom/obstacle_cloud` for the Nav2 local costmap and collision
 monitor, and `/scan_from_livox` for AMCL.
@@ -544,8 +564,8 @@ projection and `/scan_from_livox` for AMCL.
 - Error-state Kalman filter mode using `/custom/deskewed_points` and
 `/livox/imu` for Jetson-side odometry. In ikd tree map backend mode,
 `custom_lio_ekf` uses `custom_ikd_tree_backend` for local-map KNN and updates
-while preserving `/custom/points_preprocessed` for obstacle projection and
-`/scan_from_livox` for AMCL.
+while the EKF launch feeds `/custom/deskewed_points` into obstacle projection
+and `/scan_from_livox` for AMCL.
 - Custom scan-to-scan ICP odometry running in shadow mode while the rover is
 driven using the normal Pi-side mapping or navigation stack.
 
@@ -575,6 +595,8 @@ ros2 launch bringup mapping.launch.py
 
 This launch file starts gamepad control, rover odometry, the
 `base_footprint -> base_link` static transform, and slam_toolbox.
+Here, rover odometry means the Pi-side `rover_odometry` package reading the
+goBILDA Pinpoint v2 pods.
 
 ### Raw Livox Navigation
 
@@ -600,6 +622,8 @@ ros2 launch bringup pi_nav2_livox.launch.py map:=/home/rmahajani/Documents/proje
 
 This launch starts rover odometry, the `base_footprint -> base_link` static
 transform, Nav2 localization, and Nav2 navigation.
+This path uses the goBILDA Pinpoint v2 odometry pods through
+`rover_odometry`; it does not consume Jetson `/nav2_odom`.
 
 ### FAST-LIO2 Shadow Observation
 
@@ -1021,8 +1045,8 @@ This produces:
 /livox/imu                    -> custom_lidar_deskew               -> deskew rotation
 /custom/points_for_deskew     -> custom_lidar_deskew               -> /custom/deskewed_points
 /custom/deskewed_points       -> custom_lio_ekf + ikd tree backend -> /nav2_odom
-/custom/points_preprocessed   -> custom_livox_costmap_projection   -> /custom/obstacle_cloud
-/custom/points_for_nav2       -> livox_cloud_to_scan               -> /scan_from_livox
+/custom/deskewed_points       -> custom_livox_costmap_projection   -> /custom/obstacle_cloud
+/custom/deskewed_points       -> livox_cloud_to_scan               -> /scan_from_livox
 custom_lio_ekf                                                     -> odom -> base_link
 static_transform_publisher                                         -> base_link -> livox_frame
 ```
@@ -1051,7 +1075,7 @@ Expected topic usage:
 ```text
 /nav2_odom -> Nav2 odometry from LiDAR-corrected EKF poses
 /custom/deskewed_points -> EKF LiDAR correction input
-/custom/points_preprocessed -> Livox obstacle projection
+/custom/deskewed_points -> Livox obstacle projection and AMCL scan projection
 /custom/obstacle_cloud -> Nav2 local costmap and collision monitor
 /scan_from_livox -> AMCL
 /custom/lio_ekf_diagnostics -> EKF and map backend timing/status
@@ -1211,8 +1235,12 @@ ESP32 device is configured as `/dev/tty_rover_esp`.
 - The goBILDA Pinpoint v2 odometry computer is read over I2C bus `1` at address
 `0x31`.
 - The Livox Mid-360 publishes 3D point clouds through `livox_ros_driver2`.
-- The Jetson projects Livox point clouds from `/livox/lidar` into
-`/scan_from_livox`.
+- The Jetson projects Livox point clouds into `/scan_from_livox` with
+`livox_cloud_to_scan`. Early modes use this scan for mapping, costmaps, and the
+collision monitor; upgraded obstacle-cloud modes keep it for AMCL only.
+- Jetson lidar odometry modes publish `/nav2_odom` from official FAST-LIO2,
+custom scan-to-map odometry, or the custom EKF. The baseline Pi odometry path
+instead uses `rover_odometry` with the goBILDA Pinpoint v2 pods.
 - In FAST-LIO2 shadow mode, `/livox/lidar` is a Livox CustomMsg topic and
 `/livox/points` is the converted PointCloud2 topic used for scan projection.
 - In FAST-LIO2 Nav2 odometry mode, the same CustomMsg conversion path is used,
@@ -1230,10 +1258,12 @@ odometry.
 broadcasts `odom -> base_link` from LiDAR-corrected EKF poses. The current
 configuration uses `local_map.backend_type: ikd_tree` for ikd tree map backend
 mode.
-- In upgraded costmap mode, `custom_livox_costmap_projection` consumes
+- In upgraded costmap mode, `custom_livox_costmap_projection` usually consumes
 `/custom/points_preprocessed`, publishes `/custom/obstacle_cloud` for Nav2
 costmaps, and publishes `/custom/projected_occupancy_grid` for RViz/debugging.
-`/scan_from_livox` remains available for AMCL localization.
+The EKF launch overrides the input to `/custom/deskewed_points` and disables
+the debug occupancy grid. `/scan_from_livox` remains available for AMCL
+localization.
 - In local map management mode, `custom_scan_to_map_odom` consumes
 `/custom/points_preprocessed`, maintains `/custom/local_map`, publishes
 `/nav2_odom`, and broadcasts `odom -> base_link` while
@@ -1271,9 +1301,10 @@ the Livox workspace before recording.
 node is also publishing `odom -> base_link`.
 - In custom preprocessing mode, confirm `/custom/points_for_nav2` is non-empty
 before debugging `/scan_from_livox`.
-- In upgraded costmap mode, confirm `/custom/obstacle_cloud`,
-`/custom/projected_occupancy_grid`, `/custom/costmap_projection_diagnostics`,
-`/scan_from_livox`, and `/nav2_odom` are publishing before sending a Nav2 goal.
+- In FAST-LIO2 or scan-to-map upgraded costmap mode, confirm
+`/custom/obstacle_cloud`, `/custom/projected_occupancy_grid`,
+`/custom/costmap_projection_diagnostics`, `/scan_from_livox`, and
+`/nav2_odom` are publishing before sending a Nav2 goal.
 - In local map management mode, confirm `/custom/local_map`,
 `/custom/obstacle_cloud`, `/livox/imu`, `/custom/imu_predicted_odom`,
 `/scan_from_livox`, and `/nav2_odom` are publishing before sending a Nav2
@@ -1297,9 +1328,10 @@ costmap mode, confirm the Pi was launched with
 `pi_fast_lio2_costmap_projection_nav2.launch.py`, not one of the plain
 FAST-LIO2 Nav2 launches.
 - If `/custom/projected_occupancy_grid` is missing but `/custom/obstacle_cloud`
-is publishing, check `/custom/costmap_projection_diagnostics` for
-`tf_target_to_grid_success` and verify `odom -> base_link` is available at the
-cloud timestamps.
+is publishing in a mode that enables the grid, check
+`/custom/costmap_projection_diagnostics` for `tf_target_to_grid_success` and
+verify `odom -> base_link` is available at the cloud timestamps. In EKF mode,
+`lio_ekf_deskew_costmap_projection.launch.py` intentionally disables the grid.
 - In scan-to-map registration based odometry mode, confirm
 `/custom/points_preprocessed`, `/nav2_odom`, and `/scan_from_livox` are
 publishing on the Jetson before starting Nav2 on the Pi.
