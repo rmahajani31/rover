@@ -1,103 +1,70 @@
-ros2 run tf2_ros static_transform_publisher 0 0 0.2032 0 0 0 base_link laser
-ros2 run tf2_ros static_transform_publisher 0 0.2159 0.1651 0 0 0 base_link camera_link
-ros2 launch sllidar_ros2 view_sllidar_a2m12_launch.py
-ros2 run rover_odometry encoder_odom --ros-args -p wheel_radius_m:=0.04 -p wheel_separation_m:=0.5 -p ticks_per_rev:=3459.0
-ros2 bag record -o ./bags/phase0_run /tf /tf_static /odom /scan /left_ticks /right_ticks
-ros2 launch slam_toolbox online_async_launch.py slam_params_file:=./src/rover_nav/config/slam_toolbox_async.yaml
-ros2 run tf2_tools view_frames
-ros2 launch bringup rover.launch.py
-ros2 service call /slam_toolbox/reset slam_toolbox/srv/Reset
-ros2 launch depthai_ros_driver driver.launch.py camera.i_enable_imu:=true - launches camera and publishes to topic /oak/imu/data
-ros2 run robot_localization ekf_node --ros-args --params-file /home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_odometry/config/ekf.yaml
-ros2 run tf2_ros tf2_echo <parent_frame> <child_frame>
-ros2 launch depthai_ros_driver driver.launch.py \
-  parent_frame:=base_link \
-  cam_roll:=0 cam_yaw:=3.14159265 \
-  imu.i_message_type:=IMU_WITH_MAG \
-  imu.i_enable_rotation:=true \
-  imu.i_rotation_vector_type:=GEOMAGNETIC_ROTATION_VECTOR
+# micro-ROS agent on the Pi
+ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/tty_rover_esp | tee micro_ros.txt
 
-ros2 launch depthai_ros_driver calibration.launch.py
-ros2 launch nav2_bringup navigation_launch.py params_file:=/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params.yaml > out_nav.txt
-ros2 launch nav2_bringup bringup_launch.py params_file:=/home/rmahajani/Documents/projects/rover/ros2_ws/src/rover_nav/config/nav2_params_orig.yaml use_sim_time:=False autostart:=False map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/basement_v2.yaml > out_nav.txt
-rviz2 -d $(ros2 pkg prefix nav2_bringup)/share/ nav2_bringup/rviz/nav2_default_view.rviz
-ros2 bag record -o test_run_1 /cmd_vel
-ros2 topic pub -r 200 /cmd_vel geometry_msgs/msg/TwistStamped \
-"{header: {stamp: {sec: 0, nanosec: 0}, frame_id: 'base_link'}, \
-twist: {linear: {x: 0.25, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}}"
+# Create launch output directory
+mkdir -p out
 
+# Livox driver on the Jetson for baseline scan projection modes
+ros2 launch livox_ros_driver2 rviz_MID360_launch.py
 
-sudo vim /etc/udev/rules.d/99-rover-serial.rules
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-
-ls -l /dev/serial/by-id
-
-./toolchain/esp-idf/components/esptool_py/esptool/esptool.py
-
-../../../toolchain/esp-idf/components/esptool_py/esptool/e
-sptool.py --chip esp32 -b 115200 write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x1000 bootloade
-r/bootloader.bin 0x10000 ping_pong.bin
-
-cp partition_table/partition-table.bin bootloader/bootloader.bin ping_pong.bin /mnt/c/Users/rmaha/Documents/flash_bin_files/
-
-
-cp ~/projects/rover/ros2_ws/firmware/freertos_apps/microros_esp32_extensions/build/rover.bin /mnt/c/Users/rmaha/Documents/flash_bin_files/
-
-cp rover.bin partition_table/partition-table.bin bootloader/bootloader.bin /mnt/c/Users/rmaha/Documents/flash_bin_files/
-
-esptool.py --chip esp32 write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition-table.bin 0x1000 bootloader.bin 0x10000 rover.bin
-
-ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/tty_rover_esp 2>&1 | tee out/output.txt
-
-ros2 run micro_ros_setup configure_firmware.sh rover --transport serial
-
-ros2 run micro_ros_setup build_firmware.sh
-
-
-ros2 launch livox_ros_driver2 rviz_MID360_launch.py 2>&1 | tee out/output.txt
-
-ros2 bag record -o bags/livox_test /livox/lidar /livox/imu
-
-ros2 bag play bag_00_stationary_livox
-
-colcon build --packages-select livox_cloud_to_scan
-
-ros2 launch livox_cloud_to_scan livox_cloud_to_scan.launch.py 2>&1 | tee out/output.txt
-
-colcon build --packages-select bringup
-
-ros2 launch bringup jetson.launch.py 2>&1 | tee out/output.txt
-
-ros2 launch bringup mapping.launch.py 2>&1 | tee out/output.txt
-
-ros2 service call /slam_toolbox/save_map slam_toolbox/srv/SaveMap "{name: {data: '/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map'}}"
-
-ros2 launch bringup pi_nav2_livox.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/output.txt
-
-
+# Livox driver on the Jetson for FAST-LIO2 and custom lidar odometry modes
 ros2 launch livox_ros_driver2 msg_MID360_launch.py
 
-ros2 launch bringup fastlio_shadow.launch.py | tee out/output.txt
+# Build Jetson-side lidar packages
+colcon build --packages-select fast_lio custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf fastlio2_nav2_adapter livox_cloud_to_scan bringup
 
-ros2 launch bringup fast_lio2_nav2.launch.py | tee out/output.txt
+# Build Pi-side packages while skipping Jetson-only packages whose dependencies are not installed on the Pi
+colcon build --packages-skip fast_lio fastlio2_nav2_adapter custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf
 
-ros2 launch bringup pointcloud_preprocess_fast_lio2_nav2.launch.py | tee out/output.txt
+# Baseline Jetson scan projection
+ros2 launch bringup jetson.launch.py | tee out/jetson.txt
 
-ros2 launch bringup scan_to_scan_icp.launch.py | tee out/output.txt
+# Pi mapping with gamepad control and goBILDA Pinpoint v2 rover odometry
+ros2 launch bringup mapping.launch.py | tee out/mapping.txt
 
-ros2 launch bringup scan_to_map_primary_odom.launch.py | tee out/output.txt
+# Save the current slam_toolbox map
+ros2 service call /slam_toolbox/save_map slam_toolbox/srv/SaveMap "{name: {data: '/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map'}}"
 
-ros2 launch bringup costmap_projection.launch.py | tee out/output.txt
+# Pi navigation with goBILDA Pinpoint v2 rover odometry
+ros2 launch bringup pi_nav2_livox.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/pi_nav2_livox.txt
 
-ros2 launch bringup scan_to_map_costmap_projection.launch.py | tee out/output.txt
+# FAST-LIO2 shadow mode on the Jetson
+ros2 launch bringup fastlio_shadow.launch.py | tee out/fastlio_shadow.txt
 
-ros2 launch bringup scan_to_map_deskew_costmap_projection.launch.py | tee out/output.txt
+# FAST-LIO2 Nav2 odometry on the Jetson
+ros2 launch bringup fast_lio2_nav2.launch.py | tee out/fast_lio2_nav2.txt
 
-ros2 launch bringup lio_ekf_deskew_costmap_projection.launch.py  | tee out/output.txt
+# FAST-LIO2 Nav2 odometry with custom Livox preprocessing on the Jetson
+ros2 launch bringup pointcloud_preprocess_fast_lio2_nav2.launch.py | tee out/pointcloud_preprocess_fast_lio2_nav2.txt
 
-ros2 launch bringup pi_fast_lio2_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/nav.txt
+# Custom scan-to-scan ICP shadow mode on the Jetson
+ros2 launch bringup scan_to_scan_icp.launch.py | tee out/scan_to_scan_icp.txt
 
-ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/nav.txt
+# Custom scan-to-map primary odometry on the Jetson
+ros2 launch bringup scan_to_map_primary_odom.launch.py | tee out/scan_to_map_primary_odom.txt
 
-colcon build --packages-skip custom_fastlio_preprocess custom_icp_odom custom_scan_to_map_odom custom_livox_costmap_projection custom_imu_propagator custom_lidar_deskew custom_lio_ekf custom_ikd_tree_backend
+# FAST-LIO2 odometry with upgraded Livox obstacle cloud on the Jetson
+ros2 launch bringup costmap_projection.launch.py | tee out/costmap_projection.txt
+
+# IMU-assisted scan-to-map odometry with upgraded Livox obstacle cloud on the Jetson
+ros2 launch bringup scan_to_map_costmap_projection.launch.py | tee out/scan_to_map_costmap_projection.txt
+
+# Deskewed scan-to-map odometry with upgraded Livox obstacle cloud on the Jetson
+ros2 launch bringup scan_to_map_deskew_costmap_projection.launch.py | tee out/scan_to_map_deskew_costmap_projection.txt
+
+# Error-state EKF odometry with upgraded Livox obstacle cloud on the Jetson
+ros2 launch bringup lio_ekf_deskew_costmap_projection.launch.py | tee out/lio_ekf_deskew_costmap_projection.txt
+
+# Pi Nav2 consuming Jetson FAST-LIO2 or scan-to-map /nav2_odom with /scan_from_livox costmaps
+ros2 launch bringup pi_fast_lio2_nav2_main.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/pi_fast_lio2_nav2_main.txt
+
+# Pi Nav2 consuming Jetson /nav2_odom, /scan_from_livox for AMCL, and /custom/obstacle_cloud for local obstacles
+ros2 launch bringup pi_fast_lio2_costmap_projection_nav2.launch.py map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml | tee out/pi_fast_lio2_costmap_projection_nav2.txt
+
+# Common verification commands
+ros2 topic hz /scan_from_livox
+ros2 topic hz /custom/obstacle_cloud
+ros2 topic hz /nav2_odom
+ros2 topic echo /nav2_odom --once
+ros2 run tf2_ros tf2_echo odom base_link
+ros2 run tf2_ros tf2_echo base_link livox_frame

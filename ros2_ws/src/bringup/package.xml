@@ -3,19 +3,16 @@
 <package format="3">
   <name>bringup</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="rmahajani@todo.todo">rmahajani</maintainer>
-  <license>Apache-2.0</license>
+  <description>Launch and configuration package for the rover ROS 2 stack.</description>
+  <maintainer email="rmahajani31@gmail.com">Rishabh Mahajani</maintainer>
+  <license>MIT</license>
 
   <exec_depend>ament_index_python</exec_depend>
-  <exec_depend>fastlio2_nav2_adapter</exec_depend>
-  <exec_depend>gamepad_adapter</exec_depend>
   <exec_depend>joy</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>livox_cloud_to_scan</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
-  <exec_depend>rover_odometry</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
 

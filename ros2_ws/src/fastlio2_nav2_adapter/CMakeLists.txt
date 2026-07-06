@@ -24,13 +24,14 @@ add_executable(fastlio2_nav2_adapter_node
   src/fastlio2_nav2_adapter_node.cpp
 )
 
-ament_target_dependencies(fastlio2_nav2_adapter_node
-  geometry_msgs
-  nav_msgs
-  rclcpp
-  tf2
-  tf2_geometry_msgs
-  tf2_ros
+target_link_libraries(fastlio2_nav2_adapter_node PUBLIC
+  ${geometry_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
+  rclcpp::rclcpp
+  tf2::tf2
+  tf2_geometry_msgs::tf2_geometry_msgs
+  tf2_ros::static_transform_broadcaster_node
+  tf2_ros::tf2_ros
 )
 
 install(
