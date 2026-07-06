@@ -1,5 +1,5 @@
 # micro-ROS agent on the Pi
-ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/tty_rover_esp
+ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/tty_rover_esp | tee micro_ros.txt
 
 # Create launch output directory
 mkdir -p out
