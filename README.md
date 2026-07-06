@@ -85,17 +85,18 @@ colcon build --packages-select fast_lio custom_fastlio_preprocess custom_livox_c
 source install/setup.bash
 ```
 
-The Pi does not need `livox_ros_driver2`, `custom_fastlio_preprocess`,
+The Pi does not need `livox_ros_driver2`, `fast_lio`,
+`fastlio2_nav2_adapter`, `custom_fastlio_preprocess`,
 `custom_livox_costmap_projection`, `custom_icp_odom`,
 `custom_imu_propagator`, `custom_scan_to_map_odom`,
 `custom_lidar_deskew`, `custom_ikd_tree_backend`, or `custom_lio_ekf` for normal
 driving/mapping. If those Jetson-only packages are present in the Pi workspace
 but their dependencies are not installed, skip them. The `bringup` package
-declares launch-time dependencies for the full stack, but this skip build is
-the expected Pi build path when the Jetson-only package dependencies are absent:
+intentionally does not declare those Jetson-only launch targets as required
+runtime dependencies, so this skip build remains valid on the Pi:
 
 ```bash
-colcon build --packages-skip custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf
+colcon build --packages-skip fast_lio fastlio2_nav2_adapter custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf
 source install/setup.bash
 ```
 

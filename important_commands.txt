@@ -14,7 +14,7 @@ ros2 launch livox_ros_driver2 msg_MID360_launch.py | tee out/livox_msg_MID360.tx
 colcon build --packages-select fast_lio custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf fastlio2_nav2_adapter livox_cloud_to_scan bringup
 
 # Build Pi-side packages while skipping Jetson-only packages whose dependencies are not installed on the Pi
-colcon build --packages-skip custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf
+colcon build --packages-skip fast_lio fastlio2_nav2_adapter custom_fastlio_preprocess custom_livox_costmap_projection custom_icp_odom custom_imu_propagator custom_scan_to_map_odom custom_lidar_deskew custom_ikd_tree_backend custom_lio_ekf
 
 # Baseline Jetson scan projection
 ros2 launch bringup jetson.launch.py | tee out/jetson.txt
