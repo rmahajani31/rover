@@ -1464,7 +1464,7 @@ an existing saved map YAML file.
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-8. For upgraded costmap mode:
+8. For upgraded costmap odometry with fast-lio2:
 
    ```bash
    # Jetson
@@ -1476,7 +1476,7 @@ an existing saved map YAML file.
      map:=/home/rmahajani/Documents/projects/rover/ros2_ws/maps/rover_map.yaml
    ```
 
-9. For IMU-integrated local map management mode:
+9. For scan-to-map odometry with the upgraded costmap:
 
    ```bash
    # Jetson
