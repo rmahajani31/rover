@@ -3,6 +3,21 @@
 Code to operate a homemade ROS 2 rover with an ESP32 motor controller, a
 Raspberry Pi, and a Jetson processing Livox Mid-360 lidar data.
 
+## Video Walkthroughs
+
+Watch these videos in order for an overview of the rover build and the main
+implementation paths:
+
+1. [Overview](https://youtu.be/NDMi5Yj-aQY)
+2. [Build](https://youtu.be/TED20TUrXO8)
+
+Implementation series:
+
+1. [Baseline Implementation](https://youtu.be/ui2jIcOOiD4)
+2. [Official FAST-LIO2 Integration](https://youtu.be/TTSu1WBsgdY)
+3. [Scan-to-Map + Upgraded Costmap Implementation](https://youtu.be/lGRyyO52iBk)
+4. [Error-State Kalman Filter with ikd-Tree Backend Implementation](https://youtu.be/RlNX7Ce4tN8)
+
 ## System Overview
 
 This repository is organized around a split compute stack:
