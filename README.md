@@ -1,6 +1,6 @@
 # Rover
 
-Code to operate a homemade ROS 2 rover with an ESP32, a
+Code to operate a homemade rover with an ESP32, a
 Raspberry Pi, and a Jetson processing Livox Mid-360 lidar data.
 
 ## Video Walkthroughs
