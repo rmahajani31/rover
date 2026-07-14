@@ -1,7 +1,7 @@
 # Rover
 
-Code to operate a homemade ROS 2 rover with an ESP32 motor controller, a
-Raspberry Pi, and a Jetson processing Livox Mid-360 lidar data.
+Code to operate a homemade rover with an ESP32, a
+Raspberry Pi 5, and a Jetson Orin NX processing Livox Mid-360 lidar data.
 
 ## Video Walkthroughs
 
@@ -32,9 +32,9 @@ license information, and notes about the adapted MID-360 configuration.
 
 This repository is organized around a split compute stack:
 
-- The ESP32 runs the low-level microcontroller firmware.
-- The Raspberry Pi runs the main rover ROS 2 system on ROS 2 Kilted.
-- The Jetson runs lidar point cloud processing on ROS 2 Humble.
+- The ESP32 runs the low-level microcontroller firmware to control the motors.
+- The Raspberry Pi runs the main rover ROS 2 Nav2 stack on ROS 2 Kilted.
+- The Jetson runs lidar point cloud and IMU processing on ROS 2 Humble.
 
 The Jetson is currently used for Livox point cloud projection, custom Livox
 preprocessing, FAST-LIO2 experiments, IMU point cloud deskewing,
@@ -57,7 +57,7 @@ autonomous navigation.
 On the Raspberry Pi:
 
 - ROS 2 Kilted
-- micro-ROS agent
+- micro-ROS agent (https://micro.vulcanexus.org/)
 - Nav2
 - slam_toolbox
 - `joy` package for gamepad input
@@ -178,7 +178,7 @@ Key directories:
 
 | Machine      | Responsibility                                                                                                                                                                                                                                                       |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ESP32        | Runs the low-level rover firmware and communicates with the ROS 2 system through micro-ROS.                                                                                                                                                                          |
+| ESP32        | Runs the low-level rover firmware for motor control and communicates with the ROS 2 system through micro-ROS.                                                                                                                                                                          |
 | Raspberry Pi | Runs the micro-ROS agent, gamepad control, mapping, localization, Nav2, and motor-command path. In baseline modes, `rover_odometry` reads the goBILDA Pinpoint v2 pod odometry. In Jetson-odometry Nav2 modes, the Pi consumes `/nav2_odom` from the Jetson instead of starting `rover_odometry`. |
 | Jetson       | Runs Livox point cloud processing, custom preprocessing, IMU point cloud deskewing, error-state Kalman filter odometry, scan-to-scan ICP shadow odometry, scan-to-map registration based odometry, FAST-LIO2, `/scan_from_livox`, and Jetson-side odometry adapters. |
 
