@@ -1,5 +1,8 @@
 /**:
   ros__parameters:
+    # Adapted from Ericsii/FAST_LIO_ROS2 MID-360-style configuration
+    # parameters for this rover's Livox Mid-360 setup. FAST_LIO_ROS2 is
+    # licensed under GPLv2; see THIRD_PARTY_NOTICES.md at the repository root.
     # Phase 1 starts from Ericsii/FAST_LIO_ROS2's MID-360-style parameters.
     # Keep Nav2 on /odom; this config is only for the shadow FAST-LIO node.
     feature_extract_enable: false

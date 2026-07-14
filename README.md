@@ -18,6 +18,16 @@ Implementation series:
 3. [Scan-to-Map + Upgraded Costmap Implementation](https://youtu.be/lGRyyO52iBk)
 4. [Error-State Kalman Filter with ikd-Tree Backend Implementation](https://youtu.be/RlNX7Ce4tN8)
 
+## License and Third-Party Software
+
+This repository's original code is licensed under the MIT License. FAST-LIO2
+operating modes use `fast_lio` from
+[Ericsii/FAST_LIO_ROS2](https://github.com/Ericsii/FAST_LIO_ROS2) as an
+external GPLv2-licensed ROS 2 package.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for FAST-LIO2 attribution,
+license information, and notes about the adapted MID-360 configuration.
+
 ## System Overview
 
 This repository is organized around a split compute stack:
